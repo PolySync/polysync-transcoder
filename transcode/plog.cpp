@@ -2,7 +2,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/dll/alias.hpp>
 #include <boost/filesystem.hpp>
-#include <typeindex>
 
 namespace polysync { namespace transcode { namespace plog {
 
@@ -11,33 +10,19 @@ namespace fs = boost::filesystem;
 namespace hana = boost::hana;
 using namespace polysync::plog;
 
-const std::map<std::type_index, std::string> typemap {
-    { std::type_index(typeid(std::uint8_t)), "uint8" },
-    { std::type_index(typeid(std::uint16_t)), "uint16" },
-    { std::type_index(typeid(std::uint32_t)), "uint32" },
-    { std::type_index(typeid(std::uint64_t)), "uint64" },
-    { std::type_index(typeid(log_module)), "log_module" },
-    { std::type_index(typeid(type_support)), "type_support" },
-    { std::type_index(typeid(log_header)), "log_header" },
-    { std::type_index(typeid(log_record)), "log_record" },
-    { std::type_index(typeid(byte_array)), "byte_array" },
-    { std::type_index(typeid(sequence<std::uint32_t, log_module>)), "sequence<log_module>" },
-    { std::type_index(typeid(sequence<std::uint32_t, type_support>)), "sequence<type_support>" }
-};
-
 class writer {
 public:
     writer(const fs::path& path) : plog(path.string(), std::ios_base::out | std::ios_base::binary) {}
 
     template <typename Record>
     std::string describe() const {
-        std::string result = typemap.at(typeid(Record)) + " { ";
+        std::string result = static_typemap.at(typeid(Record)).name + " { ";
         hana::for_each(Record(), [&result](auto pair) {
                 std::type_index tp = typeid(hana::second(pair));
                 std::string fieldname = hana::to<char const*>(hana::first(pair));
-                if (typemap.count(tp) == 0)
+                if (static_typemap.count(tp) == 0)
                     throw std::runtime_error("type not named for field \"" + fieldname + "\"");
-                result += fieldname + ": " + typemap.at(tp) + "; ";
+                result += fieldname + ": " + static_typemap.at(tp).name + " " + std::to_string(static_typemap.at(tp).size) +  "; ";
                 });
         return result + "}";
     }

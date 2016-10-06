@@ -9,7 +9,7 @@ endif()
 
 find_package(Boost COMPONENTS system filesystem program_options)
 find_package(PythonLibs)
-find_package(HDF5)
+find_package(HDF5 COMPONENTS HL)
 
 include_directories( . )
 add_subdirectory( transcode )

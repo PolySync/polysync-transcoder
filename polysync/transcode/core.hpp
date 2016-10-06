@@ -5,6 +5,8 @@
 #include <eggs/variant.hpp>
 #include <vector>
 #include <cstdint>
+#include <typeindex>
+#include <map>
 
 namespace polysync { namespace plog {
 
@@ -63,17 +65,16 @@ struct msg_header {
     ps_guid src_guid;
 };
 
+// I put msg_header into log_header instead of the byte_array like PolySync
+// core does.  This is because we must always branch on msg_header.type before
+// the byte_array can be interpreted.  So this is a difference between
+// transcode and PolySync core.
 struct log_record {
     std::uint32_t index;
     std::uint32_t size;
     std::uint32_t prev_size;
     std::uint64_t timestamp;
-};
-
-struct byte_array {
     msg_header header;
-    ps_guid guid;
-    std::uint32_t data_type;
 };
 
 struct field_descriptor {
@@ -86,14 +87,42 @@ struct type_descriptor {
     sequence<std::uint32_t, field_descriptor> desc;
 };
 
+template <typename Number, class Enable = void>
+struct size {
+    static std::streamoff packed() { return sizeof(Number); }
+};
+
 template <typename Struct>
-std::streamoff packed_size() {
-    return hana::fold(Struct(), 0, [](std::streamoff s, auto field){ return s + sizeof(field); });
+struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type> {
+    static std::streamoff packed() {
+        return hana::fold(hana::members(Struct()), 0, [](std::streamoff s, auto field) { 
+                return s + size<decltype(field)>::packed(); 
+                });
+    }
+};
+
+using record_type = log_record;
+
+struct atom_description {
+    std::string name;
+    std::streamoff size;
+};
+
+extern std::map<std::type_index, atom_description> static_typemap; 
+extern std::map<std::string, atom_description> dynamic_typemap; 
+
+template <typename Struct>
+inline std::vector<field_descriptor> describe() {
+    return hana::fold(Struct(), std::vector<field_descriptor>(), [](auto desc, auto pair) { 
+            std::string name = hana::to<char const*>(hana::first(pair));
+            if (static_typemap.count(typeid(hana::second(pair))) == 0)
+                throw std::runtime_error("missing typemap for " + name);
+            plog::atom_description atom = static_typemap.at(typeid(hana::second(pair)));
+            desc.emplace_back(field_descriptor { name, atom.name });
+            return desc;
+            });
 }
 
-
-// using record_type = eggs::variant<log_record>;
-using record_type = log_record;
 
 }} // namespace polysync::plog
 
@@ -107,8 +136,7 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor
         , build_hash, name
          );
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp, header);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::byte_array, header, guid, data_type);
 
 

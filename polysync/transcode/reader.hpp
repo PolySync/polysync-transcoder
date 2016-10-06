@@ -134,7 +134,7 @@ inline iterator& iterator::operator++() {
     // Advance the iterator's position to the beginning of the next record.
     // This number is the packed storage size of log_record + payload size read
     // from log_record.size.
-    pos += packed_size<log_record>() + plog->read<log_record>(pos).size; 
+    pos = pos + size<log_record>::packed() + plog->read<log_record>(pos).size - size<msg_header>::packed();
 
     return *this;
 }

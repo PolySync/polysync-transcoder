@@ -74,11 +74,6 @@ inline std::ostream& operator<<(std::ostream& os, const type_support& record) {
     return hana::fold(record, os, f);
 }
 
-inline std::ostream& operator<<(std::ostream& os, const byte_array& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
-    return hana::fold(record, os, f);
-}
-
 template <typename T>
 auto to_string(const T& record) -> std::string { 
     std::stringstream ss;
@@ -95,11 +90,6 @@ inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
     auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
     return hana::fold(record, os, f);
 }
-
-// inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
-//     auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
-//     return hana::fold(record, os, f);
-// }
 
 inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
     os << "{ ";

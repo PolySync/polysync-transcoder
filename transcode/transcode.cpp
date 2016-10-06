@@ -22,22 +22,6 @@ namespace dll = boost::dll;
 namespace hana = boost::hana;
 namespace plog = polysync::plog;
 
-std::vector<plog::field_descriptor> log_header {
-    { "version_major", "uint8" },
-    { "version_minor", "uint8" },
-    { "version_subminor", "uint16" },
-    { "build_date", "uint32" },
-    { "node_guid", "uint64" },
-    { "modules", "sequence<uint32>" },
-    { "type_supports", "sequence<uint32>" }
-};
-
-auto get_desc() {
-    return hana::make_map(
-            hana::make_pair(hana::type_c<plog::log_header>, log_header)
-            );
-}
-
 int main(int ac, char* av[]) {
 
     // Define a rather sophisticated command line parse that supports
@@ -184,6 +168,9 @@ int main(int ac, char* av[]) {
         plog::reader reader(path.c_str());
 
         call.reader(reader);
+
+        const plog::log_header& head = reader.get_header();
+        std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
 
         if (!call.record.empty())
             std::for_each(reader.begin(filter), reader.end(), std::ref(call.record));
