@@ -2,7 +2,6 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/hana.hpp>
-#include <eggs/variant.hpp>
 #include <vector>
 #include <cstdint>
 #include <typeindex>
@@ -25,11 +24,15 @@ using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
 
 // a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
 template <typename LenType, typename T>
-struct sequence : std::vector<T> { };
+struct sequence : std::vector<T> {
+    using length_type = LenType;
+};
 
 // specialize the std::uint8_t sequences because they are actually strings
 template <typename LenType>
-struct sequence<LenType, std::uint8_t> : std::string {};
+struct sequence<LenType, std::uint8_t> : std::string {
+    using length_type = LenType;
+};
 
 using name_type = sequence<std::uint16_t, std::uint8_t>;
 using ps_msg_type = std::uint32_t;
@@ -74,13 +77,25 @@ struct log_record {
     std::uint32_t size;
     std::uint32_t prev_size;
     std::uint64_t timestamp;
-    msg_header header;
+    struct msg_header msg_header;
+    std::vector<std::uint8_t> blob;
 };
 
 struct field_descriptor {
     std::string name;
     std::string type;
 };
+
+struct atom_description {
+    std::string name;
+    std::streamoff size;
+};
+
+extern std::map<std::type_index, atom_description> static_typemap; 
+extern std::map<std::string, atom_description> dynamic_typemap; 
+
+
+extern std::map<std::string, std::vector<field_descriptor>> description_map;
 
 struct type_descriptor {
     name_type name;
@@ -101,15 +116,16 @@ struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type
     }
 };
 
-using record_type = log_record;
+template <>
+struct size<field_descriptor> {
+    size(const field_descriptor& f) : field(f) { }
 
-struct atom_description {
-    std::string name;
-    std::streamoff size;
+    std::streamoff packed() {
+        return dynamic_typemap.at(field.type).size;
+    }
+
+    field_descriptor field;
 };
-
-extern std::map<std::type_index, atom_description> static_typemap; 
-extern std::map<std::string, atom_description> dynamic_typemap; 
 
 template <typename Struct>
 inline std::vector<field_descriptor> describe() {
@@ -136,7 +152,7 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor
         , build_hash, name
          );
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp, header);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp, msg_header);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
 

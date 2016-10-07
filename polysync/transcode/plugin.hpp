@@ -10,7 +10,7 @@ namespace polysync { namespace transcode {
 
 struct callback {
     boost::signals2::signal<void (const plog::reader&)> reader;
-    boost::signals2::signal<void (const plog::record_type&)> record;
+    boost::signals2::signal<void (const plog::log_record&)> record;
     boost::signals2::signal<void (const plog::reader&)> cleanup;
     boost::signals2::signal<void (const plog::type_support&)> type_support;
 };

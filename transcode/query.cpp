@@ -23,7 +23,15 @@ struct plugin : transcode::plugin {
 
         return opt;
     }
+
     void observe(const po::variables_map& vm, callback& call) const {
+
+        std::map<plog::ps_msg_type, std::string> msg_type_map;
+        call.type_support.connect([&msg_type_map](const plog::type_support& t) {
+                std::cout << t.type << ": " << t.name << std::endl;
+                msg_type_map.emplace(t.type, t.name);
+                });
+
         // Dump summary information of each file
         if (vm.count("name"))
             call.reader.connect([](auto&& log) { std::cout << log.get_filename() << std::endl; });
@@ -44,9 +52,9 @@ struct plugin : transcode::plugin {
 
         // Dump one line headers from each record to stdout.
         if (vm.count("headers"))
-            call.record.connect([](auto record) { 
+            call.record.connect([&msg_type_map](auto record) { 
                     std::cout << record.index << ": " << record.size << " bytes, type " 
-                    // << record.header.type 
+                    << msg_type_map.at(record.msg_header.type)
                     << std::endl; 
                     });
 
@@ -63,6 +71,7 @@ struct plugin : transcode::plugin {
                     count = 0;
                     });
         }
+
     }
 
 

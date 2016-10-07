@@ -1,16 +1,13 @@
 # pragma once
 
 #include <polysync/transcode/core.hpp>
-#include <polysync/transcode/io.hpp>
-
-#include <boost/filesystem.hpp>
+#include <fstream>
 #include <boost/hana.hpp>
 
 // Define an STL compatible iterator to traverse plog files
 
 namespace polysync { namespace plog {
 
-namespace fs = boost::filesystem;
 namespace hana = boost::hana;
 
 // Indirecting and incrementing an iterator requires reading the plog file
@@ -29,10 +26,10 @@ struct iterator {
     bool operator!=(const iterator& other) const { return pos != other.pos; }
     bool operator==(const iterator& other) const { return pos == other.pos; }
 
-    record_type operator*(); // read and return the payload
+    log_record operator*(); // read and return the payload
     iterator& operator++(); // skip to the next record
 
-    record_type operator->();
+    log_record operator->();
 };
 
 class reader {
@@ -49,15 +46,17 @@ public:
     const log_header& get_header() const { return header; }
     const std::string& get_filename() const { return filename; }
 
-private:
+public:
+    // Define a set of read() templates, overloads, and specializations to pattern
+    // match every possible struct, sequence, or terminal type, nested or not,
+    // that is possibly found in a message.
 
-    friend struct iterator;
-
-    // For flat objects like arithmetic types, just straight copy file blob into the memory
+    // For flat objects like arithmetic types, just straight copy memory as
+    // blob to file. In particular, most types that are not hana structures are these.
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
-    read(Number& record) {
-        plog.read(reinterpret_cast<char *>(&record), sizeof(Number)); 
+    read(Number& value) {
+        plog.read((char *)(&value), sizeof(Number)); 
     }
     
     // Specialize read() for hana wrapped structures.  This works out padding
@@ -82,30 +81,40 @@ private:
         blind_read(record);
     }
 
-    // Sequences have a LenType number first specifying how many T's follow.
+    // Sequences have a LenType number first specifying how many T's follow.  T
+    // might be a flat (arithmetic) type or a nested structure.  Either way,
+    // iterate the fields and serialize each one using the specialized read().
     template <typename LenType, typename T> 
     void read(sequence<LenType, T>& seq) {
         LenType len;
-        plog.read(reinterpret_cast<char *>(&len), sizeof(LenType));
+        plog.read(reinterpret_cast<char *>(&len), sizeof(len));
         seq.resize(len);
         std::for_each(seq.begin(), seq.end(), [=](auto&& val) mutable { read(val); });
     }
 
-    // name_type is a specialized sequence that is like a Pascal string (length
-    // first, no trailing zero as a C string would have)
+    // Specialize name_type because the underlying std::string type needs special
+    // handling.  It resembels a Pascal string (length first, no trailing zero
+    // as a C string would have)
     void read(name_type& name) {
         std::uint16_t len;
-        plog.read(reinterpret_cast<char *>(&len), sizeof(len));
+        plog.read((char *)(&len), sizeof(len));
         name.resize(len);
         plog.read((char *)(name.data()), len); 
     }
 
+    // Specialize log_record because the binary blob needs special handling
+    void read(plog::log_record& record) {
+        blind_read(record);
+        std::streamoff sz = record.size - size<msg_header>::packed();
+        record.blob.resize(sz);
+        plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
+    }
+
 
     // Deserialize a structure from a known offset in the file
-    template <typename Struct>
-    Struct read(std::streamoff pos) {
+    log_record read(std::streamoff pos) {
         plog.seekg(pos);
-        Struct record;
+        log_record record;
         read(record);
         return std::move(record);
     }
@@ -125,22 +134,20 @@ inline reader::reader(const std::string& path) : filename(path), plog(path, std:
     read(header);
 }
 
-inline record_type iterator::operator*() { 
-    return plog->read<log_record>(pos); 
+inline log_record iterator::operator*() { 
+    return plog->read(pos); 
 }
 
 inline iterator& iterator::operator++() {
     
     // Advance the iterator's position to the beginning of the next record.
-    // This number is the packed storage size of log_record + payload size read
-    // from log_record.size.
-    pos = pos + size<log_record>::packed() + plog->read<log_record>(pos).size - size<msg_header>::packed();
+    pos += size<log_record>::packed() - size<msg_header>::packed() + plog->read(pos).size;
 
     return *this;
 }
 
-inline record_type iterator::operator->() { 
-    return plog->read<log_record>(pos); 
+inline log_record iterator::operator->() { 
+    return plog->read(pos); 
 }
 
 }} // namespace polysync::plog
