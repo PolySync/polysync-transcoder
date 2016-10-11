@@ -4,8 +4,6 @@
 #include <fstream>
 #include <boost/hana.hpp>
 
-// Define an STL compatible iterator to traverse plog files
-
 namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
@@ -14,9 +12,9 @@ namespace hana = boost::hana;
 // itself, which we cannot do until plog::reader is defined.  So implement
 // these functions below, after reader definition.  In the meantime, forward
 // declare reader so we can prototype the methods.
-
 struct reader;
 
+// Define an STL compatible iterator to traverse plog files
 struct iterator {
 
     reader* plog;
@@ -38,7 +36,8 @@ public:
     // Factory methods for STL compatible iterators
 
     iterator begin(std::function<bool (iterator)> filt) { 
-        return iterator { this, plog.tellg(), endpos, filt }; }
+        return iterator { this, plog.tellg(), endpos, filt }; 
+    }
 
     iterator end() { return iterator { this, endpos, endpos }; }
 
@@ -62,31 +61,16 @@ public:
         plog.read((char *)(&value), sizeof(Number)); 
     }
     
-    template <typename Number, int N>
-    void read(std::array<Number, N>& array) {
-        plog.read((char *)array.data(), N*sizeof(Number)); 
-    }
-
     // Specialize read() for hana wrapped structures.  This works out padding
     // in the structure definition where a straight memcpy would fail, and also
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Record>
-    void blind_read(Record& record) {
+    template <typename Record, class = typename std::enable_if_t<hana::Foldable<Record>::value>>
+    void read(Record& record) {
         hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
                 read(hana::at_key(record, key));
                 }); 
-    }
-
-    template <typename Record>
-    void checked_read(Record& record) {
-    }
-
-    template <typename Record, class = typename std::enable_if_t<hana::Foldable<Record>::value>>
-    void read(Record& record) {
-        // if (hana::contains(m, Record))
-        blind_read(record);
     }
 
     // Sequences have a LenType number first specifying how many T's follow.  T
@@ -111,11 +95,11 @@ public:
     }
 
     // Specialize log_record because the binary blob needs special handling
-    void read(plog::log_record& record) {
-        blind_read(record);
+    void read(log_record& record) {
+        read<log_record>(record);
         std::streamoff sz = record.size - size<msg_header>::packed();
-        // record.blob.resize(sz);
-        // plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
+        record.blob.resize(sz);
+        plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
     }
 
 

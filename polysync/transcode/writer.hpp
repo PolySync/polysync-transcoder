@@ -14,29 +14,9 @@ public:
     writer(std::ostream& st) : plog(st) {} 
 
 public:
-    // Define a set of write() templates, overloads, and specializations to pattern
-    // match every possible struct, sequence, or terminal type, nested or not,
-    // that is possibly found in a message.
-
-    // For flat objects like arithmetic types, just straight copy memory as
-    // blob to file. In particular, most types that are not hana structures are these.
-    template <typename Number>
-    typename std::enable_if_t<!hana::Foldable<Number>::value>
-    write(const Number& value) {
-        std::cout << "Number " << sizeof(Number) << " " << value << std::endl;
-        plog.write((char *)(&value), sizeof(Number)); 
-    }
-    
-    void write(const std::array<std::uint8_t, 8>& array) {
-        std::cout << "array<8>" << std::endl;
-        plog.write((char *)array.data(), 8*sizeof(std::uint8_t)); 
-    }
-
-    void write(const hash_type& value) {
-        std::cout << "hash_type " << value << std::endl;
-        std::ostream_iterator<std::uint8_t> it(plog);
-        multiprecision::export_bits(value, it, 8);
-    }
+    // Define a set of write() overloads to pattern match every possible
+    // struct, sequence, or terminal type, nested or not, that is possibly
+    // found in a message.
 
     // Write non-flat (hana wrapped) structures.  This works out packing
     // the structure where a straight memcpy would fail due to padding, and also
@@ -46,7 +26,21 @@ public:
     write(const Struct& rec) {
         hana::for_each(hana::members(rec), [this](auto field) { write(field); });
     }
+
+    // For flat objects like arithmetic types, just straight copy memory as
+    // blob to file. In particular, most types that are not hana structures are these.
+    template <typename Number>
+    typename std::enable_if_t<!hana::Foldable<Number>::value>
+    write(const Number& value) {
+        plog.write((char *)(&value), sizeof(Number)); 
+    }
     
+    // Write raw buffer, as bytes of length sz.
+    template <typename T>
+    void write(const T& buf, size_t sz) {
+        plog.write((char *)&buf, sz);
+    }
+
     // Sequences have a LenType number first specifying how many T's follow.  T
     // might be a flat (arithmetic) type or a nested structure.  Either way,
     // iterate the fields and serialize each one using the specialized write().
@@ -57,6 +51,19 @@ public:
         std::for_each(seq.begin(), seq.end(), [this](auto val) { write(val); });
     }
 
+    // Fixed length arrays modeled by std::array<>.
+    template <typename... Args>
+    void write(const std::array<Args...>& array) {
+        plog.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type)); 
+    }
+
+    // plog::hash_type is multiprecision; other very long ints may come along someday
+    template <typename... Args>
+    void write(const multiprecision::number<Args...>& value) {
+        std::ostream_iterator<std::uint8_t> it(plog);
+        multiprecision::export_bits(value, it, 8);
+    }
+   
     // Specialize name_type because the underlying std::string type needs special
     // handling.  It resembels a Pascal string (length first, no trailing zero
     // as a C string would have)
@@ -66,22 +73,9 @@ public:
         plog.write((char *)(name.data()), len); 
     }
 
-    // Specialize log_record because the binary blob needs special handling
-    void write(const log_record& record) {
-        write<log_record>(record);
-        // plog.write((char *)(record.blob.data()), record.blob.size());
-    }
-
-    void write(const field_descriptor& field, std::vector<std::uint8_t>::const_iterator& it) {
-        char *ptr = (char *)&(*it);
-        size_t sz = plog::size<field_descriptor>(field).packed();
-        plog.write(ptr, sz);
-        it += sz;
-    }
-
 public:
-    // Generate self descriptions of types 
     
+    // Generate self descriptions of types 
     template <typename Record>
     std::string describe() const {
         if (!static_typemap.count(typeid(Record)))
@@ -98,7 +92,7 @@ public:
         return result + "}";
     }
 
-// private:
+protected:
 
     std::ostream& plog;
     std::map<plog::ps_msg_type, std::string> msg_type_map;

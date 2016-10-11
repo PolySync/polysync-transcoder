@@ -28,140 +28,138 @@ class writer {
         writer(const fs::path& path) {
             file = H5Fcreate(path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
             type_group = H5Gcreate(file, "/type", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            const hsize_t dim[1] = { 8 };
-            hdf_type.emplace("ps_timestamp", H5Tarray_create(H5T_NATIVE_UINT8, 1, dim));
             build_type("msg_header", plog::describe<plog::msg_header>());
             build_type("log_record", plog::describe<plog::log_record>());
         }
 
-        void build_type(const std::string name, const std::vector<plog::field_descriptor>& desc) {
+        // Create a custom HDF5 datatype that reflects the plog::type_description
+        void build_type(const std::string name, const plog::type_descriptor& desc) {
+
+            // Calculate the size of the new datatype, needed for H5Tcreate().
+            // While we are at it, check that we have descriptions for each
+            // field, and we know what that means for HDF5.
             std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, [name](auto off, auto field) { 
                     if (plog::dynamic_typemap.count(field.type) == 0)
-                        std::cerr << "no typemap description for \"" + field.type + "\" (" + name + "::" + field.name + ")" << std::endl;
-                    else
-                        off += plog::dynamic_typemap.at(field.type).size; 
-                    return off;
-                    });
+                        throw std::runtime_error(
+                        "no typemap description for \"" + field.type + "\" (" + name 
+                        + "::" + field.name + ")");
 
-            hid_t mt = H5Tcreate(H5T_COMPOUND, size);
-            hid_t ft = H5Tcreate(H5T_COMPOUND, size);
-            std::accumulate(desc.begin(), desc.end(), 0, [this, ft, mt, name](auto off, auto field) {
                     if (hdf_type.count(field.type) == 0)
-                        throw std::runtime_error("no hdf_type defined for " + name + "::" + field.name + " (type " + field.type + ")");
-                    auto tp = hdf_type.at(field.type);
-                    if (plog::dynamic_typemap.count(field.type)) {
-                        plog::atom_description ad = plog::dynamic_typemap.at(field.type);
-                        H5Tinsert(mt, field.name.c_str(), off, tp);
-                        H5Tinsert(ft, field.name.c_str(), off, tp);
-                        std::cout << "insert " << name << "::" << field.name << " " << off << " " << H5Tget_size(tp) << std::endl;
-                        off += ad.size;
-                    }
+                        throw std::runtime_error(
+                                "no hdf_type description for \"" + field.type + "\" (" + name 
+                                + "::" + field.name + ")");
+
+                    off += plog::dynamic_typemap.at(field.type).size; 
                     return off;
                     });
+            hid_t ft = H5Tcreate(H5T_COMPOUND, size);
 
-            // H5Tcommit1(type_group, name.c_str(), ft);
+            // Loop over description and create a field for each in a hdf
+            // compound type.  We already checked that our type maps know each
+            // field, so we can assume the at() member functions will succeed.
+            size_t off = 0;
+            std::for_each(desc.begin(), desc.end(), [this, ft, name, &off](auto field) {
+                    auto tp = hdf_type.at(field.type);
+                    plog::atom_description ad = plog::dynamic_typemap.at(field.type);
+                    H5Tinsert(ft, field.name.c_str(), off, tp);
+                    off += ad.size;
+                    });
+
+            H5Tcommit1(type_group, name.c_str(), ft);
             filetype.emplace(name, ft);
             hdf_type.emplace(name, ft);
-            std::cerr << "created custom type " << name << std::endl;
         }
 
     void write(const plog::log_record& rec) {
+        // Create a key value that distinguishes a specific datatype from a specific source.
         topic_type topic { rec.msg_header.type, rec.msg_header.src_guid };
         if (msg_type_map.count(rec.msg_header.type) == 0)
             throw std::runtime_error("no msg_type_map for type " + std::to_string(rec.msg_header.type));
         std::string msg_type = msg_type_map.at(rec.msg_header.type); 
-        hsize_t dims[1] = { 0 };
-        if (!dset.count(topic)) {
-            std::string name = "guid" + std::to_string(rec.msg_header.src_guid);
-            hid_t ptable = H5PTcreate_fl(file, name.c_str(), filetype.at(msg_type), 1, -1);
-            if (ptable == H5I_INVALID_HID)
-                throw std::runtime_error("failed to create packet table");
-            table.emplace(topic, ptable);
 
-            name += "_ds";
+        // If this is the first time we have seen this topic, create a new dataset for it.
+        if (!dset.count(topic)) {
+            build_type(msg_type, plog::description_map.at(msg_type));
+            std::string name = "guid" + std::to_string(rec.msg_header.src_guid);
+            // hid_t ptable = H5PTcreate_fl(file, name.c_str(), filetype.at(msg_type), 1, -1);
+            // if (ptable == H5I_INVALID_HID)
+            //     throw std::runtime_error("failed to create packet table");
+            // table.emplace(topic, ptable);
+            // name += "_ds";
+
             hsize_t dims[1] = {0};
             hsize_t maxdims[1] = { H5S_UNLIMITED };
             hid_t space = H5Screate_simple(1, dims, maxdims);
             hid_t dcpl = H5Pcreate(H5P_DATASET_CREATE);
             hsize_t chunk[1] = { 1 };
             H5Pset_chunk(dcpl, 1, chunk);
-            hid_t dataset = H5Dcreate(file, name.c_str(), filetype.at(msg_type), space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
+            hid_t dataset = H5Dcreate(
+                    file, name.c_str(), filetype.at(msg_type), space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
             dset.emplace(topic, dataset);
+            memspace.emplace(topic, space);
+
+            H5Sclose(space);
+            H5Pclose(dcpl);
         }
 
         // HDF5 wants to write out flat memory organized in the packet table.
         // Sadly, rec is not necesarily flat due to variable length sequence<>
         // fields.  So here, we must serialize a potentially non-flat rec into
         // a flat buffer.
-
-        // The plog::log_record portion of the record *is* flat, so just copy that part over.
-        // size_t sz = plog::size<plog::log_record>::packed();
-        // std::vector<std::uint8_t> flat(sz);
-        // std::memcpy(flat.data(), &rec, sz);
-        
         std::stringstream flat;
         plog::writer w(flat);
-        w.write(rec.index); // (std::uint32_t)0x12345678); // rec.index);
-        w.write(rec.size); // (std::uint32_t)0x12345678); // rec.size);
-        w.write(rec.prev_size); // (std::uint32_t)0x12345678); // rec.prev_size);
-        std::cout << flat.str().size() << std::endl;
-        w.write(rec.timestamp); // (std::uint64_t)0x1112131415161718); // rec.timestamp);
-        std::cout << flat.str().size() << std::endl;
-        w.write(rec.msg_header);
-        std::cout << flat.str().size() << std::endl;
-
+        
         // The user defined type may have one (or more?) sequences.  Iterate
         // over each field and do the right thing.
         auto desc = plog::description_map.at(msg_type);
-        auto blob_it = rec.blob.begin();
-        // std::insert_iterator<decltype(flat)> flat_it(flat, flat.end());
-        std::vector<std::shared_ptr<std::uint8_t>> buffers;
-        std::for_each(desc.begin(), desc.end(), [&w, &blob_it, &flat, &buffers](auto field) {
-                return;
-                if (field.type == "sequence<octet>") {
-                    std::uint32_t* sz = new ((void *)&(*blob_it)) std::uint32_t;
-                    std::cout << "serialize sequence " << field.name << " " << *sz << std::endl;
-                    // hvl_t *varlen = new ((void *)&(*blob_it)) hvl_t;
-                    hvl_t varlen;
-                    varlen.len = *sz;
-                    // buffers.emplace_back(new std::uint8_t[sz]);
-                    varlen.p = malloc (2*(*sz)); //  * sizeof(std::uint8_t)); // (void *)&(*blob_it);
-                    // varlen.p = buffers.back().get();
-                    w.plog.write((char *)&varlen, sizeof(varlen));
-
-        //             hvl_t varlen { 
-        //             flat.resize(flat.size() + sizeof(hvl_t); 
-                    blob_it += sizeof(*sz);
-                } else if (field.type == "log_record") {
-                    std::cout << "skipping log_record" << std::endl;
+        auto blob = rec.blob.begin();
+        std::for_each(desc.begin(), desc.end(), [&w, rec, &blob](auto field) {
+                if (field.type == "log_record") {
+                    // core types we know at compile time, so fold using boost::hana
+                    w.write(rec);
+                } else if (field.type == "sequence<octet>") {
+                    // sequences have variable length per record, which is a special case for HDF5 
+                    std::uint32_t* sz = new ((void *)&(*blob)) std::uint32_t;
+                    blob += sizeof(std::uint32_t);
+                    hvl_t varlen { *sz, (void *)&(*blob) };
+                    w.write(varlen, sizeof(varlen));
+                    blob += *sz;
                 } else {
-                    char *ptr = (char *)&(*blob_it);
+                    // All other fields just get serialized as a raw memory copy
                     size_t sz = plog::size<plog::field_descriptor>(field).packed();
-                    std::cout << "serialize " << field.type <<  " " << field.name << " " << sz << std::endl;
-                    w.plog.write(ptr, sz);
-                    blob_it += sz;
-                    // w.write(ptr, blob_it);
+                    w.write(&(*blob), sz);
+                    blob += sz;
                 }
              });
-        std::string buf = flat.str();
-        std::cout << rec.index << " serial size " << buf.size() << " " << buffers.size() << " buffers,  msg_type " << std::to_string(rec.msg_header.type) << " " << buf.size() << std::endl;
-        std::for_each(buf.begin(), buf.end() , [](std::uint8_t x){ std::cout << (std::uint16_t)x << " "; });
-        std::cout << std::endl;
         
-        if (H5PTappend(table.at(topic), 1, (void *)buf.c_str()) < 0) 
-            throw std::runtime_error("cannot append record #" + std::to_string(rec.index));
-        
-        hsize_t extdims[1] = { 1 };
-        H5Dset_extent(dset.at(topic), extdims);
-        hid_t space = H5Dget_space(dset.at(topic));
+        // Extend the dataset to accomodate the new record
+        hid_t dataset = dset.at(topic);
+        hsize_t dims[1] = { 0 };
+        hid_t space = H5Dget_space(dataset);
+        H5Sget_simple_extent_dims(space, dims, NULL);
+        hsize_t offset[1] = { dims[0] };
+        dims[0] += 1;
+        H5Dextend(dataset, dims);
 
-        hsize_t start[1] = { 0 };
+        hsize_t onedims[1] = {1};
+        hsize_t maxdims[1] = { H5S_UNLIMITED };
         hsize_t count[1] = { 1 };
-        H5Sselect_hyperslab(space, H5S_SELECT_SET, start, NULL, count, NULL);
-        H5Dwrite(dset.at(topic), filetype.at(msg_type), H5S_ALL, space,  H5P_DEFAULT, (void *)buf.c_str());
+        hid_t mspace = H5Screate_simple(1, onedims, maxdims);
+
+        // Configure a data space on the new extension
+        space = H5Dget_space(dataset);
+        herr_t status = H5Sselect_hyperslab(space, H5S_SELECT_SET, offset, NULL, count, NULL);
+
+        std::string buf = flat.str();
+        status = H5Dwrite(dataset, filetype.at(msg_type), mspace, space,  H5P_DEFAULT, (void *)buf.c_str());
+
+        // if (H5PTappend(table.at(topic), 1, (void *)buf.c_str()) < 0) 
+        //     throw std::runtime_error("cannot append record #" + std::to_string(rec.index));
+
+        status = H5Sclose(space);
     }
 
-    void close() {
+    ~writer() {
         for (auto pair: table)
             H5PTclose(pair.second);
         for (auto pair: dset)
@@ -176,9 +174,10 @@ class writer {
     std::map<std::string, hid_t> filetype;
     using topic_type = std::pair<plog::ps_msg_type, plog::ps_guid>;
     std::map<plog::ps_msg_type, std::string> msg_type_map;
-
-    std::map<topic_type, hid_t> dset, table;
+    std::map<topic_type, hid_t> dset, table, memspace;
 };
+
+std::shared_ptr<writer> hdf;
 
 struct plugin : transcode::plugin { 
 
@@ -200,20 +199,25 @@ struct plugin : transcode::plugin {
         return opt;
     }
 
+
     void observe(const po::variables_map& vm, callback& call) const {
 
-        auto w = std::make_shared<writer>(vm["name"].as<fs::path>());
-        call.reader.connect([w](const plog::reader& r) { });
-        call.type_support.connect([w](const plog::type_support& t) { 
-                if (plog::description_map.count(t.name) == 0) {
-                    std::cerr << "no description for " << t.name << std::endl;
-                    return;
-                    }
-                w->build_type(t.name, plog::description_map.at(t.name)); 
-                w->msg_type_map.emplace(t.type, t.name);
-                });
-        call.record.connect([w](const plog::log_record& rec) { w->write(rec); });
-        call.cleanup.connect([w](const plog::reader&) { w->close(); });
+        fs::path path = vm["name"].as<fs::path>();
+
+        // Open the new HDF file when a new reader appears
+        call.reader.connect([path](const plog::reader& reader) { hdf = std::make_shared<writer>(path); });
+
+        // PLogs key each message type by a number, but the number is generally
+        // different in every plog.  Constant names are provided in the header
+        // in the type_support field; stash them so we can map the (random)
+        // numbers to (useful) static strings.
+        call.type_support.connect([](auto t) { hdf->msg_type_map.emplace(t.type, t.name); });
+
+        // Write out every record
+        call.record.connect([](const plog::log_record& rec) { hdf->write(rec); });
+
+        // Close the HDF file
+        call.cleanup.connect([](const plog::reader& reader) { hdf.reset(); });
     }
 };
 

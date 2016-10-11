@@ -89,6 +89,8 @@ struct field_descriptor {
     std::string type;
 };
 
+using type_descriptor = std::vector<field_descriptor>;
+
 struct atom_description {
     std::string name;
     std::streamoff size;
@@ -97,13 +99,7 @@ struct atom_description {
 extern std::map<std::type_index, atom_description> static_typemap; 
 extern std::map<std::string, atom_description> dynamic_typemap; 
 
-
-extern std::map<std::string, std::vector<field_descriptor>> description_map;
-
-struct type_descriptor {
-    name_type name;
-    sequence<std::uint32_t, field_descriptor> desc;
-};
+extern std::map<std::string, type_descriptor> description_map;
 
 template <typename Number, class Enable = void>
 struct size {
@@ -120,11 +116,6 @@ struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type
 };
 
 template <>
-struct size<ps_timestamp> {
-    static std::streamoff packed() { return 8; };
-};
-
-template <>
 struct size<field_descriptor> {
     size(const field_descriptor& f) : field(f) { }
 
@@ -136,8 +127,8 @@ struct size<field_descriptor> {
 };
 
 template <typename Struct>
-inline std::vector<field_descriptor> describe() {
-    return hana::fold(Struct(), std::vector<field_descriptor>(), [](auto desc, auto pair) { 
+inline type_descriptor describe() {
+    return hana::fold(Struct(), type_descriptor(), [](auto desc, auto pair) { 
             std::string name = hana::to<char const*>(hana::first(pair));
             if (static_typemap.count(typeid(hana::second(pair))) == 0)
                 throw std::runtime_error("missing typemap for " + name);

@@ -10,7 +10,7 @@ std::map<std::string, std::vector<plog::field_descriptor>> description_map
     { "ps_byte_array_msg", { { "header", "log_record" },
                              { "guid", "ps_guid" },
                              { "data_type", "uint32" },
-                             // { "bytes", "sequence<octet>" } 
+                             { "bytes", "sequence<octet>" } 
                            } },
     { "ibeo.header", { { "magic", "uint32" },
                          { "prev_size", "uint32" },
