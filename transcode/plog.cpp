@@ -13,6 +13,7 @@ namespace fs = boost::filesystem;
 namespace hana = boost::hana;
 using namespace polysync::plog;
 
+static std::ofstream out;
 static std::shared_ptr<polysync::plog::writer> writer;
 
 struct plugin : public transcode::plugin { 
@@ -26,15 +27,18 @@ struct plugin : public transcode::plugin {
     }
 
     void observe(const po::variables_map& vm, callback& call) const {
-        using reader = polysync::plog::reader;
-        writer.reset(new polysync::plog::writer(vm["name"].as<fs::path>().string()));
 
-        call.reader.connect([](const reader& r) { writer->write(r.get_header()); });
+        using reader = polysync::plog::reader;
+        std::string path = vm["name"].as<fs::path>().string();
+
+        call.reader.connect([path](const reader& r) { 
+            out.open(path, std::ios_base::out | std::ios_base::binary);
+            writer.reset(new polysync::plog::writer(out));
+            writer->write(r.get_header()); 
+            });
+
         call.type_support.connect([](const plog::type_support& t) { });
-        call.record.connect([](const log_record& rec) { 
-                // std::cout << rec << std::endl;
-                writer->write(rec); 
-                });
+        call.record.connect([](const log_record& rec) { writer->write(rec); });
     }
 };
 

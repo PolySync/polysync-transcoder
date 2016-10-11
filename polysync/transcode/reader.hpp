@@ -21,6 +21,7 @@ struct iterator {
 
     reader* plog;
     std::streamoff pos; // file offset from std::ios_base::beg, pointing to next record
+    std::streamoff end; // filters need to know where the end is
     std::function<bool (iterator)> filter;
 
     bool operator!=(const iterator& other) const { return pos != other.pos; }
@@ -36,8 +37,10 @@ class reader {
 public:
     // Factory methods for STL compatible iterators
 
-    iterator begin(std::function<bool (iterator)> filt) { return iterator { this, plog.tellg(), filt }; }
-    iterator end() { return iterator { this, endpos }; }
+    iterator begin(std::function<bool (iterator)> filt) { 
+        return iterator { this, plog.tellg(), endpos, filt }; }
+
+    iterator end() { return iterator { this, endpos, endpos }; }
 
     // Constructors (why can't this be inline?)
     reader(const std::string& path);
@@ -59,6 +62,11 @@ public:
         plog.read((char *)(&value), sizeof(Number)); 
     }
     
+    template <typename Number, int N>
+    void read(std::array<Number, N>& array) {
+        plog.read((char *)array.data(), N*sizeof(Number)); 
+    }
+
     // Specialize read() for hana wrapped structures.  This works out padding
     // in the structure definition where a straight memcpy would fail, and also
     // recurses into nested structures.  Hana has a function hana::members()
@@ -106,8 +114,8 @@ public:
     void read(plog::log_record& record) {
         blind_read(record);
         std::streamoff sz = record.size - size<msg_header>::packed();
-        record.blob.resize(sz);
-        plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
+        // record.blob.resize(sz);
+        // plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
     }
 
 
@@ -141,7 +149,10 @@ inline log_record iterator::operator*() {
 inline iterator& iterator::operator++() {
     
     // Advance the iterator's position to the beginning of the next record.
-    pos += size<log_record>::packed() - size<msg_header>::packed() + plog->read(pos).size;
+    // Keep going as long as the filter returns false.
+    do {
+        pos += size<log_record>::packed() - size<msg_header>::packed() + plog->read(pos).size;
+    } while (pos < end && !filter(*this));
 
     return *this;
 }

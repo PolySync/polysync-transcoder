@@ -25,17 +25,17 @@ inline auto to_string(const hash_type& hash) -> std::string {
     return ss.str();
 }
 
-inline auto to_string(const msg_header& record) -> std::string {
+template <typename LenType, typename T>
+inline auto to_string(const sequence<LenType, T>& seq) {
     std::stringstream ss;
-    // ss << record;
+    ss << seq;
     return ss.str();
 }
 
-
-template <typename LenType, typename T>
-auto to_string(const sequence<LenType, T>& seq) {
+template <typename T, int N>
+inline auto to_string(const std::array<T, N>& seq) {
     std::stringstream ss;
-    ss << seq;
+    // ss << seq;
     return ss.str();
 }
 
@@ -51,8 +51,16 @@ std::ostream& operator<<(std::ostream& os, const hana::pair<T, std::uint8_t>& pa
     return os << hana::to<char const*>(hana::first(pair)) << ": " << std::to_string(hana::second(pair)) << ";";
 }
 
+template <typename T, int N>
+inline std::ostream& operator<<(std::ostream& os, const std::array<T, N>& record) {
+    os << "[ ";
+    // std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << "\n\t" << field; });
+    os << " ]";
+    return os;
+}
+
 template <typename LenType, typename T>
-std::ostream& operator<<(std::ostream& os, const sequence<LenType, T>& record) {
+inline std::ostream& operator<<(std::ostream& os, const sequence<LenType, T>& record) {
     os << "[ ";
     std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << "\n\t" << field; });
     os << " ]";
@@ -86,16 +94,23 @@ inline std::ostream& operator<<(std::ostream& os, const log_header& record) {
     return hana::fold(record, os, f);
 }
 
-inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
-    return hana::fold(record, os, f);
-}
-
 inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
     os << "{ ";
     auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
     hana::fold(record, os, f);
     return os << " }";
+}
+
+inline auto to_string(const msg_header& record) -> std::string {
+    std::stringstream ss;
+    ss << record;
+    return ss.str();
+}
+
+inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
+    hana::fold(record, os, f);
+    return os << "payload: " << record.blob.size() << std::endl;
 }
 
 

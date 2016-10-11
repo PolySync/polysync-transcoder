@@ -28,6 +28,8 @@ class writer {
         writer(const fs::path& path) {
             file = H5Fcreate(path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
             type_group = H5Gcreate(file, "/type", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            const hsize_t dim[1] = { 8 };
+            hdf_type.emplace("ps_timestamp", H5Tarray_create(H5T_NATIVE_UINT8, 1, dim));
             build_type("msg_header", plog::describe<plog::msg_header>());
             build_type("log_record", plog::describe<plog::log_record>());
         }
@@ -51,12 +53,13 @@ class writer {
                         plog::atom_description ad = plog::dynamic_typemap.at(field.type);
                         H5Tinsert(mt, field.name.c_str(), off, tp);
                         H5Tinsert(ft, field.name.c_str(), off, tp);
+                        std::cout << "insert " << name << "::" << field.name << " " << off << " " << H5Tget_size(tp) << std::endl;
                         off += ad.size;
                     }
                     return off;
                     });
 
-            H5Tcommit1(type_group, name.c_str(), ft);
+            // H5Tcommit1(type_group, name.c_str(), ft);
             filetype.emplace(name, ft);
             hdf_type.emplace(name, ft);
             std::cerr << "created custom type " << name << std::endl;
@@ -73,7 +76,17 @@ class writer {
             hid_t ptable = H5PTcreate_fl(file, name.c_str(), filetype.at(msg_type), 1, -1);
             if (ptable == H5I_INVALID_HID)
                 throw std::runtime_error("failed to create packet table");
-            dset.emplace(topic, ptable);
+            table.emplace(topic, ptable);
+
+            name += "_ds";
+            hsize_t dims[1] = {0};
+            hsize_t maxdims[1] = { H5S_UNLIMITED };
+            hid_t space = H5Screate_simple(1, dims, maxdims);
+            hid_t dcpl = H5Pcreate(H5P_DATASET_CREATE);
+            hsize_t chunk[1] = { 1 };
+            H5Pset_chunk(dcpl, 1, chunk);
+            hid_t dataset = H5Dcreate(file, name.c_str(), filetype.at(msg_type), space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
+            dset.emplace(topic, dataset);
         }
 
         // HDF5 wants to write out flat memory organized in the packet table.
@@ -82,32 +95,75 @@ class writer {
         // a flat buffer.
 
         // The plog::log_record portion of the record *is* flat, so just copy that part over.
-        size_t sz = plog::size<plog::log_record>::packed();
-        std::vector<std::uint8_t> flat(sz);
-        std::memcpy(flat.data(), &rec, sz);
+        // size_t sz = plog::size<plog::log_record>::packed();
+        // std::vector<std::uint8_t> flat(sz);
+        // std::memcpy(flat.data(), &rec, sz);
         
+        std::stringstream flat;
+        plog::writer w(flat);
+        w.write(rec.index); // (std::uint32_t)0x12345678); // rec.index);
+        w.write(rec.size); // (std::uint32_t)0x12345678); // rec.size);
+        w.write(rec.prev_size); // (std::uint32_t)0x12345678); // rec.prev_size);
+        std::cout << flat.str().size() << std::endl;
+        w.write(rec.timestamp); // (std::uint64_t)0x1112131415161718); // rec.timestamp);
+        std::cout << flat.str().size() << std::endl;
+        w.write(rec.msg_header);
+        std::cout << flat.str().size() << std::endl;
+
         // The user defined type may have one (or more?) sequences.  Iterate
         // over each field and do the right thing.
         auto desc = plog::description_map.at(msg_type);
         auto blob_it = rec.blob.begin();
-        std::insert_iterator<decltype(flat)> flat_it(flat, flat.end());
-        std::for_each(desc.begin(), desc.end(), [&flat_it, &blob_it](auto field) {
+        // std::insert_iterator<decltype(flat)> flat_it(flat, flat.end());
+        std::vector<std::shared_ptr<std::uint8_t>> buffers;
+        std::for_each(desc.begin(), desc.end(), [&w, &blob_it, &flat, &buffers](auto field) {
+                return;
                 if (field.type == "sequence<octet>") {
-                        std::cout << "serialize sequence " << field.name << std::endl;
+                    std::uint32_t* sz = new ((void *)&(*blob_it)) std::uint32_t;
+                    std::cout << "serialize sequence " << field.name << " " << *sz << std::endl;
+                    // hvl_t *varlen = new ((void *)&(*blob_it)) hvl_t;
+                    hvl_t varlen;
+                    varlen.len = *sz;
+                    // buffers.emplace_back(new std::uint8_t[sz]);
+                    varlen.p = malloc (2*(*sz)); //  * sizeof(std::uint8_t)); // (void *)&(*blob_it);
+                    // varlen.p = buffers.back().get();
+                    w.plog.write((char *)&varlen, sizeof(varlen));
+
         //             hvl_t varlen { 
         //             flat.resize(flat.size() + sizeof(hvl_t); 
+                    blob_it += sizeof(*sz);
                 } else if (field.type == "log_record") {
                     std::cout << "skipping log_record" << std::endl;
                 } else {
-                    size_t sz = plog::size<decltype(field)>(field).packed();
-                    std::cout << "serialize " << field.name <<  " " << sz << std::endl;
-                    std::copy(blob_it, blob_it + sz, flat_it); 
+                    char *ptr = (char *)&(*blob_it);
+                    size_t sz = plog::size<plog::field_descriptor>(field).packed();
+                    std::cout << "serialize " << field.type <<  " " << field.name << " " << sz << std::endl;
+                    w.plog.write(ptr, sz);
+                    blob_it += sz;
+                    // w.write(ptr, blob_it);
                 }
              });
-        // H5PTappend(dset.at(topic), 1, (void *)flat.data());
+        std::string buf = flat.str();
+        std::cout << rec.index << " serial size " << buf.size() << " " << buffers.size() << " buffers,  msg_type " << std::to_string(rec.msg_header.type) << " " << buf.size() << std::endl;
+        std::for_each(buf.begin(), buf.end() , [](std::uint8_t x){ std::cout << (std::uint16_t)x << " "; });
+        std::cout << std::endl;
+        
+        if (H5PTappend(table.at(topic), 1, (void *)buf.c_str()) < 0) 
+            throw std::runtime_error("cannot append record #" + std::to_string(rec.index));
+        
+        hsize_t extdims[1] = { 1 };
+        H5Dset_extent(dset.at(topic), extdims);
+        hid_t space = H5Dget_space(dset.at(topic));
+
+        hsize_t start[1] = { 0 };
+        hsize_t count[1] = { 1 };
+        H5Sselect_hyperslab(space, H5S_SELECT_SET, start, NULL, count, NULL);
+        H5Dwrite(dset.at(topic), filetype.at(msg_type), H5S_ALL, space,  H5P_DEFAULT, (void *)buf.c_str());
     }
 
     void close() {
+        for (auto pair: table)
+            H5PTclose(pair.second);
         for (auto pair: dset)
             H5PTclose(pair.second);
         for (auto pair: filetype)
@@ -121,7 +177,7 @@ class writer {
     using topic_type = std::pair<plog::ps_msg_type, plog::ps_guid>;
     std::map<plog::ps_msg_type, std::string> msg_type_map;
 
-    std::map<topic_type, hid_t> dset;
+    std::map<topic_type, hid_t> dset, table;
 };
 
 struct plugin : transcode::plugin { 
@@ -130,6 +186,10 @@ struct plugin : transcode::plugin {
         plog::dynamic_typemap.emplace("sequence<octet>", 
                 plog::atom_description { "sequence<octet>", sizeof(hvl_t) } );
         hdf_type.emplace("sequence<octet>", H5Tvlen_create(H5T_NATIVE_UINT8));
+    }
+
+    ~plugin() {
+        H5Tclose(hdf_type.at("sequence<octet>"));
     }
 
     po::options_description options() const {
@@ -155,7 +215,6 @@ struct plugin : transcode::plugin {
         call.record.connect([w](const plog::log_record& rec) { w->write(rec); });
         call.cleanup.connect([w](const plog::reader&) { w->close(); });
     }
-
 };
 
 extern "C" BOOST_SYMBOL_EXPORT plugin plugin;

@@ -153,11 +153,14 @@ int main(int ac, char* av[]) {
 
     plugin_map.at(output)->observe(vm, call);
 
-    // Not used yet
     std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
     if (vm.count("first")) {
         size_t first = vm["first"].as<size_t>(); 
         filter = [filter, first](plog::iterator it) { return filter(it) && ((*it).index >= first); }; 
+    }
+    if (vm.count("last")) {
+        size_t last = vm["last"].as<size_t>(); 
+        filter = [filter, last](plog::iterator it) { return filter(it) && ((*it).index < last); }; 
     }
 
     // The observers are finally all set up.  Here, we finally do the computation!
@@ -172,7 +175,7 @@ int main(int ac, char* av[]) {
         const plog::log_header& head = reader.get_header();
         std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
 
-        if (!call.record.empty())
+        if (!call.record.empty()) 
             std::for_each(reader.begin(filter), reader.end(), std::ref(call.record));
 
         call.cleanup(reader);

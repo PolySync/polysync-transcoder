@@ -22,6 +22,8 @@ using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
     PSYNC_MODULE_VERIFY_HASH_LEN*8, 
     multiprecision::unsigned_magnitude>>;
 
+struct payload : std::vector<std::uint8_t> {};
+
 // a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
 template <typename LenType, typename T>
 struct sequence : std::vector<T> {
@@ -37,6 +39,7 @@ struct sequence<LenType, std::uint8_t> : std::string {
 using name_type = sequence<std::uint16_t, std::uint8_t>;
 using ps_msg_type = std::uint32_t;
 using ps_guid = std::uint64_t;
+using ps_timestamp = std::uint64_t;
 
 struct log_module {
     std::uint8_t version_major;
@@ -64,7 +67,7 @@ struct log_header {
 
 struct msg_header {
     ps_msg_type type;
-    std::uint64_t timestamp;
+    ps_timestamp timestamp;
     ps_guid src_guid;
 };
 
@@ -76,9 +79,9 @@ struct log_record {
     std::uint32_t index;
     std::uint32_t size;
     std::uint32_t prev_size;
-    std::uint64_t timestamp;
+    ps_timestamp timestamp;
     struct msg_header msg_header;
-    std::vector<std::uint8_t> blob;
+    payload blob;
 };
 
 struct field_descriptor {
@@ -114,6 +117,11 @@ struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type
                 return s + size<decltype(field)>::packed(); 
                 });
     }
+};
+
+template <>
+struct size<ps_timestamp> {
+    static std::streamoff packed() { return 8; };
 };
 
 template <>

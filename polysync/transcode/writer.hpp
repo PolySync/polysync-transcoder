@@ -4,15 +4,14 @@
 #include <fstream>
 #include <boost/hana.hpp>
 
-// Define an STL compatible iterator to traverse plog files
-
 namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
 
 class writer {
 public:
-    writer(const std::string& path) : plog(path, std::ios_base::out | std::ios_base::binary) {}
+
+    writer(std::ostream& st) : plog(st) {} 
 
 public:
     // Define a set of write() templates, overloads, and specializations to pattern
@@ -24,9 +23,21 @@ public:
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
     write(const Number& value) {
+        std::cout << "Number " << sizeof(Number) << " " << value << std::endl;
         plog.write((char *)(&value), sizeof(Number)); 
     }
     
+    void write(const std::array<std::uint8_t, 8>& array) {
+        std::cout << "array<8>" << std::endl;
+        plog.write((char *)array.data(), 8*sizeof(std::uint8_t)); 
+    }
+
+    void write(const hash_type& value) {
+        std::cout << "hash_type " << value << std::endl;
+        std::ostream_iterator<std::uint8_t> it(plog);
+        multiprecision::export_bits(value, it, 8);
+    }
+
     // Write non-flat (hana wrapped) structures.  This works out packing
     // the structure where a straight memcpy would fail due to padding, and also
     // recurses into nested structures.
@@ -58,7 +69,14 @@ public:
     // Specialize log_record because the binary blob needs special handling
     void write(const log_record& record) {
         write<log_record>(record);
-        plog.write((char *)(record.blob.data()), record.blob.size());
+        // plog.write((char *)(record.blob.data()), record.blob.size());
+    }
+
+    void write(const field_descriptor& field, std::vector<std::uint8_t>::const_iterator& it) {
+        char *ptr = (char *)&(*it);
+        size_t sz = plog::size<field_descriptor>(field).packed();
+        plog.write(ptr, sz);
+        it += sz;
     }
 
 public:
@@ -80,9 +98,9 @@ public:
         return result + "}";
     }
 
-private:
+// private:
 
-    std::ofstream plog;
+    std::ostream& plog;
     std::map<plog::ps_msg_type, std::string> msg_type_map;
 
 };
