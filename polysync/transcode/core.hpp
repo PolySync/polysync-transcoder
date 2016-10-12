@@ -22,7 +22,7 @@ using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
     PSYNC_MODULE_VERIFY_HASH_LEN*8, 
     multiprecision::unsigned_magnitude>>;
 
-struct payload : std::vector<std::uint8_t> {};
+struct payload : std::string {}; // vector<std::uint8_t> {};
 
 // a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
 template <typename LenType, typename T>

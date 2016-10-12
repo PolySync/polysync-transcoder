@@ -167,12 +167,15 @@ int main(int ac, char* av[]) {
     // Double iterate over files from the command line, and records in each file.
     for (fs::path path: vm["path"].as<std::vector<fs::path>>()) 
     {
+        std::ifstream st(path.c_str(), std::ifstream::binary);
+
         // Construct the next reader in the file list
-        plog::reader reader(path.c_str());
+        plog::reader reader(st);
 
         call.reader(reader);
 
-        const plog::log_header& head = reader.get_header();
+        plog::log_header head;
+        reader.read(head);
         std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
 
         if (!call.record.empty()) 

@@ -45,6 +45,10 @@ std::ostream& operator<<(std::ostream& os, const hana::pair<T, U>& pair) {
     return os << hana::to<char const*>(hana::first(pair)) << ": " << to_string(hana::second(pair));
 }
 
+inline std::ostream& operator<<(std::ostream& os, const plog::field_descriptor& desc) {
+    return os << desc.type << ": " << desc.name;
+}
+
 // Specialize the std::uint8_t case so it does not print an ASCII character, but rather an int
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const hana::pair<T, std::uint8_t>& pair) {
@@ -64,6 +68,14 @@ inline std::ostream& operator<<(std::ostream& os, const sequence<LenType, T>& re
     os << "[ ";
     std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << "\n\t" << field; });
     os << " ]";
+    return os;
+}
+
+template <>
+inline std::ostream& operator<<(std::ostream& os, const sequence<std::uint32_t, std::uint8_t>& record) {
+    os << "[ " << std::hex;
+    std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << (std::uint16_t)field << " "; });
+    os << " ]" << std::dec;
     return os;
 }
 

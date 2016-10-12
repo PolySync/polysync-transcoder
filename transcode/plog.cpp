@@ -31,10 +31,13 @@ struct plugin : public transcode::plugin {
         using reader = polysync::plog::reader;
         std::string path = vm["name"].as<fs::path>().string();
 
-        call.reader.connect([path](const reader& r) { 
+        call.reader.connect([path](reader& r) { 
             out.open(path, std::ios_base::out | std::ios_base::binary);
             writer.reset(new polysync::plog::writer(out));
-            writer->write(r.get_header()); 
+
+            plog::log_header head;
+            r.read(head);
+            writer->write(head); 
             });
 
         call.type_support.connect([](const plog::type_support& t) { });

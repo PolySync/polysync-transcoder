@@ -11,7 +11,7 @@ PYBIND11_PLUGIN(polysync) {
     py::module m("polysync", "PolySync plog interface");
 
     py::class_<plog::reader>(m, "reader")
-        .def(py::init<const std::string&>())
+        // .def(py::init<const std::string&>())
         .def("__enter__", [](plog::reader& s){})
         // .def("__exit__", [](plog::reader&& s){ return std::move(s); })
         .def("__iter__", [](plog::reader& s) { 

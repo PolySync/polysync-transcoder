@@ -1,4 +1,4 @@
-# pragma once
+#pragma once
 
 #include <polysync/transcode/core.hpp>
 #include <fstream>
@@ -42,11 +42,7 @@ public:
     iterator end() { return iterator { this, endpos, endpos }; }
 
     // Constructors (why can't this be inline?)
-    reader(const std::string& path);
-
-    // Getters
-    const log_header& get_header() const { return header; }
-    const std::string& get_filename() const { return filename; }
+    reader(std::istream&);
 
 public:
     // Define a set of read() templates, overloads, and specializations to pattern
@@ -99,9 +95,15 @@ public:
         read<log_record>(record);
         std::streamoff sz = record.size - size<msg_header>::packed();
         record.blob.resize(sz);
-        plog.read(reinterpret_cast<char *>(record.blob.data()), record.blob.size());
+        plog.read((char *)record.blob.data(), record.blob.size());
     }
 
+    template <typename T>
+    T read() {
+        T value;
+        read(value);
+        return std::move(value);
+    }
 
     // Deserialize a structure from a known offset in the file
     log_record read(std::streamoff pos) {
@@ -113,17 +115,14 @@ public:
 
 protected:
 
-    const std::string filename;
-    mutable std::ifstream plog;
+    std::istream& plog;
     std::streamoff endpos;
-    log_header header;
 };
 
-inline reader::reader(const std::string& path) : filename(path), plog(path, std::ifstream::binary) {
+inline reader::reader(std::istream& st) : plog(st) {
     plog.seekg(0, std::ios_base::end);
     endpos = plog.tellg();
     plog.seekg(0, std::ios_base::beg);
-    read(header);
 }
 
 inline log_record iterator::operator*() { 
