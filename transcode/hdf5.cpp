@@ -1,6 +1,7 @@
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/core.hpp>
 #include <polysync/transcode/writer.hpp>
+#include <polysync/transcode/dynamic_reader.hpp>
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include <boost/filesystem.hpp>
@@ -15,6 +16,8 @@ namespace polysync { namespace transcode { namespace hdf5 {
 // appear in this list as they are discovered.
 
 std::map<std::string, hid_t> hdf_type {
+    { "float", H5T_NATIVE_FLOAT },
+    { "double", H5T_NATIVE_DOUBLE },
     { "uint32", H5T_NATIVE_UINT32 },
     { "uint64", H5T_NATIVE_UINT64 },
     { "ps_guid", H5T_NATIVE_UINT64 },
@@ -41,12 +44,12 @@ class writer {
             std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, [name](auto off, auto field) { 
                     if (plog::dynamic_typemap.count(field.type) == 0)
                         throw std::runtime_error(
-                        "no typemap description for \"" + field.type + "\" (" + name 
+                        "hdf5: no typemap description for \"" + field.type + "\" (" + name 
                         + "::" + field.name + ")");
 
                     if (hdf_type.count(field.type) == 0)
                         throw std::runtime_error(
-                                "no hdf_type description for \"" + field.type + "\" (" + name 
+                                "hdf5: no hdf_type description for \"" + field.type + "\" (" + name 
                                 + "::" + field.name + ")");
 
                     off += plog::dynamic_typemap.at(field.type).size; 
@@ -70,17 +73,23 @@ class writer {
             hdf_type.emplace(name, ft);
         }
 
-    void write(const plog::log_record& rec) {
+    void write(const plog::log_record& record) {
+        std::istringstream iss(record.blob);
+        plog::dynamic_reader read(iss);
+        plog::node top = read();
+        std::shared_ptr<plog::tree> tree = *top.target<std::shared_ptr<plog::tree>>();
+        const plog::msg_header& msg_header = *tree->at("msg_header").target<plog::msg_header>();
+
         // Create a key value that distinguishes a specific datatype from a specific source.
-        topic_type topic { rec.msg_header.type, rec.msg_header.src_guid };
-        if (msg_type_map.count(rec.msg_header.type) == 0)
-            throw std::runtime_error("no msg_type_map for type " + std::to_string(rec.msg_header.type));
-        std::string msg_type = msg_type_map.at(rec.msg_header.type); 
+        topic_type topic { msg_header.type, msg_header.src_guid };
+        if (plog::type_support_map.count(msg_header.type) == 0)
+            throw std::runtime_error("hdf5: no msg_type_map for type " + std::to_string(msg_header.type));
+        std::string msg_type = plog::type_support_map.at(msg_header.type); 
 
         // If this is the first time we have seen this topic, create a new dataset for it.
         if (!dset.count(topic)) {
             build_type(msg_type, plog::description_map.at(msg_type));
-            std::string name = "guid" + std::to_string(rec.msg_header.src_guid);
+            std::string name = "guid" + std::to_string(msg_header.src_guid);
             // hid_t ptable = H5PTcreate_fl(file, name.c_str(), filetype.at(msg_type), 1, -1);
             // if (ptable == H5I_INVALID_HID)
             //     throw std::runtime_error("failed to create packet table");
@@ -112,11 +121,11 @@ class writer {
         // The user defined type may have one (or more?) sequences.  Iterate
         // over each field and do the right thing.
         auto desc = plog::description_map.at(msg_type);
-        auto blob = rec.blob.begin();
-        std::for_each(desc.begin(), desc.end(), [&w, rec, &blob](auto field) {
+        auto blob = record.blob.begin();
+        std::for_each(desc.begin(), desc.end(), [&w, record, &blob](auto field) {
                 if (field.type == "log_record") {
                     // core types we know at compile time, so fold using boost::hana
-                    w.write(rec);
+                    w.write(record);
                 } else if (field.type == "sequence<octet>") {
                     // sequences have variable length per record, which is a special case for HDF5 
                     std::uint32_t* sz = new ((void *)&(*blob)) std::uint32_t;
@@ -172,8 +181,8 @@ class writer {
 
     hid_t file, type_group;
     std::map<std::string, hid_t> filetype;
-    using topic_type = std::pair<plog::ps_msg_type, plog::ps_guid>;
-    std::map<plog::ps_msg_type, std::string> msg_type_map;
+    using topic_type = std::pair<plog::msg_type, plog::guid>;
+    std::map<plog::msg_type, std::string> msg_type_map;
     std::map<topic_type, hid_t> dset, table, memspace;
 };
 
@@ -200,23 +209,12 @@ struct plugin : transcode::plugin {
     }
 
 
-    void observe(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, callback& call) const {
 
         fs::path path = vm["name"].as<fs::path>();
 
-        // Open the new HDF file when a new reader appears
         call.reader.connect([path](const plog::reader& reader) { hdf = std::make_shared<writer>(path); });
-
-        // PLogs key each message type by a number, but the number is generally
-        // different in every plog.  Constant names are provided in the header
-        // in the type_support field; stash them so we can map the (random)
-        // numbers to (useful) static strings.
-        call.type_support.connect([](auto t) { hdf->msg_type_map.emplace(t.type, t.name); });
-
-        // Write out every record
         call.record.connect([](const plog::log_record& rec) { hdf->write(rec); });
-
-        // Close the HDF file
         call.cleanup.connect([](const plog::reader& reader) { hdf.reset(); });
     }
 };

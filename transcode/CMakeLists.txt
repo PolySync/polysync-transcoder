@@ -1,6 +1,6 @@
-add_executable ( transcode transcode.cpp core.cpp legacy.cpp query.cpp plog.cpp csv.cpp )
+add_executable ( transcode transcode.cpp core.cpp dynamic_reader.cpp logging.cpp legacy.cpp query.cpp dump.cpp plog.cpp csv.cpp )
 add_definitions ( -DTRANSCODE_PLUGIN_PATH="transcode" ) # FIXME; relative to PSYNC_HOME?
-target_link_libraries ( transcode ${Boost_LIBRARIES} dl )
+target_link_libraries ( transcode ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} dl )
 
 if ( ${HDF5_FOUND} )
     include_directories( ${HDF5_INCLUDE_DIRS} )

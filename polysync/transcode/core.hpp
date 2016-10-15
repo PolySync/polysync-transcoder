@@ -37,9 +37,9 @@ struct sequence<LenType, std::uint8_t> : std::string {
 };
 
 using name_type = sequence<std::uint16_t, std::uint8_t>;
-using ps_msg_type = std::uint32_t;
-using ps_guid = std::uint64_t;
-using ps_timestamp = std::uint64_t;
+using msg_type = std::uint32_t;
+using guid = std::uint64_t;
+using timestamp = std::uint64_t;
 
 struct log_module {
     std::uint8_t version_major;
@@ -66,9 +66,9 @@ struct log_header {
 };
 
 struct msg_header {
-    ps_msg_type type;
-    ps_timestamp timestamp;
-    ps_guid src_guid;
+    msg_type type;
+    plog::timestamp timestamp;
+    guid src_guid;
 };
 
 // I put msg_header into log_header instead of the byte_array like PolySync
@@ -79,8 +79,8 @@ struct log_record {
     std::uint32_t index;
     std::uint32_t size;
     std::uint32_t prev_size;
-    ps_timestamp timestamp;
-    struct msg_header msg_header;
+    plog::timestamp timestamp;
+    // struct msg_header msg_header;
     payload blob;
 };
 
@@ -88,6 +88,8 @@ struct field_descriptor {
     std::string name;
     std::string type;
 };
+
+extern std::map<plog::msg_type, std::string> type_support_map;
 
 using type_descriptor = std::vector<field_descriptor>;
 
@@ -151,7 +153,7 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor
         , build_hash, name
          );
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp, msg_header);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
 

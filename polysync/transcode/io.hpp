@@ -1,6 +1,8 @@
 #pragma once
 
-#include "core.hpp"
+#include <polysync/transcode/core.hpp>
+#include <polysync/transcode/console.hpp>
+#include <polysync/transcode/dynamic_reader.hpp>
 
 #include <sstream>
 #include <string>
@@ -8,14 +10,10 @@
 namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
+using polysync::console::format;
 
 template <typename T>
 auto to_string(const T& record) -> decltype(std::to_string(record)) {
-    return std::to_string(record);
-}
-
-template <typename T>
-auto to_string(const std::uint8_t record) -> decltype(std::to_string(record)) {
     return std::to_string(record);
 }
 
@@ -42,11 +40,30 @@ inline auto to_string(const std::array<T, N>& seq) {
 
 template <typename T, typename U>
 std::ostream& operator<<(std::ostream& os, const hana::pair<T, U>& pair) {
-    return os << hana::to<char const*>(hana::first(pair)) << ": " << to_string(hana::second(pair));
+    return os << format.cyan << hana::to<char const*>(hana::first(pair)) << ": " 
+              << format.normal << to_string(hana::second(pair));
+}
+
+template <typename U>
+std::ostream& operator<<(std::ostream& os, const hana::pair<std::string, U>& pair) {
+    return os << format.cyan << hana::first(pair) << ": " << format.normal
+              << to_string(hana::second(pair));
+}
+
+template <typename T, typename U>
+std::ostream& operator<<(std::ostream& os, const std::pair<T, U>& pair) {
+    return os << format.cyan << pair.first << ": " << format.normal
+              << std::hex << pair.second;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const plog::field_descriptor& desc) {
-    return os << desc.type << ": " << desc.name;
+    return os << format.white << desc.type << ": " << format.blue << desc.name << format.normal;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const plog::type_descriptor& desc) {
+    os << "type_descriptor { ";
+    std::for_each(desc.begin(), desc.end(), [&os](auto field) { os << field << ", "; });
+    return os << "}";
 }
 
 // Specialize the std::uint8_t case so it does not print an ASCII character, but rather an int
@@ -58,7 +75,7 @@ std::ostream& operator<<(std::ostream& os, const hana::pair<T, std::uint8_t>& pa
 template <typename T, int N>
 inline std::ostream& operator<<(std::ostream& os, const std::array<T, N>& record) {
     os << "[ ";
-    // std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << "\n\t" << field; });
+    std::for_each(record.begin(), record.end(), [&os](auto field) mutable { os << "\n\t" << field; });
     os << " ]";
     return os;
 }
@@ -102,13 +119,13 @@ auto to_string(const T& record) -> std::string {
 }
 
 inline std::ostream& operator<<(std::ostream& os, const log_header& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
     return hana::fold(record, os, f);
 }
 
 inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
     os << "{ ";
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
     hana::fold(record, os, f);
     return os << " }";
 }
@@ -120,10 +137,29 @@ inline auto to_string(const msg_header& record) -> std::string {
 }
 
 inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << std::endl; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
+    os << "log_record { ";
     hana::fold(record, os, f);
-    return os << "payload: " << record.blob.size() << std::endl;
+    return os << "payload: " << record.blob.size() << " bytes }";
+}
+
+inline std::ostream& operator<<(std::ostream& os, const tree& rec) {
+    os << "{ ";
+    std::for_each(rec.begin(), rec.end(), [&os](auto field) { os << field << ", "; });
+    return os << "}";
+}
+
+inline std::ostream& operator<<(std::ostream& os, const std::shared_ptr<tree> tree) {
+    return os << *tree;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const plog::node& value) {
+    eggs::variants::apply([&os](auto a) { os << a; }, value);
+    return os;
 }
 
 
+
 }} // namespace polysync::plog
+
+

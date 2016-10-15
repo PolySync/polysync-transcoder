@@ -7,7 +7,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 endif()
 
-find_package(Boost COMPONENTS system filesystem program_options)
+find_package(Threads)
+find_package(Boost COMPONENTS log log_setup system filesystem program_options thread)
 find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 

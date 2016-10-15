@@ -26,7 +26,7 @@ struct plugin : public transcode::plugin {
         return opt;
     }
 
-    void observe(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, callback& call) const {
 
         using reader = polysync::plog::reader;
         std::string path = vm["name"].as<fs::path>().string();

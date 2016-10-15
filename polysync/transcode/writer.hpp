@@ -95,7 +95,7 @@ public:
 protected:
 
     std::ostream& plog;
-    std::map<plog::ps_msg_type, std::string> msg_type_map;
+    std::map<plog::msg_type, std::string> msg_type_map;
 
 };
  

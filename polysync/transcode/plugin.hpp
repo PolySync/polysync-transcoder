@@ -5,6 +5,7 @@
 #include <boost/config.hpp>  // for BOOST_SYMBOL_EXPORT
 #include <boost/program_options.hpp>
 #include <boost/signals2/signal.hpp>
+#include <boost/dll/alias.hpp>
 
 namespace polysync { namespace transcode {
 
@@ -19,7 +20,7 @@ namespace po = boost::program_options;
 
 struct plugin {
     virtual po::options_description options() const = 0;
-    virtual void observe(const po::variables_map&, callback&) const = 0;
+    virtual void connect(const po::variables_map&, callback&) const = 0;
 };
 
 }} // namespace polysync::transcode
