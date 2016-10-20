@@ -1,6 +1,7 @@
 #pragma once
 
 #include <polysync/transcode/core.hpp>
+#include <polysync/transcode/description.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <fstream>
 #include <boost/hana.hpp>

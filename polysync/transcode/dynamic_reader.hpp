@@ -1,69 +1,70 @@
 #pragma once
 
 #include <polysync/transcode/reader.hpp>
-#include <eggs/variant.hpp>
-#include <boost/endian/buffers.hpp>
+#include <polysync/transcode/variant.hpp>
+#include <polysync/transcode/description.hpp>
 
 namespace polysync { namespace plog {
 
-namespace endian = boost::endian;
+struct field_descriptor {
+    std::string name;
+    std::string type;
+};
 
-struct tree;
+struct detector_type {
+    std::string parent;
+    std::map<std::string, variant> match;
+    std::string child;
+};
 
-// Ugh, eggs::variant lacks the recursive feature supported by the old
-// boost::variant, which makes it a PITA to implement a syntax tree (no nested
-// variants!).  The std::shared_ptr<tree> is a workaround for this eggs
-// limitation.  Apparently we are getting std::variant in C++17; maybe we can
-// factor out std::shared_ptr<tree> to just tree, then.
-using variant = eggs::variant<
-    std::shared_ptr<tree>,
-    msg_header,
-    float, double,
-    std::int8_t, std::int16_t, int32_t, int64_t,
-    std::uint8_t, std::uint16_t, uint32_t, uint64_t,
-    endian::big_uint16_buf_t, endian::big_uint32_buf_t, endian::big_uint64_buf_t,
-    endian::big_int16_buf_t, endian::big_int32_buf_t, endian::big_int64_buf_t,
-    plog::sequence<std::uint32_t, std::uint8_t>
-    >;
+using type_descriptor = std::vector<field_descriptor>;
+
+extern std::map<std::string, type_descriptor> description_map;
+extern std::vector<detector_type> detector_list;
+
+template <>
+struct size<field_descriptor> {
+    size(const field_descriptor& f) : field(f) { }
+
+    std::streamoff packed() {
+        return dynamic_typemap.at(field.type).size;
+    }
+
+    field_descriptor field;
+};
+
+template <typename Struct>
+inline type_descriptor describe() {
+    return hana::fold(Struct(), type_descriptor(), [](auto desc, auto pair) { 
+            std::string name = hana::to<char const*>(hana::first(pair));
+            if (static_typemap.count(typeid(hana::second(pair))) == 0)
+                throw std::runtime_error("missing typemap for " + name);
+            plog::atom_description atom = static_typemap.at(typeid(hana::second(pair)));
+            desc.emplace_back(field_descriptor { name, atom.name });
+            return desc;
+            });
+}
+
 
 struct node : variant {
     using variant::variant;
     std::string name;
 };
 
+
 struct tree : std::map<std::string, node> {
     using std::map<std::string, node>::map;
+    std::string name;
 };
-
-struct compare {
-
-    template <typename T, typename U>
-    typename std::enable_if<std::is_convertible<T, U>::value, bool>::type
-    operator()(const T& v1, const U& v2) { return v1 == v2; }
-
-    template <typename T, typename U>
-    typename std::enable_if<!std::is_convertible<T, U>::value, bool>::type
-    operator()(const T&, const U&) { return false; }
-
-    template <typename T, size_t N>
-    bool operator()(const endian::endian_buffer<endian::order::big, T, N>& v1, const T& v2) { 
-        return v2 == v1.value(); 
-    }
-};
-
-template <typename T>
-inline bool operator==(const node& a1, const T& a2) {
-    static compare c;
-    return eggs::variants::apply([a2](auto v1) { return c(v1, a2); }, a1);
-}
 
 struct dynamic_reader : reader {
     using reader::reader;
     node operator()(const std::string& type, std::shared_ptr<tree> parent);
     node operator()(std::streamoff off, const std::string& type, std::shared_ptr<tree> parent);
     node operator()();
-    node operator()(const type_descriptor&);
+    std::shared_ptr<tree> operator()(const std::string&, const type_descriptor&);
 
+    size_t order { 1 };
 };
 
 }} // namespace polysync::plog

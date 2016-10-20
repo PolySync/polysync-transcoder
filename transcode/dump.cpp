@@ -2,6 +2,7 @@
 #include <polysync/transcode/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
+#include <regex>
 
 namespace polysync { namespace transcode { namespace dump {
 
@@ -18,7 +19,11 @@ struct pretty_printer {
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
     print(std::ostream& os, const std::string& name, const Number& value) {
-        os << tab.back() << format.yellow << name << ": " << format.normal 
+        static std::regex skip(".*skip$");
+        if (std::regex_match(name, skip))
+            return;
+
+        os << tab.back() << format.green << name << ": " << format.normal 
            << value << wrap << format.normal;
     }
 
@@ -38,7 +43,12 @@ struct pretty_printer {
     void print(std::ostream& os, const std::string& name, std::shared_ptr<plog::tree> top) {
         os << tab.back() << format.cyan << format.bold << name << " {" << wrap << format.normal;
         tab.push_back(tab.back() + "    ");
-        std::for_each(top->begin(), top->end(), [&](auto pair) { 
+        // for (auto desc: plog::description_map.at(name)) {
+        //     auto f = top->find(desc.name);
+        //     eggs::variants::apply([&](auto f) { print(os, desc.name, f); }, f->second);
+        // }
+        std::for_each(top->begin(), top->end(), 
+                [&](auto pair) { 
                 eggs::variants::apply([&](auto f) { print(os, pair.first, f); }, pair.second);
                 });
         tab.pop_back();

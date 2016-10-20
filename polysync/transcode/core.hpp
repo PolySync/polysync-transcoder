@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/multiprecision/cpp_int.hpp>
-#include <boost/hana.hpp>
 #include <vector>
 #include <cstdint>
 #include <typeindex>
@@ -15,7 +14,6 @@ struct type_support;
 constexpr size_t PSYNC_MODULE_VERIFY_HASH_LEN = 16;
 
 namespace multiprecision = boost::multiprecision;
-namespace hana = boost::hana;
 
 using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
     PSYNC_MODULE_VERIFY_HASH_LEN*8, 
@@ -80,80 +78,11 @@ struct log_record {
     std::uint32_t size;
     std::uint32_t prev_size;
     plog::timestamp timestamp;
-    // struct msg_header msg_header;
     payload blob;
-};
-
-struct field_descriptor {
-    std::string name;
-    std::string type;
 };
 
 extern std::map<plog::msg_type, std::string> type_support_map;
 
-using type_descriptor = std::vector<field_descriptor>;
-
-struct atom_description {
-    std::string name;
-    std::streamoff size;
-};
-
-extern std::map<std::type_index, atom_description> static_typemap; 
-extern std::map<std::string, atom_description> dynamic_typemap; 
-
-extern std::map<std::string, type_descriptor> description_map;
-
-template <typename Number, class Enable = void>
-struct size {
-    static std::streamoff packed() { return sizeof(Number); }
-};
-
-template <typename Struct>
-struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type> {
-    static std::streamoff packed() {
-        return hana::fold(hana::members(Struct()), 0, [](std::streamoff s, auto field) { 
-                return s + size<decltype(field)>::packed(); 
-                });
-    }
-};
-
-template <>
-struct size<field_descriptor> {
-    size(const field_descriptor& f) : field(f) { }
-
-    std::streamoff packed() {
-        return dynamic_typemap.at(field.type).size;
-    }
-
-    field_descriptor field;
-};
-
-template <typename Struct>
-inline type_descriptor describe() {
-    return hana::fold(Struct(), type_descriptor(), [](auto desc, auto pair) { 
-            std::string name = hana::to<char const*>(hana::first(pair));
-            if (static_typemap.count(typeid(hana::second(pair))) == 0)
-                throw std::runtime_error("missing typemap for " + name);
-            plog::atom_description atom = static_typemap.at(typeid(hana::second(pair)));
-            desc.emplace_back(field_descriptor { name, atom.name });
-            return desc;
-            });
-}
-
-
 }} // namespace polysync::plog
-
-// Hana adaptors must be in global namespace
-
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_header,
-        version_major, version_minor, version_subminor, build_date, node_guid 
-       , modules, type_supports
-        );
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor, version_subminor, build_date
-        , build_hash, name
-         );
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
 

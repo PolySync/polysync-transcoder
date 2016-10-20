@@ -1,4 +1,5 @@
 #include <polysync/transcode/core.hpp>
+#include <polysync/transcode/description.hpp>
 
 namespace polysync { namespace plog {
 
