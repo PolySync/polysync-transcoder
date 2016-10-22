@@ -10,48 +10,63 @@ namespace polysync { namespace plog {
 using polysync::logging::logger;
 using polysync::logging::severity;
 
-// Load the global type description dictionary plog::description_map with an entry from a TOML table.
-void load_description(const std::string& name, std::shared_ptr<cpptoml::table> table) {
+namespace detector { 
+
+std::vector<type> catalog; 
+
+
+}
+
+namespace descriptor { 
+    
+std::map<std::string, type> catalog; 
+
+// Load the global type description catalog with an entry from a TOML table.
+void load(const std::string& name, std::shared_ptr<cpptoml::table> table) {
     logger log("description[" + name + "]");
 
     // Recurse nested tables
     if (!table->contains("description")) {
         for (const auto& type: *table) 
-            load_description(name + "." + type.first, type.second->as_table());
+            load(name + "." + type.first, type.second->as_table());
         return;
     }
 
-    plog::type_descriptor desc;
+    descriptor::type desc;
     auto dt = table->get("description");
     if (!dt->is_table_array())
         throw std::runtime_error("[description] must be a table array");
 
-    for (std::shared_ptr<cpptoml::table> field: *dt->as_table_array()) {
+    for (std::shared_ptr<cpptoml::table> fp: *dt->as_table_array()) {
 
         // skip reserved bytes
-        if (field->contains("skip")) {
-            int skip = *field->get_as<int>("skip");
-            desc.emplace_back(field_descriptor { "skip", std::to_string(skip) });
+        if (fp->contains("skip")) {
+            int skip = *fp->get_as<int>("skip");
+            desc.emplace_back(field { "skip", std::to_string(skip) });
             continue;
         }
 
         // parse a normal binary field
-        if (!field->contains("name"))
+        if (!fp->contains("name"))
             throw std::runtime_error("[description] lacks manditory \"name\" field");
-        if (!field->contains("type"))
+        if (!fp->contains("type"))
             throw std::runtime_error("[description] lacks \"type\" field");
 
-        desc.emplace_back(plog::field_descriptor { 
-                *field->get_as<std::string>("name"),
-                *field->get_as<std::string>("type")
+        desc.emplace_back(field { 
+                *fp->get_as<std::string>("name"),
+                *fp->get_as<std::string>("type")
                 }); 
     }
 
-    plog::description_map.emplace(name, desc);
+    catalog.emplace(name, desc);
     BOOST_LOG_SEV(log, severity::debug1) << "installed type description";
     BOOST_LOG_SEV(log, severity::debug2) << name << " = " << desc;
 
 };
+
+} // namespace descriptor
+
+namespace detector {
 
 template <typename T>
 inline T hex_stoul(const std::string& value) {
@@ -65,8 +80,8 @@ inline T hex_stoul(const std::string& value) {
 // Description strings have type information, but the type comes out as a
 // string (because TOML does not have a very powerful type system).  Define
 // factory functions to look up a type by string name and convert to a strong type.
-static plog::variant convert(const std::string value, const std::string type) {
-    static const std::map<std::string, std::function<plog::variant (const std::string&)>> factory = {
+static variant convert(const std::string value, const std::string type) {
+    static const std::map<std::string, std::function<variant (const std::string&)>> factory = {
         { "uint8", [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
         { "uint16", [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
         { "uint32", [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
@@ -84,14 +99,14 @@ static plog::variant convert(const std::string value, const std::string type) {
     return factory.at(type)(value);
 }
 
-// Load the global type detector dictionary plog::detector_list with an entry from a TOML table.
-void load_detector(const std::string& name, std::shared_ptr<cpptoml::table> table) {
+// Load the global type detector dictionary detector::catalog with an entry from a TOML table.
+void load(const std::string& name, std::shared_ptr<cpptoml::table> table) {
     logger log("detector[" + name + "]");
 
     // Recurse nested tables
     if (!table->contains("description")) {
-        for (const auto& type: *table) 
-            load_detector(name + "." + type.first, type.second->as_table());
+        for (const auto& tp: *table) 
+            load(name + "." + tp.first, tp.second->as_table());
         return;
     }
 
@@ -100,7 +115,7 @@ void load_detector(const std::string& name, std::shared_ptr<cpptoml::table> tabl
         return;
     }
 
-    plog::detector_type dt;
+    // type dt;
     auto det = table->get("detector");
     if (!det->is_table())
         throw std::runtime_error("detector must be a table");
@@ -109,11 +124,11 @@ void load_detector(const std::string& name, std::shared_ptr<cpptoml::table> tabl
 
         if (!branch.second->is_table())
             throw std::runtime_error("detector pattern must be a table");
-        if (!plog::description_map.count(name))
+        if (!plog::descriptor::catalog.count(name))
             throw std::runtime_error("no type description for " + name);
 
-        decltype(std::declval<detector_type>().match) match;
-        const plog::type_descriptor& desc = plog::description_map.at(name);
+        decltype(std::declval<detector::type>().match) match;
+        const plog::descriptor::type& desc = plog::descriptor::catalog.at(name);
         for (auto pair: *branch.second->as_table()) {
 
             // Dig through the type description to get the type of the matching field
@@ -127,10 +142,12 @@ void load_detector(const std::string& name, std::shared_ptr<cpptoml::table> tabl
             std::string value = pair.second->as<std::string>()->get();
             match.emplace(pair.first, convert(value, it->type));
         }
-        detector_list.emplace_back(detector_type { name, match, branch.first });
-        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" << detector_list.back().parent 
-            << "\" -> \"" << detector_list.back().child << "\"";
+        detector::catalog.emplace_back(detector::type { name, match, branch.first });
+        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" << detector::catalog.back().parent 
+            << "\" -> \"" << detector::catalog.back().child << "\"";
     }
 }
 
-}}
+} // namespace detector
+
+}} // namespace polysync::plog

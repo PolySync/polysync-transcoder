@@ -15,45 +15,66 @@
 
 namespace polysync { namespace plog {
 
-extern void load_description(const std::string& name, std::shared_ptr<cpptoml::table> table);
-extern void load_detector(const std::string& name, std::shared_ptr<cpptoml::table> table);
+namespace descriptor {
 
-struct detector_type {
+struct field {
+    std::string name;
+    std::string type;
+};
+
+struct atom {
+    std::string name;
+    std::streamoff size;
+};
+
+extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table);
+
+using type = std::vector<field>;
+extern std::map<std::string, type> catalog;
+extern std::map<std::type_index, atom> static_typemap; 
+extern std::map<std::string, atom> dynamic_typemap; 
+
+template <typename Struct>
+inline type describe() {
+    namespace hana = boost::hana;
+
+    return hana::fold(Struct(), type(), [](auto desc, auto pair) { 
+            std::string name = hana::to<char const*>(hana::first(pair));
+            if (static_typemap.count(typeid(hana::second(pair))) == 0)
+                throw std::runtime_error("missing typemap for " + name);
+            atom a = static_typemap.at(typeid(hana::second(pair)));
+            desc.emplace_back(field { name, a.name });
+            return desc;
+            });
+}
+
+} // namespace descriptor
+
+template <>
+struct size<descriptor::field> {
+    size(const descriptor::field& f) : desc(f) { }
+    
+    std::streamoff value() const {
+        return descriptor::dynamic_typemap.at(desc.type).size;
+    }
+
+    descriptor::field desc;
+};
+
+
+namespace detector {
+
+struct type {
     std::string parent;
     std::map<std::string, variant> match;
     std::string child;
 };
 
-extern std::vector<detector_type> detector_list;
+extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table);
 
-namespace hana = boost::hana;
+extern std::vector<type> catalog;
 
-struct atom_description {
-    std::string name;
-    std::streamoff size;
-};
-
-struct field_descriptor {
-    std::string name;
-    std::string type;
-};
-
-using type_descriptor = std::vector<field_descriptor>;
-
-extern std::map<std::string, type_descriptor> description_map;
-extern std::map<std::type_index, atom_description> static_typemap; 
-extern std::map<std::string, atom_description> dynamic_typemap; 
-
-template <>
-struct size<field_descriptor> {
-    size(const field_descriptor& f) : field(f) { }
-    
-    std::streamoff value() const {
-        return dynamic_typemap.at(field.type).size;
-    }
-
-    field_descriptor field;
-};
+} // detector
 
 }} // namespace polysync::plog
 

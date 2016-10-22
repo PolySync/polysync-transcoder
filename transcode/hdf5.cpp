@@ -31,18 +31,18 @@ class writer {
         writer(const fs::path& path) {
             file = H5Fcreate(path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
             type_group = H5Gcreate(file, "/type", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            build_type("msg_header", plog::describe<plog::msg_header>());
-            build_type("log_record", plog::describe<plog::log_record>());
+            build_type("msg_header", plog::descriptor::describe<plog::msg_header>());
+            build_type("log_record", plog::descriptor::describe<plog::log_record>());
         }
 
         // Create a custom HDF5 datatype that reflects the plog::type_description
-        void build_type(const std::string name, const plog::type_descriptor& desc) {
+        void build_type(const std::string name, const plog::descriptor::type& desc) {
 
             // Calculate the size of the new datatype, needed for H5Tcreate().
             // While we are at it, check that we have descriptions for each
             // field, and we know what that means for HDF5.
             std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, [name](auto off, auto field) { 
-                    if (plog::dynamic_typemap.count(field.type) == 0)
+                    if (plog::descriptor::dynamic_typemap.count(field.type) == 0)
                         throw std::runtime_error(
                         "hdf5: no typemap description for \"" + field.type + "\" (" + name 
                         + "::" + field.name + ")");
@@ -52,7 +52,7 @@ class writer {
                                 "hdf5: no hdf_type description for \"" + field.type + "\" (" + name 
                                 + "::" + field.name + ")");
 
-                    off += plog::dynamic_typemap.at(field.type).size; 
+                    off += plog::descriptor::dynamic_typemap.at(field.type).size; 
                     return off;
                     });
             hid_t ft = H5Tcreate(H5T_COMPOUND, size);
@@ -63,7 +63,7 @@ class writer {
             size_t off = 0;
             std::for_each(desc.begin(), desc.end(), [this, ft, name, &off](auto field) {
                     auto tp = hdf_type.at(field.type);
-                    plog::atom_description ad = plog::dynamic_typemap.at(field.type);
+                    plog::descriptor::atom ad = plog::descriptor::dynamic_typemap.at(field.type);
                     H5Tinsert(ft, field.name.c_str(), off, tp);
                     off += ad.size;
                     });
@@ -88,7 +88,7 @@ class writer {
 
         // If this is the first time we have seen this topic, create a new dataset for it.
         if (!dset.count(topic)) {
-            build_type(msg_type, plog::description_map.at(msg_type));
+            build_type(msg_type, plog::descriptor::catalog.at(msg_type));
             std::string name = "guid" + std::to_string(msg_header.src_guid);
             // hid_t ptable = H5PTcreate_fl(file, name.c_str(), filetype.at(msg_type), 1, -1);
             // if (ptable == H5I_INVALID_HID)
@@ -120,7 +120,7 @@ class writer {
         
         // The user defined type may have one (or more?) sequences.  Iterate
         // over each field and do the right thing.
-        auto desc = plog::description_map.at(msg_type);
+        auto desc = plog::descriptor::catalog.at(msg_type);
         auto blob = record.blob.begin();
         std::for_each(desc.begin(), desc.end(), [&w, record, &blob](auto field) {
                 if (field.type == "log_record") {
@@ -135,7 +135,7 @@ class writer {
                     blob += *sz;
                 } else {
                     // All other fields just get serialized as a raw memory copy
-                    size_t sz = plog::size<plog::field_descriptor>(field).value();
+                    size_t sz = plog::size<plog::descriptor::field>(field).value();
                     w.write(&(*blob), sz);
                     blob += sz;
                 }
@@ -191,8 +191,8 @@ std::shared_ptr<writer> hdf;
 struct plugin : transcode::plugin { 
 
     plugin() {
-        plog::dynamic_typemap.emplace("sequence<octet>", 
-                plog::atom_description { "sequence<octet>", sizeof(hvl_t) } );
+        plog::descriptor::dynamic_typemap.emplace("sequence<octet>", 
+                plog::descriptor::atom { "sequence<octet>", sizeof(hvl_t) } );
         hdf_type.emplace("sequence<octet>", H5Tvlen_create(H5T_NATIVE_UINT8));
     }
 

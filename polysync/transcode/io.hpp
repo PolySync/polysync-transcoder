@@ -56,16 +56,6 @@ namespace polysync { namespace plog {
                 << std::hex << pair.second << std::dec;
         }
 
-    inline std::ostream& operator<<(std::ostream& os, const plog::field_descriptor& desc) {
-        return os << format.white << desc.type << ": " << format.blue << desc.name << format.normal;
-    }
-
-    inline std::ostream& operator<<(std::ostream& os, const plog::type_descriptor& desc) {
-        os << "type_descriptor { ";
-        std::for_each(desc.begin(), desc.end(), [&os](auto field) { os << field << ", "; });
-        return os << "}";
-    }
-
     // Specialize the std::uint8_t case so it does not print an ASCII character, but rather an int
     template <typename T>
         std::ostream& operator<<(std::ostream& os, const hana::pair<T, std::uint8_t>& pair) {
@@ -170,6 +160,19 @@ inline std::string lex(const variant& v) {
     return os.str();
 }
 
+namespace descriptor {
+
+inline std::ostream& operator<<(std::ostream& os, const field& desc) {
+    return os << format.white << desc.type << ": " << format.blue << desc.name << format.normal;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const type& desc) {
+    os << "type_descriptor { ";
+    std::for_each(desc.begin(), desc.end(), [&os](auto f) { os << f << ", "; });
+    return os << "}";
+}
+
+} // namespace descriptor
 
 }} // namespace polysync::plog
 

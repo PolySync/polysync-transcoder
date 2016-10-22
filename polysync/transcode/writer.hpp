@@ -78,16 +78,16 @@ public:
     // Generate self descriptions of types 
     template <typename Record>
     std::string describe() const {
-        if (!static_typemap.count(typeid(Record)))
+        if (!descriptor::static_typemap.count(typeid(Record)))
             throw std::runtime_error("no typemap description");
-        std::string tpname = static_typemap.at(typeid(Record)).name; 
+        std::string tpname = descriptor::static_typemap.at(typeid(Record)).name; 
         std::string result = tpname + " { ";
         hana::for_each(Record(), [&result, tpname](auto pair) {
                 std::type_index tp = typeid(hana::second(pair));
                 std::string fieldname = hana::to<char const*>(hana::first(pair));
-                if (static_typemap.count(tp) == 0)
+                if (descriptor::static_typemap.count(tp) == 0)
                     throw std::runtime_error("type not described for field \"" + tpname + "::" + fieldname + "\"");
-                result += fieldname + ": " + static_typemap.at(tp).name + " " + std::to_string(static_typemap.at(tp).size) +  "; ";
+                result += fieldname + ": " + descriptor::static_typemap.at(tp).name + " " + std::to_string(descriptor::static_typemap.at(tp).size) +  "; ";
                 });
         return result + "}";
     }

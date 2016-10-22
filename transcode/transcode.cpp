@@ -137,9 +137,9 @@ int main(int ac, char* av[]) {
 
                 // Parse the file in two passes, so the detectors have access to the descriptor's types
                 for (const auto& type: *descfile)
-                    plog::load_description(type.first, type.second->as_table());
+                    plog::descriptor::load(type.first, type.second->as_table());
                 for (const auto& type: *descfile)
-                    plog::load_detector(type.first, type.second->as_table());
+                    plog::detector::load(type.first, type.second->as_table());
             }
         }
     }

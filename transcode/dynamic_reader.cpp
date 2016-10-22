@@ -15,27 +15,27 @@ namespace polysync { namespace plog {
 
         [](dynamic_reader& read, tree& parent) -> std::string {
 
-            for (const detector_type& detector: detector_list) {
-                if (detector.parent != parent.name) {
-                    BOOST_LOG_SEV(read.log, severity::debug2) << parent.name << ": parent is not " << detector.parent << " (no match)";
+            for (const detector::type& det: detector::catalog) {
+                if (det.parent != parent.name) {
+                    BOOST_LOG_SEV(read.log, severity::debug2) << parent.name << ": parent is not " << det.parent << " (no match)";
                     continue;
                 }
                 std::vector<std::string> mismatch;
-                for (auto field: detector.match) {
+                for (auto field: det.match) {
                     auto it = parent.find(field.first);
                     if (it != parent.end() && (it->second == field.second)) {
                     } else
                         mismatch.emplace_back(field.first);
                 }
                 if (mismatch.empty()) {
-                    BOOST_LOG_SEV(read.log, severity::debug1) << "parsing sequel \"" << detector.parent << "\" --> \"" << detector.child << "\"";
-                    return detector.child;
+                    BOOST_LOG_SEV(read.log, severity::debug1) << "parsing sequel \"" << det.parent << "\" --> \"" << det.child << "\"";
+                    return det.child;
                 }
-                BOOST_LOG_SEV(read.log, severity::debug2) << detector.child << ": mismatched" 
+                BOOST_LOG_SEV(read.log, severity::debug2) << det.child << ": mismatched" 
                     << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
                             [&](auto str, auto field) { 
                             return str + " { " + field + ": " + lex(parent.at(field)) + " != " 
-                            + lex(detector.match.at(field)) + " }"; });
+                            + lex(det.match.at(field)) + " }"; });
             }
             return std::string();
         }
@@ -130,20 +130,20 @@ namespace polysync { namespace plog {
     if (!type_support_map.count(msg.type))
         throw std::runtime_error("no type_support for " + std::to_string(msg.type));
     std::string type = type_support_map.at(msg.type);
-    if (!description_map.count(type))
+    if (!descriptor::catalog.count(type))
         throw std::runtime_error("no description for type \"" + type + "\"");
-    const type_descriptor& desc = description_map.at(type);
+    const descriptor::type& desc = descriptor::catalog.at(type);
     result->emplace(name, msg);
 
     std::shared_ptr<tree> tr = operator()(type, desc);
-    for (auto n: *tr) // **(tr.target<std::shared_ptr<tree>>())) 
+    for (auto n: *tr)
         result->emplace(n);
     node n = result;
     n.name = type; 
     return std::move(n);
 }
 
-std::shared_ptr<tree> dynamic_reader::operator()(const std::string& name, const type_descriptor& desc) {
+std::shared_ptr<tree> dynamic_reader::operator()(const std::string& name, const descriptor::type& desc) {
     std::shared_ptr<tree> result = std::make_shared<tree>();
     result->name = name;
     std::for_each(desc.begin(), desc.end(), [this, &result](auto field) {
@@ -176,8 +176,8 @@ node dynamic_reader::operator()(const std::string& type, std::shared_ptr<tree> p
         return std::move(result);
     }
 
-    auto desc = description_map.find(type);
-    if (desc != description_map.end()) {
+    auto desc = descriptor::catalog.find(type);
+    if (desc != descriptor::catalog.end()) {
         node result = operator()(type, desc->second);
         result.name = type;
         return result;
