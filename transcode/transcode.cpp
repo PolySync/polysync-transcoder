@@ -3,14 +3,15 @@
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/transcode/console.hpp>
+#include <polysync/transcode/io.hpp>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
 // benefits, it eases a Windows port.
 #include <boost/dll/import.hpp>
 #include <boost/dll/runtime_symbol_info.hpp> // for program_location()
 #include <boost/filesystem.hpp>
-
 #include <boost/program_options.hpp>
+
 #include <iostream>
 #include <algorithm>
 #include <regex>
@@ -43,6 +44,9 @@ int main(int ac, char* av[]) {
         ("plug,p", po::value<std::vector<fs::path>>()
          ->default_value(std::vector<fs::path>(), TRANSCODE_PLUGIN_PATH)->composing(),
          "configure plugin path")
+        ("description", po::value<std::vector<fs::path>>()
+         ->default_value(std::vector<fs::path>(), {"."})->composing(), 
+         "description TOFL path")
         ;
 
     po::options_description filter_opt("Filter Options");
@@ -119,6 +123,27 @@ int main(int ac, char* av[]) {
             }
         }
     }
+
+    for (fs::path descdir: vm["description"].as<std::vector<fs::path>>()) {
+        BOOST_LOG_SEV(log, severity::debug1) << "searching " << descdir << " for type descriptions";
+        static std::regex is_description(R"((.+)\.toml)");
+        for (fs::directory_entry& tofl: fs::directory_iterator(descdir)) {
+            std::cmatch match;
+            std::regex_match(tofl.path().string().c_str(), match, is_description);
+            if (match.size()) {
+                std::string descname = match[1];
+                BOOST_LOG_SEV(log, severity::debug1) << "loading descriptions from " << tofl;
+                std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file(tofl.path().string());
+
+                // Parse the file in two passes, so the detectors have access to the descriptor's types
+                for (const auto& type: *descfile)
+                    plog::load_description(type.first, type.second->as_table());
+                for (const auto& type: *descfile)
+                    plog::load_detector(type.first, type.second->as_table());
+            }
+        }
+    }
+
 
     if (vm.count("help")) {
         std::cout << "PolySync Transcoder" << std::endl << std::endl;

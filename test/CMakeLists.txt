@@ -1,2 +1,4 @@
-add_executable ( transcode_test variant.cpp )
-target_link_libraries( transcode_test mettle ) # ${Boost_LIBRARIES} )
+foreach ( component IN ITEMS variant size )
+    add_executable ( test_${component} ${component}.cpp )
+    target_link_libraries ( test_${component} mettle ${Boost_LIBRARIES} )
+endforeach( component )

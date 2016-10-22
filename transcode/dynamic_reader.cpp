@@ -28,13 +28,13 @@ namespace polysync { namespace plog {
                         mismatch.emplace_back(field.first);
                 }
                 if (mismatch.empty()) {
-                    BOOST_LOG_SEV(read.log, severity::debug1) << "matched " << detector.parent << " --> " << detector.child;
+                    BOOST_LOG_SEV(read.log, severity::debug1) << "parsing sequel \"" << detector.parent << "\" --> \"" << detector.child << "\"";
                     return detector.child;
                 }
                 BOOST_LOG_SEV(read.log, severity::debug2) << detector.child << ": mismatched" 
                     << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
                             [&](auto str, auto field) { 
-                            return str + " { " + field + ": " + lex(parent.at(field)) + " " 
+                            return str + " { " + field + ": " + lex(parent.at(field)) + " != " 
                             + lex(detector.match.at(field)) + " }"; });
             }
             return std::string();
@@ -59,7 +59,7 @@ namespace polysync { namespace plog {
                  return;
              } 
         }
-        BOOST_LOG_SEV(read.log, severity::info) << "type not detected, returning raw sequence";
+        BOOST_LOG_SEV(read.log, severity::debug1) << "type not detected, returning raw sequence";
         plog::sequence<std::uint32_t, std::uint8_t> raw;
         raw.resize(rem);
         read.stream.read((char *)raw.data(), rem);
@@ -115,12 +115,6 @@ namespace polysync { namespace plog {
             } },
     };
 
-
-    // node dynamic_reader::operator()(std::streamoff off, const std::string& type, std::shared_ptr<tree> parent) {
-    //     stream.seekg(off);
-    //     return operator()("type4", parent);
-    // }
-
     node dynamic_reader::operator()() {
         std::shared_ptr<tree> result = std::make_shared<tree>();
 
@@ -129,7 +123,6 @@ namespace polysync { namespace plog {
     // formed and starts with a msg_header.  In that case, might as well do a
     // static parse on msg_header and dynamic parse the rest.
     std::stringstream ss;
-    // ss << std::fixed << std::setfill('0') << std::setw(3) << order << " ";
     ss << "msg_header";
     std::string name = ss.str();
     order += 1;
@@ -137,6 +130,8 @@ namespace polysync { namespace plog {
     if (!type_support_map.count(msg.type))
         throw std::runtime_error("no type_support for " + std::to_string(msg.type));
     std::string type = type_support_map.at(msg.type);
+    if (!description_map.count(type))
+        throw std::runtime_error("no description for type \"" + type + "\"");
     const type_descriptor& desc = description_map.at(type);
     result->emplace(name, msg);
 
@@ -149,14 +144,17 @@ namespace polysync { namespace plog {
 }
 
 std::shared_ptr<tree> dynamic_reader::operator()(const std::string& name, const type_descriptor& desc) {
-    BOOST_LOG_SEV(log, severity::debug1) << "parsing0 " << name << " "  << desc;
     std::shared_ptr<tree> result = std::make_shared<tree>();
     result->name = name;
     std::for_each(desc.begin(), desc.end(), [this, &result](auto field) {
+            if (field.name == "skip") {
+                stream.seekg(std::stoul(field.type), std::ios_base::cur);
+                return;
+            }
+
             node a = operator()(field.type, result);
             // Attempt to keep the fields in the same order as the description.
             std::stringstream ss;
-            // ss << std::fixed << std::setfill('0') << std::setw(3) << order << " ";
             order += 1;
             std::string name = ss.str();
 
@@ -167,7 +165,6 @@ std::shared_ptr<tree> dynamic_reader::operator()(const std::string& name, const 
             name = name + (a.name.empty() ? field.name : a.name);
             result->emplace(name, a);
     });
-    // std::cout << result << std::endl;
     return std::move(result);
 }
 
@@ -176,14 +173,12 @@ node dynamic_reader::operator()(const std::string& type, std::shared_ptr<tree> p
     auto parse = parse_map.find(type);
     if (parse != parse_map.end()) {
         node result = parse->second(*this, parent);
-        BOOST_LOG_SEV(log, severity::debug2) << "parsed dynamic1 " << type << " = " << std::hex << result << std::dec;
         return std::move(result);
     }
 
     auto desc = description_map.find(type);
     if (desc != description_map.end()) {
         node result = operator()(type, desc->second);
-        BOOST_LOG_SEV(log, severity::debug2) << "parsed from description2 " << result;
         result.name = type;
         return result;
     }

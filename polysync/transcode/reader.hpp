@@ -1,6 +1,7 @@
 #pragma once
 
 #include <polysync/transcode/core.hpp>
+#include <polysync/transcode/size.hpp>
 #include <polysync/transcode/description.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <fstream>
@@ -35,6 +36,13 @@ struct iterator {
 
 class reader {
 public:
+
+    reader(std::istream& st) : stream(st) {
+        stream.seekg(0, std::ios_base::end);
+        endpos = stream.tellg();
+        stream.seekg(0, std::ios_base::beg);
+    }
+
     // Factory methods for STL compatible iterators
 
     iterator begin(std::function<bool (iterator)> filt) { 
@@ -43,8 +51,6 @@ public:
 
     iterator end() { return iterator { this, endpos, endpos }; }
 
-    // Constructors (why can't this be inline?)
-    reader(std::istream&);
 
 public:
     // Define a set of read() templates, overloads, and specializations to pattern
@@ -123,11 +129,11 @@ public:
     std::streamoff endpos;
 };
 
-inline reader::reader(std::istream& st) : stream(st) {
-    stream.seekg(0, std::ios_base::end);
-    endpos = stream.tellg();
-    stream.seekg(0, std::ios_base::beg);
-}
+// inline reader::reader(std::istream& st) : stream(st) {
+//     stream.seekg(0, std::ios_base::end);
+//     endpos = stream.tellg();
+//     stream.seekg(0, std::ios_base::beg);
+// }
 
 inline log_record iterator::operator*() { 
     return stream->read<log_record>(pos); 
@@ -138,8 +144,7 @@ inline iterator& iterator::operator++() {
     // Advance the iterator's position to the beginning of the next record.
     // Keep going as long as the filter returns false.
     do {
-        // pos += size<log_record>::packed() - size<msg_header>::packed() + stream->read<log_record>(pos).size;
-        pos += size<log_record>::packed() + stream->read<log_record>(pos).size;
+        pos += size<log_record>::value() + stream->read<log_record>(pos).size;
     } while (pos < end && !filter(*this));
 
     return *this;

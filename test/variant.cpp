@@ -1,14 +1,11 @@
-// #include <polysync/transcode/core.hpp>
 #include <polysync/transcode/variant.hpp>
 #include <polysync/transcode/io.hpp>
 #include <iostream>
 #include <mettle.hpp>
 
-
 using namespace mettle;
 namespace endian = boost::endian;
 namespace plog = polysync::plog;
-
 
 struct number_factory {
     template <typename T>

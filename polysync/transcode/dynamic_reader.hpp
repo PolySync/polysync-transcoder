@@ -6,31 +6,16 @@
 
 namespace polysync { namespace plog {
 
-struct field_descriptor {
+// Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
+// is strongly typed as one of the variant component types.
+struct node : variant {
+    using variant::variant;
     std::string name;
-    std::string type;
 };
 
-struct detector_type {
-    std::string parent;
-    std::map<std::string, variant> match;
-    std::string child;
-};
-
-using type_descriptor = std::vector<field_descriptor>;
-
-extern std::map<std::string, type_descriptor> description_map;
-extern std::vector<detector_type> detector_list;
-
-template <>
-struct size<field_descriptor> {
-    size(const field_descriptor& f) : field(f) { }
-
-    std::streamoff packed() {
-        return dynamic_typemap.at(field.type).size;
-    }
-
-    field_descriptor field;
+struct tree : std::map<std::string, node> {
+    using std::map<std::string, node>::map;
+    std::string name;
 };
 
 template <typename Struct>
@@ -44,18 +29,6 @@ inline type_descriptor describe() {
             return desc;
             });
 }
-
-
-struct node : variant {
-    using variant::variant;
-    std::string name;
-};
-
-
-struct tree : std::map<std::string, node> {
-    using std::map<std::string, node>::map;
-    std::string name;
-};
 
 struct dynamic_reader : reader {
     using reader::reader;

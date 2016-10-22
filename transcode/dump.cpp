@@ -19,10 +19,6 @@ struct pretty_printer {
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
     print(std::ostream& os, const std::string& name, const Number& value) {
-        static std::regex skip(".*skip$");
-        if (std::regex_match(name, skip))
-            return;
-
         os << tab.back() << format.green << name << ": " << format.normal 
            << value << wrap << format.normal;
     }
@@ -43,7 +39,7 @@ struct pretty_printer {
     void print(std::ostream& os, const std::string& name, std::shared_ptr<plog::tree> top) {
         os << tab.back() << format.cyan << format.bold << name << " {" << wrap << format.normal;
         tab.push_back(tab.back() + "    ");
-        // for (auto desc: plog::description_map.at(name)) {
+        // const plog::type_descriptor& desc = plog::description_map.at(name);
         //     auto f = top->find(desc.name);
         //     eggs::variants::apply([&](auto f) { print(os, desc.name, f); }, f->second);
         // }

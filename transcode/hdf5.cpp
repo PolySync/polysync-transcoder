@@ -135,7 +135,7 @@ class writer {
                     blob += *sz;
                 } else {
                     // All other fields just get serialized as a raw memory copy
-                    size_t sz = plog::size<plog::field_descriptor>(field).packed();
+                    size_t sz = plog::size<plog::field_descriptor>(field).value();
                     w.write(&(*blob), sz);
                     blob += sz;
                 }
