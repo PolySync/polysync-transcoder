@@ -26,22 +26,22 @@ struct plugin : public transcode::plugin {
         return opt;
     }
 
-    void connect(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
-        using reader = polysync::plog::reader;
+        using decoder = polysync::plog::decoder;
         std::string path = vm["name"].as<fs::path>().string();
 
-        call.reader.connect([path](reader& r) { 
+        visit.decoder.connect([path](decoder& r) { 
             out.open(path, std::ios_base::out | std::ios_base::binary);
             writer.reset(new polysync::plog::writer(out));
 
             plog::log_header head;
-            r.read(head);
+            r.decode(head);
             writer->write(head); 
             });
 
-        call.type_support.connect([](const plog::type_support& t) { });
-        call.record.connect([](const log_record& rec) { writer->write(rec); });
+        visit.type_support.connect([](const plog::type_support& t) { });
+        visit.record.connect([](const log_record& rec) { writer->write(rec); });
     }
 };
 

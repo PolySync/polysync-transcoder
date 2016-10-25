@@ -18,14 +18,14 @@ struct pretty_printer {
     // Pretty print terminal types
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
-    print(std::ostream& os, const std::string& name, const Number& value) {
+    print(std::ostream& os, const std::string& name, const Number& value) const {
         os << tab.back() << format.green << name << ": " << format.normal 
-           << value << wrap << format.normal;
+           << value << sep << format.normal;
     }
 
     // Pretty print boost::hana (static) structures
     template <typename Struct, class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
-    void print(std::ostream& os, const std::string& name, const Struct& s) {
+    void print(std::ostream& os, const std::string& name, const Struct& s) const {
         os << tab.back() << format.blue << format.bold << name << " {" << wrap << format.normal;
         tab.push_back(tab.back() + "    ");
         hana::for_each(s, [&os, this](auto f) mutable { 
@@ -36,13 +36,9 @@ struct pretty_printer {
     }
 
     // Pretty print plog::tree (dynamic) structures
-    void print(std::ostream& os, const std::string& name, std::shared_ptr<plog::tree> top) {
+    void print(std::ostream& os, const std::string& name, std::shared_ptr<plog::tree> top) const {
         os << tab.back() << format.cyan << format.bold << name << " {" << wrap << format.normal;
-        tab.push_back(tab.back() + "    ");
-        // const plog::type_descriptor& desc = plog::description_map.at(name);
-        //     auto f = top->find(desc.name);
-        //     eggs::variants::apply([&](auto f) { print(os, desc.name, f); }, f->second);
-        // }
+        tab.push_back(tab.back() + tabstop);
         std::for_each(top->begin(), top->end(), 
                 [&](auto pair) { 
                 eggs::variants::apply([&](auto f) { print(os, pair.name, f); }, pair);
@@ -51,9 +47,11 @@ struct pretty_printer {
         os << tab.back() << format.cyan << format.bold << "}" << format.normal << wrap;
     }
 
-    std::shared_ptr<plog::tree> top;
-    std::vector<std::string> tab { "" };
+    mutable std::vector<std::string> tab { "" };
     std::string wrap { "\n" };
+    std::string finish { "" };
+    std::string tabstop { "    " };
+    std::string sep { "\n" };
 };
 
 struct plugin : transcode::plugin {
@@ -66,15 +64,23 @@ struct plugin : transcode::plugin {
         return opt;
     };
 
-    void connect(const po::variables_map& vm, transcode::callback& call) const {
+    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
-        call.record.connect([](const plog::log_record& record) { 
+        pretty_printer pretty;
+        if (vm.count("compact")) {
+            pretty.wrap = "";
+            pretty.sep = ",";
+            pretty.tabstop = " ";
+            pretty.finish = "\n";
+        }
+
+        visit.record.connect([pretty](const plog::log_record& record) { 
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
-                plog::dynamic_reader read(iss);
-                plog::node top = read.read();
-                pretty_printer pretty;
+                plog::dynamic_decoder read(iss);
+                plog::node top = read.decode(record);
                 pretty.print(std::cout, top.name, *top.target<std::shared_ptr<plog::tree>>());
+                std::cout << pretty.finish;
                 });
     }
 };

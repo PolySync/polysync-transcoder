@@ -11,7 +11,7 @@ struct plugin : transcode::plugin {
         return opt;
     }
 
-    void connect(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
     }
 
 };

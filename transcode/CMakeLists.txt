@@ -1,4 +1,4 @@
-add_executable ( transcode transcode.cpp core.cpp dynamic_reader.cpp logging.cpp description.cpp query.cpp dump.cpp plog.cpp csv.cpp )
+add_executable ( transcode transcode.cpp core.cpp decoder.cpp logging.cpp description.cpp query.cpp dump.cpp plog.cpp csv.cpp )
 add_definitions ( -DTRANSCODE_PLUGIN_PATH="transcode" ) # FIXME; relative to PSYNC_HOME?
 target_link_libraries ( transcode ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} dl )
 
@@ -15,14 +15,6 @@ if ( ${SCIDB_FOUND} )
     target_link_libraries ( scidb ${SCIDB_LIBRARIES} )
     set_target_properties( scidb PROPERTIES PREFIX "transcode." )
 endif()
-
-set ( MATLAB_FOUND TRUE )
-if ( ${SCIDB_FOUND} )
-    add_library( matlab MODULE matlab.cpp )
-    target_link_libraries ( matlab ${MATLAB_LIBRARIES} )
-    set_target_properties( matlab PROPERTIES PREFIX "transcode." )
-endif()
-
 
 include_directories( ${PYTHON_INCLUDE_DIRS} )
 add_library ( polysync SHARED python.cpp )

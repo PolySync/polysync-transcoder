@@ -75,10 +75,12 @@ class writer {
 
     void write(const plog::log_record& record) {
         std::istringstream iss(record.blob);
-        plog::dynamic_reader read(iss);
-        plog::node top = read();
+        plog::dynamic_decoder read(iss);
+        plog::node top = read.decode(record);
         std::shared_ptr<plog::tree> tree = *top.target<std::shared_ptr<plog::tree>>();
-        const plog::msg_header& msg_header = *tree->at("msg_header").target<plog::msg_header>();
+        auto it = std::find_if(tree->begin(), tree->end(), [](auto n) { return n.name == "msg_header"; });
+        const plog::msg_header& msg_header = *it->target<plog::msg_header>();
+
 
         // Create a key value that distinguishes a specific datatype from a specific source.
         topic_type topic { msg_header.type, msg_header.src_guid };
@@ -209,13 +211,13 @@ struct plugin : transcode::plugin {
     }
 
 
-    void connect(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
         fs::path path = vm["name"].as<fs::path>();
 
-        call.reader.connect([path](const plog::reader& reader) { hdf = std::make_shared<writer>(path); });
-        call.record.connect([](const plog::log_record& rec) { hdf->write(rec); });
-        call.cleanup.connect([](const plog::reader& reader) { hdf.reset(); });
+        visit.decoder.connect([path](const plog::decoder& decoder) { hdf = std::make_shared<writer>(path); });
+        visit.record.connect([](const plog::log_record& rec) { hdf->write(rec); });
+        visit.cleanup.connect([](const plog::decoder& decoder) { hdf.reset(); });
     }
 };
 

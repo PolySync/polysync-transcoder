@@ -1,5 +1,5 @@
 #include <polysync/transcode/core.hpp>
-#include <polysync/transcode/reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/transcode/console.hpp>
@@ -180,7 +180,7 @@ int main(int ac, char* av[]) {
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
-    polysync::transcode::callback call;
+    polysync::transcode::visitor visit;
 
     if (!vm.count("path")) {
         std::cerr << "error: no plog paths supplied!" << std::endl;
@@ -192,9 +192,9 @@ int main(int ac, char* av[]) {
     // the type_support field; stash them so we can map the (random) numbers to
     // (useful) static strings.  Most if not every plugin needs these, so just
     // add it globally here.
-    call.type_support.connect([](plog::type_support t) { plog::type_support_map.emplace(t.type, t.name); });
+    visit.type_support.connect([](plog::type_support t) { plog::type_support_map.emplace(t.type, t.name); });
 
-    plugin_map.at(output)->connect(vm, call);
+    plugin_map.at(output)->connect(vm, visit);
 
     std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
     if (vm.count("first")) {
@@ -214,16 +214,16 @@ int main(int ac, char* av[]) {
             std::ifstream st(path.c_str(), std::ifstream::binary);
 
             // Construct the next reader in the file list
-            plog::reader reader(st);
+            plog::decoder decoder(st);
 
-            call.reader(reader);
+            visit.decoder(decoder);
 
             plog::log_header head;
 
-            reader.read(head);
-            std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
-            std::for_each(reader.begin(filter), reader.end(), std::ref(call.record));
-            call.cleanup(reader);
+            decoder.decode(head);
+            std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(visit.type_support));
+            std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
+            visit.cleanup(decoder);
         } catch (const std::exception& e) {
             BOOST_LOG_SEV(log, severity::error) << e.what();
             break;

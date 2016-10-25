@@ -1,4 +1,4 @@
-#include <polysync/transcode/reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 
 #include <pybind11/pybind11.h>
 #include <boost/filesystem.hpp>
@@ -10,11 +10,11 @@ namespace plog = polysync::plog;
 PYBIND11_PLUGIN(polysync) {
     py::module m("polysync", "PolySync plog interface");
 
-    py::class_<plog::reader>(m, "reader")
+    py::class_<plog::decoder>(m, "decoder")
         // .def(py::init<const std::string&>())
-        .def("__enter__", [](plog::reader& s){})
+        .def("__enter__", [](plog::decoder& s){})
         // .def("__exit__", [](plog::reader&& s){ return std::move(s); })
-        .def("__iter__", [](plog::reader& s) { 
+        .def("__iter__", [](plog::decoder& s) { 
                 std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
                     return py::make_iterator(s.begin(filter), s.end()); 
                 },

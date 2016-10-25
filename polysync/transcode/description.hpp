@@ -81,6 +81,7 @@ extern std::vector<type> catalog;
 
 } // detector
 
+
 }} // namespace polysync::plog
 
 

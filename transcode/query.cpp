@@ -25,7 +25,7 @@ struct plugin : transcode::plugin {
         return opt;
     }
 
-    void connect(const po::variables_map& vm, callback& call) const {
+    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
         // Dump summary information of each file
         // if (vm.count("version"))
@@ -44,7 +44,7 @@ struct plugin : transcode::plugin {
 
         // Dump one line headers from each record to stdout.
         if (vm.count("headers"))
-            call.record.connect([](auto record) { 
+            visit.record.connect([](auto record) { 
                     std::cout << record.index << ": " << record.size << " bytes, type " 
                     // << msg_type.at(record.msg_header.type)
                     << std::endl; 
@@ -53,8 +53,8 @@ struct plugin : transcode::plugin {
         // Count records
         size_t count = 0;
         if (vm.count("count")) {
-            call.record.connect([&count](auto&&) { count += 1; });
-            call.cleanup.connect([&count](auto&&) { 
+            visit.record.connect([&count](auto&&) { count += 1; });
+            visit.cleanup.connect([&count](auto&&) { 
                     std::cout << count << " records" << std::endl; 
                     count = 0;
                     });
