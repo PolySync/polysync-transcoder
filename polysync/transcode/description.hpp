@@ -1,10 +1,10 @@
 #pragma once
 
-// Most PolySync message types are defined dynamically, typically as strings
-// located in the plog files themselves.  Legacy types will be supported by a
-// fallback mechanism (also defined as strings).  Select message types are
-// found in every plog file, and are specially defined in core.hpp, and not by
-// the dynamic mechanism implemented here.
+// Most PolySync and vendor specific message types are defined dynamically,
+// using TOML strings embedded in the plog files, or external config files.
+// Legacy types will be supported by a fallback in external files.  Ubiquitous
+// message types are found in every plog file, and are specially defined in
+// core.hpp, and not by the dynamic mechanism implemented here.
 
 #include <polysync/transcode/variant.hpp>
 #include <polysync/transcode/size.hpp>
@@ -22,18 +22,23 @@ struct field {
     std::string type;
 };
 
+// The full type description is just a vector of fields
+using type = std::vector<field>;
+
 struct atom {
     std::string name;
     std::streamoff size;
 };
 
+// Traverse a TOML table to install a new type description in the global catalog
 extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table);
 
-using type = std::vector<field>;
+// Global type descriptor catalogs
 extern std::map<std::string, type> catalog;
 extern std::map<std::type_index, atom> static_typemap; 
 extern std::map<std::string, atom> dynamic_typemap; 
 
+// Create a type description of a static structure, using hana for class instrospection
 template <typename Struct>
 inline type describe() {
     namespace hana = boost::hana;

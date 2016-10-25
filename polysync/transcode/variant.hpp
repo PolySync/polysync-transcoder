@@ -18,7 +18,7 @@ struct tree;
 // factor out std::shared_ptr<tree> to just tree, then.
 using variant = eggs::variant<
     std::shared_ptr<tree>,
-    msg_header,
+    // msg_header,
     plog::sequence<std::uint32_t, std::uint8_t>,
     float, double,
     std::int8_t, std::int16_t, int32_t, int64_t,
@@ -71,6 +71,9 @@ operator==(const polysync::plog::variant& lhs, U const& rhs)
 
     return false;
 }
+
+template <typename T, typename U>
+bool operator!=(const T& lhs, const U& rhs) { return !operator==(lhs, rhs); }
 
 }}
 

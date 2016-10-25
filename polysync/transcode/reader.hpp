@@ -129,12 +129,6 @@ public:
     std::streamoff endpos;
 };
 
-// inline reader::reader(std::istream& st) : stream(st) {
-//     stream.seekg(0, std::ios_base::end);
-//     endpos = stream.tellg();
-//     stream.seekg(0, std::ios_base::beg);
-// }
-
 inline log_record iterator::operator*() { 
     return stream->read<log_record>(pos); 
 }

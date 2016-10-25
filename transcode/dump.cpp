@@ -45,7 +45,7 @@ struct pretty_printer {
         // }
         std::for_each(top->begin(), top->end(), 
                 [&](auto pair) { 
-                eggs::variants::apply([&](auto f) { print(os, pair.first, f); }, pair.second);
+                eggs::variants::apply([&](auto f) { print(os, pair.name, f); }, pair);
                 });
         tab.pop_back();
         os << tab.back() << format.cyan << format.bold << "}" << format.normal << wrap;
@@ -72,7 +72,7 @@ struct plugin : transcode::plugin {
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::dynamic_reader read(iss);
-                plog::node top = read();
+                plog::node top = read.read();
                 pretty_printer pretty;
                 pretty.print(std::cout, top.name, *top.target<std::shared_ptr<plog::tree>>());
                 });

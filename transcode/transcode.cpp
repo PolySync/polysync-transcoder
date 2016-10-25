@@ -143,7 +143,7 @@ int main(int ac, char* av[]) {
             }
         }
     }
-
+    plog::detector::catalog.push_back(plog::detector::type{"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
 
     if (vm.count("help")) {
         std::cout << "PolySync Transcoder" << std::endl << std::endl;
@@ -210,17 +210,23 @@ int main(int ac, char* av[]) {
     // Double iterate over files from the command line, and records in each file.
     for (fs::path path: vm["path"].as<std::vector<fs::path>>()) 
     {
-        std::ifstream st(path.c_str(), std::ifstream::binary);
+        try {
+            std::ifstream st(path.c_str(), std::ifstream::binary);
 
-        // Construct the next reader in the file list
-        plog::reader reader(st);
+            // Construct the next reader in the file list
+            plog::reader reader(st);
 
-        call.reader(reader);
+            call.reader(reader);
 
-        plog::log_header head;
-        reader.read(head);
-        std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
-        std::for_each(reader.begin(filter), reader.end(), std::ref(call.record));
-        call.cleanup(reader);
+            plog::log_header head;
+
+            reader.read(head);
+            std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(call.type_support));
+            std::for_each(reader.begin(filter), reader.end(), std::ref(call.record));
+            call.cleanup(reader);
+        } catch (const std::exception& e) {
+            BOOST_LOG_SEV(log, severity::error) << e.what();
+            break;
+        }
     }
 }

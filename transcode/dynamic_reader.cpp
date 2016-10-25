@@ -9,181 +9,166 @@ std::string print(const std::vector<std::string>& p) {
 
 namespace polysync { namespace plog { 
 
-    using logging::severity;
+using logging::severity;
 
-    static std::vector<std::function<std::string (dynamic_reader&, tree&)>> type_detect = {
+node parse_buffer(dynamic_reader& read, const std::vector<node>& series) {
+    if (series.empty())
+        throw std::runtime_error("series has no parent");
+    const node& parent = series.back();
+    if (parent.name.empty())
+        throw std::runtime_error("node has no name");
 
-        [](dynamic_reader& read, tree& parent) -> std::string {
+    std::shared_ptr<plog::tree> tree;
+    tree = *parent.target<std::shared_ptr<plog::tree>>();
+    if (tree->empty())
+        throw std::runtime_error("parent tree is empty");
 
-            for (const detector::type& det: detector::catalog) {
-                if (det.parent != parent.name) {
-                    BOOST_LOG_SEV(read.log, severity::debug2) << parent.name << ": parent is not " << det.parent << " (no match)";
-                    continue;
-                }
-                std::vector<std::string> mismatch;
-                for (auto field: det.match) {
-                    auto it = parent.find(field.first);
-                    if (it != parent.end() && (it->second == field.second)) {
-                    } else
-                        mismatch.emplace_back(field.first);
-                }
-                if (mismatch.empty()) {
-                    BOOST_LOG_SEV(read.log, severity::debug1) << "parsing sequel \"" << det.parent << "\" --> \"" << det.child << "\"";
-                    return det.child;
-                }
-                BOOST_LOG_SEV(read.log, severity::debug2) << det.child << ": mismatched" 
-                    << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
-                            [&](auto str, auto field) { 
-                            return str + " { " + field + ": " + lex(parent.at(field)) + " != " 
-                            + lex(det.match.at(field)) + " }"; });
+    std::streampos rem = read.endpos - read.stream.tellg();
+    BOOST_LOG_SEV(read.log, severity::debug2) 
+        << "decoding " << (size_t)rem << " byte payload from \"" << parent.name << "\"";
+
+    // Iterate each detector in the catalog and check for a match.  Store the resulting type name in tpname.
+    std::string tpname;
+    for (const detector::type& det: detector::catalog) {
+
+        // Parent is not even the right type, so short circuit and fail this test early.
+        if (det.parent != parent.name) {
+            BOOST_LOG_SEV(read.log, severity::debug2) << det.child << " not matched: parent \"" 
+                << parent.name << "\" != \"" << det.parent << "\"";
+            continue;
+        }
+
+        // Iterate each field in the detector looking for mismatches.
+        std::vector<std::string> mismatch;
+        for (auto field: det.match) {
+            auto it = std::find_if(tree->begin(), tree->end(), 
+                    [field](const node& n) { 
+                    return n.name == field.first; 
+                    });
+            if (it == tree->end()) {
+                BOOST_LOG_SEV(read.log, severity::debug2) << det.child << " not matched: parent \"" << det.parent << "\" missing field \"" << field.first << "\"";
+                break;
             }
-            return std::string();
+            if (*it != field.second)
+                mismatch.emplace_back(field.first);
         }
-    };
+        
+        // Too many matches. Catalog is not orthogonal and needs tweaking.
+        if (mismatch.empty() && !tpname.empty())
+            throw std::runtime_error("non-unique detectors: " + tpname + " and " + det.child);
 
-
-    void parse_buffer(dynamic_reader& read, std::shared_ptr<tree> parent, std::vector<node>& result) {
-        std::streampos rem = read.endpos - read.stream.tellg();
-        BOOST_LOG_SEV(read.log, severity::debug2) << "parsing " << (size_t)rem << " byte buffer from " << parent->name;
-        for (auto check: type_detect) {
-            std::string name = check(read, *parent);
-             if (!name.empty()) {
-                 BOOST_LOG_SEV(read.log, severity::debug1) << "recursing nested type \"" << parent->name << "\" --> \"" << name << "\"";
-                 node n = read(name, parent);
-                 result.emplace_back(n);
-                 std::streampos rem = read.endpos - read.stream.tellg();
-                 if (rem > 0) {
-                      std::shared_ptr<tree> tr = *n.target<std::shared_ptr<tree>>();
-                      parse_buffer(read, tr, result);
-                 };
-                 return;
-             } 
+        // Exactly one match. We have detected the sequel type.
+        if (mismatch.empty()) {
+            tpname = det.child;
+            continue;
         }
+
+        //  The detector failed, print a fancy message to help developer fix catalog.
+        BOOST_LOG_SEV(read.log, severity::debug2) << det.child << ": mismatched" 
+            << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
+                    [&](const std::string& str, auto field) { 
+                        return str + " { " + field + ": " + 
+                        // lex(*std::find_if(tree->begin(), tree->end(), [field](auto f){ return field == f.name; })) + 
+                        // lex(tree->at(field)) + 
+                        // (tree->at(field) == det.match.at(field) ? " == " : " != ")
+                        lex(det.match.at(field)) + " }"; 
+                    });
+    }
+
+    // Absent a detection, return raw bytes.
+    if (tpname.empty()) {
         BOOST_LOG_SEV(read.log, severity::debug1) << "type not detected, returning raw sequence";
         plog::sequence<std::uint32_t, std::uint8_t> raw;
         raw.resize(rem);
         read.stream.read((char *)raw.data(), rem);
-        result.emplace_back(raw);
-        result.back().name = "raw";
+        return node(raw, "raw");
     }
 
-    using parser = std::function<node (reader&, std::shared_ptr<tree>)>;
-    static std::map<std::string, parser> parse_map = {
-        { "float", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<float>(); } },
-        { ">float32", [](plog::reader& r, std::shared_ptr<tree>) 
-            {
-                std::uint32_t swap = r.read<endian::big_uint32_t>().value();
-                return *(new ((void *)&swap) float);
-            } },
-        { "double", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<double>(); } },
-        { "float64", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<double>(); } },
-        { "uint8", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::uint8_t>(); } },
-        { "uint16", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::uint16_t>(); } },
-        { "uint32", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::uint32_t>(); } },
-        { "uint64", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::uint64_t>(); } },
-        { "int8", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::int8_t>(); } },
-        { "int16", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::int16_t>(); } },
-        { "int32", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::int32_t>(); } },
-        { "int64", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<std::int64_t>(); } },
-        { ">uint16", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_uint16_t>(); } },
-        { ">uint32", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_uint32_t>(); } },
-        { ">uint64", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_uint64_t>(); } },
-        { ">int16", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_int16_t>(); } },
-        { ">int32", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_int32_t>(); } },
-        { ">int64", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_int64_t>(); } },
-        { "ps_guid", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<plog::guid>(); } },
-        { "ps_timestamp", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<plog::timestamp>(); } },
-        { "ps_msg_header", [](plog::reader& r, std::shared_ptr<tree>) { return r.read<plog::msg_header>(); } },
-        { "log_record", [](plog::reader&, std::shared_ptr<tree>) { return (std::uint32_t)0; } },
-        { "log_header", [](plog::reader&, std::shared_ptr<tree>) { return (std::uint32_t)0; } },
-        { ">NTP64", [](plog::reader& r, std::shared_ptr<tree>){ return r.read<endian::big_uint64_t>(); } },
-        { "sequence<octet>", [](plog::reader& r, std::shared_ptr<tree> parent) -> node
-            { 
-                auto seq = r.read<plog::sequence<std::uint32_t, std::uint8_t>>();
-                BOOST_LOG_SEV(r.log, severity::debug2) << "parsing sequence with " << seq.size() << " bytes";
-                std::istringstream sub(seq);
-                dynamic_reader read(sub);
-                std::vector<node> result;
-                parse_buffer(read, parent, result); 
-                if (result.size() == 1)
-                    return result.front();
+    BOOST_LOG_SEV(read.log, severity::debug1) << tpname << " matched from parent \"" << parent.name << "\"";
 
-                std::shared_ptr<tree> tr = std::make_shared<tree>();
-                for (auto n: result)
-                    tr->emplace(n.name, n);
-                return tr;
-            } },
-    };
+    // We have exactly one detector match. This is the best case. Recurse and decode sequel.
+    // series.emplace_back(read.read(tpname, series));
+    return read.read(tpname, series);
+}
 
-    node dynamic_reader::operator()() {
-        std::shared_ptr<tree> result = std::make_shared<tree>();
+using parser = std::function<node (reader&, const std::vector<node>&)>;
+static std::map<std::string, parser> parse_map = {
+    { "float", [](reader& r, const std::vector<node>&) { return r.read<float>(); } },
+    { ">float32", [](reader& r, const std::vector<node>&) 
+        {
+            std::uint32_t swap = r.read<endian::big_uint32_t>().value();
+            return *(new ((void *)&swap) float);
+        } },
+    { "double", [](reader& r, const std::vector<node>&) { return r.read<double>(); } },
+    { "float64", [](reader& r, const std::vector<node>&) { return r.read<double>(); } },
+    { "uint8", [](reader& r, const std::vector<node>&) { return r.read<std::uint8_t>(); } },
+    { "uint16", [](reader& r, const std::vector<node>&) { return r.read<std::uint16_t>(); } },
+    { "uint32", [](reader& r, const std::vector<node>&) { return r.read<std::uint32_t>(); } },
+    { "uint64", [](reader& r, const std::vector<node>&) { return r.read<std::uint64_t>(); } },
+    { "int8", [](reader& r, const std::vector<node>&) { return r.read<std::int8_t>(); } },
+    { "int16", [](reader& r, const std::vector<node>&) { return r.read<std::int16_t>(); } },
+    { "int32", [](reader& r, const std::vector<node>&) { return r.read<std::int32_t>(); } },
+    { "int64", [](reader& r, const std::vector<node>&) { return r.read<std::int64_t>(); } },
+    { ">uint16", [](reader& r, const std::vector<node>&){ return r.read<endian::big_uint16_t>(); } },
+    { ">uint32", [](reader& r, const std::vector<node>&){ return r.read<endian::big_uint32_t>(); } },
+    { ">uint64", [](reader& r, const std::vector<node>&){ return r.read<endian::big_uint64_t>(); } },
+    { ">int16", [](reader& r, const std::vector<node>&){ return r.read<endian::big_int16_t>(); } },
+    { ">int32", [](reader& r, const std::vector<node>&){ return r.read<endian::big_int32_t>(); } },
+    { ">int64", [](reader& r, const std::vector<node>&){ return r.read<endian::big_int64_t>(); } },
+    { "ps_guid", [](reader& r, const std::vector<node>&){ return r.read<plog::guid>(); } },
+    { "ps_timestamp", [](reader& r, const std::vector<node>&) { return r.read<plog::timestamp>(); } },
+    { ">NTP64", [](reader& r, const std::vector<node>&){ return r.read<endian::big_uint64_t>(); } },
+};
+
+node dynamic_reader::read() {
 
     // There is no feasible way to detect and enforce that a blob starts with a
     // msg_header.  Hence, we must just assume that every message is well
     // formed and starts with a msg_header.  In that case, might as well do a
     // static parse on msg_header and dynamic parse the rest.
-    std::stringstream ss;
-    ss << "msg_header";
-    std::string name = ss.str();
-    order += 1;
     msg_header msg = read<msg_header>();
-    if (!type_support_map.count(msg.type))
-        throw std::runtime_error("no type_support for " + std::to_string(msg.type));
-    std::string type = type_support_map.at(msg.type);
-    if (!descriptor::catalog.count(type))
-        throw std::runtime_error("no description for type \"" + type + "\"");
-    const descriptor::type& desc = descriptor::catalog.at(type);
-    result->emplace(name, msg);
-
-    std::shared_ptr<tree> tr = operator()(type, desc);
-    for (auto n: *tr)
-        result->emplace(n);
-    node n = result;
-    n.name = type; 
-    return std::move(n);
+    std::vector<node> series = { { node::from(msg), "msg_header" } };
+    while (endpos - stream.tellg() > 0) {
+        node n = parse_buffer(*this, series);
+        series.emplace_back(n);
+    }
+    std::shared_ptr<plog::tree> tree = std::make_shared<plog::tree>();
+    std::copy(series.begin(), series.end(), std::back_inserter(*tree));
+    return node(tree, "log_record");
 }
 
-std::shared_ptr<tree> dynamic_reader::operator()(const std::string& name, const descriptor::type& desc) {
-    std::shared_ptr<tree> result = std::make_shared<tree>();
-    result->name = name;
-    std::for_each(desc.begin(), desc.end(), [this, &result](auto field) {
+node dynamic_reader::read(const std::string& type, const std::vector<node>& series) {
+
+    auto parse = parse_map.find(type);
+    if (parse != parse_map.end()) 
+        return parse->second(*this, series);
+
+    if (!descriptor::catalog.count(type))
+        throw std::runtime_error("dynamic_reader: no reader for type " + type);
+
+    const descriptor::type& desc = descriptor::catalog.at(type);
+    std::shared_ptr<plog::tree> child = std::make_shared<plog::tree>();
+    BOOST_LOG_SEV(log, severity::debug2) << "decoding \"" << type << "\"";
+    std::for_each(desc.begin(), desc.end(), [&](auto field) {
+
+            // Burn off unused or reserved space using the "skip" keyword.
             if (field.name == "skip") {
                 stream.seekg(std::stoul(field.type), std::ios_base::cur);
                 return;
             }
 
-            node a = operator()(field.type, result);
-            // Attempt to keep the fields in the same order as the description.
-            std::stringstream ss;
-            order += 1;
-            std::string name = ss.str();
+            node a = read(field.type, series);
+            BOOST_LOG_SEV(log, severity::debug2) << field.name << " = " << a << " (" << field.type << ")";
 
             // fields that have been parsed recursively start out as
             // sequence<octet>, but a better, more specific name is discovered
             // during the parse.  If this happened, use the better name.
             // Otherwise, use the original descriptor's name.
-            name = name + (a.name.empty() ? field.name : a.name);
-            result->emplace(name, a);
-    });
-    return std::move(result);
-}
+            std::string fname = a.name.empty() ? field.name : a.name;
+            child->emplace_back(a, fname);
+        });
 
-node dynamic_reader::operator()(const std::string& type, std::shared_ptr<tree> parent) {
-
-    auto parse = parse_map.find(type);
-    if (parse != parse_map.end()) {
-        node result = parse->second(*this, parent);
-        return std::move(result);
-    }
-
-    auto desc = descriptor::catalog.find(type);
-    if (desc != descriptor::catalog.end()) {
-        node result = operator()(type, desc->second);
-        result.name = type;
-        return result;
-    }
-
-    throw std::runtime_error("dynamic_reader: no reader for type " + type);
+    return node(child, type);
 }
 
 

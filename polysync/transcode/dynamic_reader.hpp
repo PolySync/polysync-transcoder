@@ -9,23 +9,36 @@ namespace polysync { namespace plog {
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
 // is strongly typed as one of the variant component types.
 struct node : variant {
+
+    template <typename T>
+    node(const T& value, std::string n) : variant(value), name(n) { }
+
     using variant::variant;
     std::string name;
-};
 
-struct tree : std::map<std::string, node> {
-    using std::map<std::string, node>::map;
-    std::string name;
-};
+    template <typename Struct>
+    static node from(const Struct&);
+ };
+
+struct tree : std::vector<node> {};
+
+template <typename Struct>
+inline node node::from(const Struct& s) {
+    std::shared_ptr<tree> tr = std::make_shared<tree>();
+    hana::for_each(s, [tr](auto pair) { 
+            tr->emplace_back(hana::second(pair), hana::to<char const*>(hana::first(pair)));
+            });
+        
+    return node(tr);
+}
 
 struct dynamic_reader : reader {
     using reader::reader;
-    node operator()(const std::string& type, std::shared_ptr<tree> parent);
-    node operator()(std::streamoff off, const std::string& type, std::shared_ptr<tree> parent);
-    node operator()();
-    std::shared_ptr<tree> operator()(const std::string&, const descriptor::type&);
+    using reader::read;
 
-    size_t order { 1 };
+    node read();
+    node read(const std::string& type, const std::vector<node>&);
+    // node read(const std::string&, const descriptor::type&);
 };
 
 }} // namespace polysync::plog
