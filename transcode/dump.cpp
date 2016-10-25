@@ -36,7 +36,7 @@ struct pretty_printer {
     }
 
     // Pretty print plog::tree (dynamic) structures
-    void print(std::ostream& os, const std::string& name, std::shared_ptr<plog::tree> top) const {
+    void print(std::ostream& os, const std::string& name, plog::tree top) const {
         os << tab.back() << format.cyan << format.bold << name << " {" << wrap << format.normal;
         tab.push_back(tab.back() + tabstop);
         std::for_each(top->begin(), top->end(), 
@@ -77,9 +77,9 @@ struct plugin : transcode::plugin {
         visit.record.connect([pretty](const plog::log_record& record) { 
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
-                plog::dynamic_decoder read(iss);
+                plog::decoder read(iss);
                 plog::node top = read.decode(record);
-                pretty.print(std::cout, top.name, *top.target<std::shared_ptr<plog::tree>>());
+                pretty.print(std::cout, top.name, *top.target<plog::tree>());
                 std::cout << pretty.finish;
                 });
     }

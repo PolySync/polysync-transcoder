@@ -29,9 +29,8 @@ struct iterator {
     bool operator==(const iterator& other) const { return pos == other.pos; }
 
     log_record operator*(); // read and return the payload
+    log_record operator->(); // read and return the payload
     iterator& operator++(); // skip to the next record
-
-    log_record operator->();
 };
 
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
@@ -44,16 +43,15 @@ struct node : variant {
     using variant::variant;
     std::string name;
 
+    // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
     static node from(const Struct&, const std::string& name);
  };
 
-struct tree : std::vector<node> {};
-
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
 inline node node::from(const Struct& s, const std::string& name) {
-    std::shared_ptr<tree> tr = std::make_shared<tree>();
+    tree tr = std::make_shared<tree::element_type>();
     hana::for_each(s, [tr](auto pair) { 
             tr->emplace_back(hana::second(pair), hana::to<char const*>(hana::first(pair)));
             });

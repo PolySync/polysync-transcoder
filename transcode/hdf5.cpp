@@ -1,7 +1,7 @@
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/core.hpp>
 #include <polysync/transcode/writer.hpp>
-#include <polysync/transcode/dynamic_reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include <boost/filesystem.hpp>
@@ -75,9 +75,9 @@ class writer {
 
     void write(const plog::log_record& record) {
         std::istringstream iss(record.blob);
-        plog::dynamic_decoder read(iss);
+        plog::decoder read(iss);
         plog::node top = read.decode(record);
-        std::shared_ptr<plog::tree> tree = *top.target<std::shared_ptr<plog::tree>>();
+        plog::tree tree = *top.target<plog::tree>();
         auto it = std::find_if(tree->begin(), tree->end(), [](auto n) { return n.name == "msg_header"; });
         const plog::msg_header& msg_header = *it->target<plog::msg_header>();
 

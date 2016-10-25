@@ -9,7 +9,9 @@ namespace polysync { namespace plog {
 
 namespace endian = boost::endian;
 
-struct tree;
+struct node;
+
+using tree = std::shared_ptr<std::vector<node>>;
 
 // Ugh, eggs::variant lacks the recursive feature supported by the old
 // boost::variant, which makes it a PITA to implement a syntax tree (no nested
@@ -17,8 +19,7 @@ struct tree;
 // limitation.  Apparently we are getting std::variant in C++17; maybe we can
 // factor out std::shared_ptr<tree> to just tree, then.
 using variant = eggs::variant<
-    std::shared_ptr<tree>,
-    // msg_header,
+    tree,
     plog::sequence<std::uint32_t, std::uint8_t>,
     float, double,
     std::int8_t, std::int16_t, int32_t, int64_t,

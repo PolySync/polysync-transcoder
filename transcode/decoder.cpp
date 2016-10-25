@@ -1,4 +1,4 @@
-#include <polysync/transcode/dynamic_reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 #include <polysync/transcode/io.hpp>
 
 #include <algorithm>
@@ -12,8 +12,7 @@ namespace polysync { namespace plog {
 using logging::severity;
 
 std::string decoder::detect(const node& parent) {
-    std::shared_ptr<plog::tree> tree;
-    tree = *parent.target<std::shared_ptr<plog::tree>>();
+    plog::tree tree = *parent.target<plog::tree>();
     if (tree->empty())
         throw std::runtime_error("parent tree is empty");
 
@@ -84,7 +83,7 @@ std::string decoder::detect(const node& parent) {
 // "msg_header".  Continue reading the stream until it ends.
 node decoder::decode(const log_record& record) {
     node result = node::from(record, "log_record");
-    std::shared_ptr<plog::tree> tree = *result.target<std::shared_ptr<plog::tree>>();
+    plog::tree tree = *result.target<plog::tree>();
 
     // There is no simple way to detect and enforce that a blob starts with a
     // msg_header.  Hence, we must just assume that every message is well
@@ -92,7 +91,7 @@ node decoder::decode(const log_record& record) {
     // static parse on msg_header and dynamic parse the rest.
     tree->emplace_back(node::from(decode<msg_header>(), "msg_header"));
 
-    // Burn through the rest of the log record, decoding a sequence of types
+    // Burn through the rest of the log record, decoding a sequence of types.
     while (endpos - stream.tellg() > 0) {
         std::string type = detect(tree->back());
         tree->emplace_back(decode_desc(type));
@@ -129,13 +128,14 @@ static std::map<std::string, parser> parse_map = {
     { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
     { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
     { ">NTP64", [](decoder& r){ return r.decode<endian::big_uint64_t>(); } },
-    { "raw", [](decoder& r) { 
-                               plog::sequence<std::uint32_t, std::uint8_t> raw;
-                               std::streampos rem = r.endpos - r.stream.tellg();
-                               raw.resize(rem);
-                               r.stream.read((char *)raw.data(), rem);
-                               return node(raw, "raw");
-                           }},
+    { "raw", [](decoder& r) 
+        { 
+            plog::sequence<std::uint32_t, std::uint8_t> raw;
+            std::streampos rem = r.endpos - r.stream.tellg();
+            raw.resize(rem);
+            r.stream.read((char *)raw.data(), rem);
+            return node(raw, "raw");
+        }},
 };
 
 // Read a field, described by looking up the type by string.  The type strings can
@@ -152,7 +152,7 @@ node decoder::decode_desc(const std::string& type) {
 
     BOOST_LOG_SEV(log, severity::debug2) << "decoding \"" << type << "\"";
 
-    std::shared_ptr<plog::tree> child = std::make_shared<plog::tree>();
+    plog::tree child = std::make_shared<plog::tree::element_type>();
     const descriptor::type& desc = descriptor::catalog.at(type);
     std::for_each(desc.begin(), desc.end(), [&](auto field) {
 

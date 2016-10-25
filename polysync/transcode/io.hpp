@@ -2,7 +2,7 @@
 
 #include <polysync/transcode/core.hpp>
 #include <polysync/transcode/console.hpp>
-#include <polysync/transcode/dynamic_reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 
 #include <sstream>
 #include <string>
@@ -139,14 +139,10 @@ inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
     return os << "payload: " << record.blob.size() << " bytes }";
 }
 
-inline std::ostream& operator<<(std::ostream& os, const tree& rec) {
+inline std::ostream& operator<<(std::ostream& os, tree rec) {
     os << "{ ";
-    std::for_each(rec.begin(), rec.end(), [&os](auto field) { os << field << ", "; });
+    std::for_each(rec->begin(), rec->end(), [&os](auto field) { os << field << ", "; });
     return os << "}";
-}
-
-inline std::ostream& operator<<(std::ostream& os, const std::shared_ptr<tree> tree) {
-    return os << *tree;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const plog::node& value) {

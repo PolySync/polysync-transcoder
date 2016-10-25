@@ -1,5 +1,5 @@
 #include <polysync/transcode/plugin.hpp>
-#include <polysync/transcode/dynamic_reader.hpp>
+#include <polysync/transcode/decoder.hpp>
 #include <polysync/transcode/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/dll/alias.hpp>
