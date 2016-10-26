@@ -67,6 +67,8 @@ struct plugin : transcode::plugin {
     void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
         pretty_printer pretty;
+
+        // Modify the printing style based on input options
         if (vm.count("compact")) {
             pretty.wrap = "";
             pretty.sep = ",";
@@ -77,8 +79,8 @@ struct plugin : transcode::plugin {
         visit.record.connect([pretty](const plog::log_record& record) { 
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
-                plog::decoder read(iss);
-                plog::node top = read.decode(record);
+                plog::decoder decode(iss);
+                plog::node top = decode(record);
                 pretty.print(std::cout, top.name, *top.target<plog::tree>());
                 std::cout << pretty.finish;
                 });

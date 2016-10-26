@@ -81,7 +81,7 @@ std::string decoder::detect(const node& parent) {
 
 // Kick off a decoder with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
-node decoder::decode(const log_record& record) {
+node decoder::operator()(const log_record& record) {
     node result = node::from(record, "log_record");
     plog::tree tree = *result.target<plog::tree>();
 
@@ -101,8 +101,7 @@ node decoder::decode(const log_record& record) {
 
 // Define a set of factory functions that know how to decode specific binary
 // types.  They keys are strings from the "type" field of the TOML descriptions.
-using parser = std::function<node (decoder&)>;
-static std::map<std::string, parser> parse_map = {
+std::map<std::string, decoder::parser> decoder::parse_map = {
     { "float", [](decoder& r) { return r.decode<float>(); } },
     { ">float32", [](decoder& r) 
         {
@@ -134,7 +133,7 @@ static std::map<std::string, parser> parse_map = {
             std::streampos rem = r.endpos - r.stream.tellg();
             raw.resize(rem);
             r.stream.read((char *)raw.data(), rem);
-            return node(raw, "raw");
+            return node(raw, "raw", "raw");
         }},
 };
 
@@ -170,10 +169,10 @@ node decoder::decode_desc(const std::string& type) {
             // during the parse.  If this happened, use the better name.
             // Otherwise, use the original descriptor's name.
             std::string fname = a.name.empty() ? field.name : a.name;
-            child->emplace_back(a, fname);
+            child->emplace_back(a, fname, field.type);
         });
 
-    return node(child, type);
+    return node(child, type, type);
 }
 
 

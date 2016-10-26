@@ -93,7 +93,7 @@ int main(int ac, char* av[]) {
     // even if the plugin path is misconfigured.  It also makes the query
     // options appear first in the help screen, also useful.
     dll::shared_library self(dll::program_location());
-    for (std::string plugname: { "query", "dump", "plog", "csv" } ) {
+    for (std::string plugname: { "query", "dump", "datamodel", "plog", "csv" } ) {
         auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::transcode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
@@ -143,7 +143,10 @@ int main(int ac, char* av[]) {
             }
         }
     }
-    plog::detector::catalog.push_back(plog::detector::type{"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
+
+    plog::descriptor::catalog.emplace("log_record", plog::descriptor::describe<plog::log_record>());
+    plog::descriptor::catalog.emplace("msg_header", plog::descriptor::describe<plog::msg_header>());
+    plog::detector::catalog.push_back(plog::detector::type {"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
 
     if (vm.count("help")) {
         std::cout << "PolySync Transcoder" << std::endl << std::endl;
@@ -221,6 +224,7 @@ int main(int ac, char* av[]) {
             plog::log_header head;
 
             decoder.decode(head);
+            visit.log_header(head);
             std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(visit.type_support));
             std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
             visit.cleanup(decoder);

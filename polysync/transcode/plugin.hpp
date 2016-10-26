@@ -15,6 +15,7 @@ struct visitor {
     using callback = boost::signals2::signal<void (T)>;
 
     callback<plog::decoder&> decoder; // New plog file was opened.
+    callback<plog::log_header&> log_header; // New plog file was opened and log_header read.
     callback<const plog::log_record&> record; // Response to each log_record
     callback<const plog::decoder&> cleanup; // Decoder is destructed
     callback<const plog::type_support&> type_support; // Type support name/number association

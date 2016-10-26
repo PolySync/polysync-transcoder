@@ -14,7 +14,6 @@ namespace detector {
 
 std::vector<type> catalog; 
 
-
 }
 
 namespace descriptor { 

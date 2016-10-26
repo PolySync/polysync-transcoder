@@ -1,7 +1,6 @@
 #pragma once
 
 #include <polysync/transcode/core.hpp>
-#include <polysync/transcode/size.hpp>
 #include <polysync/transcode/description.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <fstream>
@@ -12,9 +11,10 @@ namespace polysync { namespace plog {
 namespace hana = boost::hana;
 
 // Indirecting and incrementing an iterator requires reading the plog file
-// itself, which we cannot do until plog::decoder is defined.  So implement
-// these functions below, after decoder definition.  In the meantime, forward
-// declare decoder so we can prototype the methods.
+// itself, because the offsets between records are always different, which we
+// cannot do until plog::decoder is defined.  So implement these functions
+// below, after decoder definition.  In the meantime, forward declare decoder
+// so we can prototype the methods.
 struct decoder;
 
 // Define an STL compatible iterator to traverse plog files
@@ -33,32 +33,6 @@ struct iterator {
     iterator& operator++(); // skip to the next record
 };
 
-// Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
-// is strongly typed as one of the variant component types.
-struct node : variant {
-
-    template <typename T>
-    node(const T& value, std::string n) : variant(value), name(n) { }
-
-    using variant::variant;
-    std::string name;
-
-    // Convert a hana structure into a vector of dynamic nodes.
-    template <typename Struct>
-    static node from(const Struct&, const std::string& name);
- };
-
-// Convert a hana structure into a vector of dynamic nodes.
-template <typename Struct>
-inline node node::from(const Struct& s, const std::string& name) {
-    tree tr = std::make_shared<tree::element_type>();
-    hana::for_each(s, [tr](auto pair) { 
-            tr->emplace_back(hana::second(pair), hana::to<char const*>(hana::first(pair)));
-            });
-        
-    return node(tr, name);
-}
-
 class decoder {
 public:
 
@@ -76,6 +50,13 @@ public:
 
     iterator end() { return iterator { this, endpos, endpos }; }
 
+
+public:
+    // Decode an entire record and return a parse tree.
+    node operator()(const plog::log_record&);
+
+    // Detect the next type from parent decode
+    std::string detect(const node& parent); 
 
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
@@ -131,9 +112,14 @@ public:
         stream.read((char *)record.blob.data(), record.blob.size());
     }
 
-    std::string detect(const node& parent); // Detect the next type from parent decode
-    node decode(const plog::log_record&);
+    // Decode a dynamic type using the description name.  This name will become
+    // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
     node decode_desc(const std::string& type);
+
+    // Define a set of factory functions that know how to decode specific binary
+    // types.  They keys are strings from the "type" field of the TOML descriptions.
+    using parser = std::function<node (decoder&)>;
+    static std::map<std::string, parser> parse_map;
 
     // Factory function of any supported type, for convenience
     template <typename T>
@@ -152,7 +138,7 @@ public:
 
     logging::logger log { "decoder" };
 
-// protected:
+protected:
 
     std::istream& stream;
     std::streamoff endpos;

@@ -75,8 +75,8 @@ class writer {
 
     void write(const plog::log_record& record) {
         std::istringstream iss(record.blob);
-        plog::decoder read(iss);
-        plog::node top = read.decode(record);
+        plog::decoder decode(iss);
+        plog::node top = decode(record);
         plog::tree tree = *top.target<plog::tree>();
         auto it = std::find_if(tree->begin(), tree->end(), [](auto n) { return n.name == "msg_header"; });
         const plog::msg_header& msg_header = *it->target<plog::msg_header>();

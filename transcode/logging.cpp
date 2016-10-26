@@ -14,9 +14,7 @@
 
 #include <iostream>
 
-namespace polysync { 
-    
-namespace logging {
+namespace polysync { namespace logging {
 
 namespace expr = boost::log::expressions;
 

@@ -6,8 +6,7 @@
 // message types are found in every plog file, and are specially defined in
 // core.hpp, and not by the dynamic mechanism implemented here.
 
-#include <polysync/transcode/variant.hpp>
-#include <polysync/transcode/size.hpp>
+#include <polysync/transcode/tree.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <boost/hana.hpp>
@@ -54,6 +53,22 @@ inline type describe() {
 }
 
 } // namespace descriptor
+
+// Define some metaprograms to compute the sizes of types.
+template <typename Number, class Enable = void>
+struct size {
+    static std::streamoff value() { return sizeof(Number); }
+};
+
+template <typename Struct>
+struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type> {
+    static std::streamoff value() {
+        return hana::fold(hana::members(Struct()), 0, [](std::streamoff s, auto field) { 
+                return s + size<decltype(field)>::value(); 
+                });
+    }
+};
+
 
 template <>
 struct size<descriptor::field> {

@@ -5,7 +5,7 @@ namespace polysync { namespace plog {
 
 std::map<plog::msg_type, std::string> type_support_map;
 
-std::map<std::type_index, descriptor::atom> static_typemap {
+std::map<std::type_index, descriptor::atom> descriptor::static_typemap {
     { std::type_index(typeid(std::int8_t)),  { "int8",  sizeof(std::int8_t) } },
     { std::type_index(typeid(std::int16_t)), { "int16", sizeof(std::int16_t) } },
     { std::type_index(typeid(std::int32_t)), { "int32", sizeof(std::int32_t) } },
@@ -24,7 +24,7 @@ std::map<std::type_index, descriptor::atom> static_typemap {
         { "sequence<type_support>", size<sequence<std::uint32_t, type_support>>::value() } },
 };
 
-std::map<std::string, descriptor::atom> dynamic_typemap {
+std::map<std::string, descriptor::atom> descriptor::dynamic_typemap {
     { "int8",  { "int8",  sizeof(std::int8_t) } },
     { "int16", { "int16", sizeof(std::int16_t) } },
     { "int32", { "int32", sizeof(std::int32_t) } },

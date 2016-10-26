@@ -15,11 +15,12 @@ using namespace polysync::plog;
 
 static std::ofstream out;
 static std::shared_ptr<polysync::plog::writer> writer;
+static logging::logger log { "plog-encode" };
 
 struct plugin : public transcode::plugin { 
 
     po::options_description options() const {
-        po::options_description opt("PLog Options");
+        po::options_description opt("PLog-Encoder Options");
         opt.add_options()
             ("name,n", po::value<fs::path>(), "filename")
             ;
@@ -28,20 +29,30 @@ struct plugin : public transcode::plugin {
 
     void connect(const po::variables_map& vm, transcode::visitor& visit) const {
 
-        using decoder = polysync::plog::decoder;
         std::string path = vm["name"].as<fs::path>().string();
 
-        visit.decoder.connect([path](decoder& r) { 
-            out.open(path, std::ios_base::out | std::ios_base::binary);
-            writer.reset(new polysync::plog::writer(out));
+        // Open a new output file for each new decoder opened. Right now, this
+        // only works for the first file because there is not yet a scheme to
+        // generate unique filenames (FIXME).
+        visit.decoder.connect([path](plog::decoder& r) { 
+                BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
+                out.open(path, std::ios_base::out | std::ios_base::binary);
+                writer.reset(new polysync::plog::writer(out));
+                });
 
-            plog::log_header head;
-            r.decode(head);
-            writer->write(head); 
+        // Serialize the global file header.
+        visit.log_header.connect([](const plog::log_header& head) {
+                writer->write(head); 
             });
 
-        visit.type_support.connect([](const plog::type_support& t) { });
-        visit.record.connect([](const log_record& rec) { writer->write(rec); });
+        // Serialize every record.
+        visit.record.connect([](const log_record& record) { 
+                BOOST_LOG_SEV(log, severity::verbose) << record;
+                std::istringstream iss(record.blob);
+                plog::decoder decode(iss);
+                plog::node top = decode(record);
+                writer->encode(top); 
+                });
     }
 };
 

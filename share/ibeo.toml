@@ -1,0 +1,56 @@
+[ps_byte_array_msg]
+    description = [
+        { name = "dest_guid", type = "ps_guid" },
+        { name = "data_type", type = "uint32" },
+        { name = "payload", type = "uint32" }
+    ]
+    detector = { ibeo.header = { data_type = "160" } } 
+
+[ibeo.header]
+    description = [
+        { name = "magic", type = ">uint32" },
+        { name = "prev_size", type = ">uint32" },
+        { name = "size", type = "uint8" },
+        { skip = 4 },
+        { name = "device_id", type = "uint8" },
+        { name = "data_type", type = ">uint16", format = "hex" },
+        { name = "time", "type" = ">NTP64" }
+    ]
+    detector = { ibeo.vehicle_state = { magic = "0xAFFEC0C2", data_type = "0x2807" }, ibeo.scan_data = { magic = "0xAFFEC0C2", data_type = "0x2205" } }
+
+[ibeo.vehicle_state]
+    description = [
+        { skip = 4 },
+        { name = "timestamp", type = ">NTP64" },
+        { name = "distance_x", type = ">int32" },
+        { name = "distance_y", type = ">int32" },
+        { name = "course_angle", type = ">float32" },
+        { name = "longitudinal_velocity", type = ">float32" },
+        { name = "yaw_rate", type = ">float32" }, 
+        { name = "steering_wheel_angle", type = ">float32" },
+        { skip = 4 },
+        { name = "front_wheel_angle", type = ">float32" }, 
+        { skip = 2 }, 
+        { name = "vehicle_width", type = ">float32" }, 
+        { skip = 4 },
+        { name = "distance_axle_front_to_front", type = ">float32" }, 
+        { name = "distance_axle_front_to_rear", type = ">float32" }, 
+        { name = "distance_axle_rear_to_rear", type = ">float32" }, 
+        { skip = 4 }, 
+        { name = "steer_ratio_poly_0", type = ">float32" }, 
+        { name = "steer_ratio_poly_1", type = ">float32" }, 
+        { name = "steer_ratio_poly_2", type = ">float32" },
+        { name = "steer_ratio_poly_3", type = ">float32" }, 
+        { name = "longitudinal_acceleration", type = ">float32" } 
+    ]
+
+[ibeo.scan_data]
+    description = [
+        { name = "scan_start_time", type = ">NTP64" },
+        { name = "scan_end_time_offset", type = ">uint32" },
+        { name = "flags", type = ">uint32" },
+        { name = "scan_number", type = ">uint16" },
+        { name = "scan_points", type = ">uint16" },
+        { name = "number_of_scanner_infos", type = "uint8" },
+        { skip = 3 }
+    ]

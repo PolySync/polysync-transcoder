@@ -1,17 +1,19 @@
 # pragma once
 
 #include <polysync/transcode/core.hpp>
+#include <polysync/transcode/io.hpp>
 #include <fstream>
 #include <boost/hana.hpp>
 
 namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
+using logging::severity;
 
 class writer {
 public:
 
-    writer(std::ostream& st) : plog(st) {} 
+    writer(std::ostream& st) : stream(st) {} 
 
 public:
     // Define a set of write() overloads to pattern match every possible
@@ -32,13 +34,25 @@ public:
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
     write(const Number& value) {
-        plog.write((char *)(&value), sizeof(Number)); 
+        stream.write((char *)(&value), sizeof(Number)); 
     }
     
+    // void write(const std::uint8_t& value) {
+    //     stream.put(value);
+    //     std::cout << "uint8 " << (int)value << " " << (int)stream.tellp() << std::endl;
+    // }
+
+    // Endian swapped types
+    template <typename T, size_t N>
+    void write(const boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value) {
+        stream.write((char *)value.data(), sizeof(T));
+        std::cout << "endian " << value << " " << std::dec << (int)stream.tellp() << std::endl;
+    }
+
     // Write raw buffer, as bytes of length sz.
     template <typename T>
     void write(const T& buf, size_t sz) {
-        plog.write((char *)&buf, sz);
+        stream.write((char *)&buf, sz);
     }
 
     // Sequences have a LenType number first specifying how many T's follow.  T
@@ -47,20 +61,20 @@ public:
     template <typename LenType, typename T> 
     void write(const sequence<LenType, T>& seq) {
         LenType len = seq.size();
-        plog.write((char *)(&len), sizeof(len));
+        stream.write((char *)(&len), sizeof(len));
         std::for_each(seq.begin(), seq.end(), [this](auto val) { write(val); });
     }
 
     // Fixed length arrays modeled by std::array<>.
     template <typename... Args>
     void write(const std::array<Args...>& array) {
-        plog.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type)); 
+        stream.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type)); 
     }
 
     // plog::hash_type is multiprecision; other very long ints may come along someday
     template <typename... Args>
     void write(const multiprecision::number<Args...>& value) {
-        std::ostream_iterator<std::uint8_t> it(plog);
+        std::ostream_iterator<std::uint8_t> it(stream);
         multiprecision::export_bits(value, it, 8);
     }
    
@@ -69,8 +83,22 @@ public:
     // as a C string would have)
     void write(const name_type& name) {
         name_type::length_type len = name.size();
-        plog.write((char *)(&len), sizeof(len));
-        plog.write((char *)(name.data()), len); 
+        stream.write((char *)(&len), sizeof(len));
+        stream.write((char *)(name.data()), len); 
+    }
+
+    void write(const tree& t) {
+        std::for_each(t->begin(), t->end(), [this](const node& n) { 
+                BOOST_LOG_SEV(log, logging::severity::debug2) << n.name << " = " << n << " (" << n.type << ")";
+                eggs::variants::apply([=](auto f) { write(f); }, n);
+        });
+    }
+
+public:
+
+    void encode(const node& n) {
+        BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
+        eggs::variants::apply([this](auto value) { write(value); }, n);
     }
 
 public:
@@ -92,9 +120,11 @@ public:
         return result + "}";
     }
 
+    logging::logger log { "plog-encoder" };
+
 protected:
 
-    std::ostream& plog;
+    std::ostream& stream;
     std::map<plog::msg_type, std::string> msg_type_map;
 
 };
