@@ -108,10 +108,4 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
-namespace polysync { namespace plog {
-
-inline bool operator==(const msg_header&, const msg_header&) { return false; }
-inline bool operator!=(const msg_header&, const msg_header&) { return true; }
-
-}} // polysync::plog
 

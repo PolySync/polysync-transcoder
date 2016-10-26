@@ -1,4 +1,4 @@
-add_executable ( transcode transcode.cpp core.cpp decoder.cpp logging.cpp description.cpp query.cpp dump.cpp datamodel.cpp plog.cpp csv.cpp )
+add_executable ( transcode transcode.cpp core.cpp decoder.cpp logging.cpp description.cpp dump.cpp datamodel.cpp plog.cpp csv.cpp )
 add_definitions ( -DTRANSCODE_PLUGIN_PATH="transcode" ) # FIXME; relative to PSYNC_HOME?
 target_link_libraries ( transcode ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} dl )
 

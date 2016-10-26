@@ -88,12 +88,12 @@ int main(int ac, char* av[]) {
         polysync::console::format = polysync::console::nocolor();
 
     std::map<std::string, boost::shared_ptr<polysync::transcode::plugin>> plugin_map;
-    // We have two hard linked plugins: query and csv.  This makes important
-    // ones (like query) and that have no extra dependencies always available,
-    // even if the plugin path is misconfigured.  It also makes the query
-    // options appear first in the help screen, also useful.
+    // We have some hard linked plugins.  This makes important ones and that
+    // have no extra dependencies always available, even if the plugin path is
+    // misconfigured.  It also makes the query options appear first in the help
+    // screen, also useful.
     dll::shared_library self(dll::program_location());
-    for (std::string plugname: { "query", "dump", "datamodel", "plog", "csv" } ) {
+    for (std::string plugname: { "dump", "datamodel", "plog", "csv" } ) {
         auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::transcode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
