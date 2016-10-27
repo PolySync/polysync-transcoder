@@ -1,5 +1,5 @@
-#include <polysync/transcode/core.hpp>
-#include <polysync/transcode/description.hpp>
+#include <polysync/plog/core.hpp>
+#include <polysync/plog/description.hpp>
 
 namespace polysync { namespace plog {
 

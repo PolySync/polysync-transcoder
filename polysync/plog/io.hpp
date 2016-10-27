@@ -1,8 +1,8 @@
 #pragma once
 
-#include <polysync/transcode/core.hpp>
+#include <polysync/plog/core.hpp>
 #include <polysync/transcode/console.hpp>
-#include <polysync/transcode/decoder.hpp>
+#include <polysync/plog/decoder.hpp>
 
 #include <sstream>
 #include <string>

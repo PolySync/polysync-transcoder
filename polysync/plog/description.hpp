@@ -6,7 +6,7 @@
 // message types are found in every plog file, and are specially defined in
 // core.hpp, and not by the dynamic mechanism implemented here.
 
-#include <polysync/transcode/tree.hpp>
+#include <polysync/plog/tree.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <boost/hana.hpp>

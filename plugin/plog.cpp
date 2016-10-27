@@ -1,10 +1,10 @@
 #include <polysync/transcode/plugin.hpp>
-#include <polysync/transcode/writer.hpp>
+#include <polysync/plog/encoder.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/dll/alias.hpp>
 #include <boost/filesystem.hpp>
 
-#include <polysync/transcode/io.hpp>
+#include <polysync/plog/io.hpp>
 
 namespace polysync { namespace transcode { namespace plog {
 
@@ -14,7 +14,7 @@ namespace hana = boost::hana;
 using namespace polysync::plog;
 
 static std::ofstream out;
-static std::shared_ptr<polysync::plog::writer> writer;
+static std::shared_ptr<polysync::plog::encoder> encode;
 static logging::logger log { "plog-encode" };
 
 struct plugin : public transcode::plugin { 
@@ -37,12 +37,12 @@ struct plugin : public transcode::plugin {
         visit.decoder.connect([path](plog::decoder& r) { 
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
-                writer.reset(new polysync::plog::writer(out));
+                encode.reset(new polysync::plog::encoder(out));
                 });
 
         // Serialize the global file header.
         visit.log_header.connect([](const plog::log_header& head) {
-                writer->write(head); 
+                encode->encode(head); 
             });
 
         // Serialize every record.
@@ -51,7 +51,7 @@ struct plugin : public transcode::plugin {
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
                 plog::node top = decode(record);
-                writer->encode(top); 
+                encode->encode(top); 
                 });
     }
 };

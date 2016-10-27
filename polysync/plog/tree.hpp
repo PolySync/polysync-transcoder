@@ -1,6 +1,6 @@
 #pragma once
 
-#include <polysync/transcode/core.hpp>
+#include <polysync/plog/core.hpp>
 #include <eggs/variant.hpp>
 #include <boost/endian/arithmetic.hpp>
 #include <iostream>

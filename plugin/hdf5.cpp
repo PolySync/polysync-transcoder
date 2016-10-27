@@ -1,7 +1,6 @@
 #include <polysync/transcode/plugin.hpp>
-#include <polysync/transcode/core.hpp>
-#include <polysync/transcode/writer.hpp>
-#include <polysync/transcode/decoder.hpp>
+#include <polysync/plog/encoder.hpp>
+#include <polysync/plog/decoder.hpp>
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include <boost/filesystem.hpp>
@@ -118,7 +117,7 @@ class writer {
         // fields.  So here, we must serialize a potentially non-flat rec into
         // a flat buffer.
         std::stringstream flat;
-        plog::writer w(flat);
+        plog::encoder w(flat);
         
         // The user defined type may have one (or more?) sequences.  Iterate
         // over each field and do the right thing.
@@ -127,18 +126,18 @@ class writer {
         std::for_each(desc.begin(), desc.end(), [&w, record, &blob](auto field) {
                 if (field.type == "log_record") {
                     // core types we know at compile time, so fold using boost::hana
-                    w.write(record);
+                    w.encode(record);
                 } else if (field.type == "sequence<octet>") {
                     // sequences have variable length per record, which is a special case for HDF5 
                     std::uint32_t* sz = new ((void *)&(*blob)) std::uint32_t;
                     blob += sizeof(std::uint32_t);
                     hvl_t varlen { *sz, (void *)&(*blob) };
-                    w.write(varlen, sizeof(varlen));
+                    w.encode(varlen, sizeof(varlen));
                     blob += *sz;
                 } else {
                     // All other fields just get serialized as a raw memory copy
                     size_t sz = plog::size<plog::descriptor::field>(field).value();
-                    w.write(&(*blob), sz);
+                    w.encode(&(*blob), sz);
                     blob += sz;
                 }
              });

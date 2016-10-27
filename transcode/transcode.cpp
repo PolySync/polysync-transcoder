@@ -1,9 +1,9 @@
-#include <polysync/transcode/core.hpp>
-#include <polysync/transcode/decoder.hpp>
+#include <polysync/plog/core.hpp>
+#include <polysync/plog/decoder.hpp>
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/transcode/console.hpp>
-#include <polysync/transcode/io.hpp>
+#include <polysync/plog/io.hpp>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
 // benefits, it eases a Windows port.
@@ -93,7 +93,7 @@ int main(int ac, char* av[]) {
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self(dll::program_location());
-    for (std::string plugname: { "dump", "datamodel", "plog", "csv" } ) {
+    for (std::string plugname: { "dump", "datamodel" } ) {
         auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::transcode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();

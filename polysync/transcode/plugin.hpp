@@ -1,6 +1,6 @@
 #pragma once
 
-#include <polysync/transcode/decoder.hpp>
+#include <polysync/plog/decoder.hpp>
 
 #include <boost/config.hpp>  // for BOOST_SYMBOL_EXPORT
 #include <boost/program_options.hpp>

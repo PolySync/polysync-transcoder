@@ -14,5 +14,7 @@ find_package(HDF5 COMPONENTS HL)
 
 include_directories( . )
 add_subdirectory( transcode )
+add_subdirectory( plugin )
+add_subdirectory( binding )
 add_subdirectory( test )
 
