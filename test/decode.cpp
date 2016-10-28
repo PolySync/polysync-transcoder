@@ -1,38 +1,56 @@
 #include <mettle.hpp>
 
+#include <boost/hana/equal.hpp>
+
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/encoder.hpp>
+#include "types.hpp"
 
 using namespace mettle;
 namespace plog = polysync::plog;
+namespace endian = boost::endian;
 namespace hana = boost::hana;
 
-constexpr auto integers = hana::tuple_t<
-    std::int8_t, std::int16_t, std::int32_t, std::int64_t,
-    std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t
-    >;
-
-constexpr auto reals = hana::tuple_t<float, double>;
-
-auto bigendians = hana::transform(integers, [](auto t) { 
-        using namespace boost::endian;
-        using T = typename decltype(t)::type;
-        return hana::type_c<endian_arithmetic<order::big, T, 8*sizeof(T)>>; 
-        });
-
-// Define metafunction to compute parameterized mettle::suite from a hana typelist.
-template <typename TypeList>
-using type_suite = typename decltype(
-        hana::unpack(std::declval<TypeList>(), hana::template_<mettle::suite>)
-        )::type;
+// Instantiate the static console format; this is used inside of mettle to
+// print failure messages through operator<<'s defined in io.hpp.
+namespace polysync { namespace console { codes format = color(); }}
 
 struct number_factory {
     template <typename T>
     plog::variant make() { return static_cast<T>(42); }
 };
 
-type_suite<decltype(hana::concat(integers, reals))> 
+struct hana_factory {
+    template <typename T> T make();
+};
 
+template <>
+plog::log_module hana_factory::make<plog::log_module>() {
+    return { 11, 21, 31, 41, 51, "log" }; 
+}
+
+template <>
+plog::type_support hana_factory::make<plog::type_support>() {
+    return { 21, "type" }; 
+}
+
+template <>
+plog::log_header hana_factory::make<plog::log_header>() {
+    return { 1, 2, 3, 4, 5, {}, {} }; 
+}
+
+template <>
+plog::msg_header hana_factory::make<plog::msg_header>() {
+    return { 10, 20, 30 };
+}
+
+template <>
+plog::log_record hana_factory::make<plog::log_record>() {
+    return { 110, 120, 130, 250, "bigblob" };
+}
+        
+
+type_suite<decltype(scalars)> 
 decode("number", number_factory {}, [](auto& _) {
 
     _.test("decode", [](auto value) {
@@ -46,11 +64,37 @@ decode("number", number_factory {}, [](auto& _) {
     _.test("encode", [](auto value) {
             using T = mettle::fixture_type_t<decltype(_)>;
             std::stringstream stream;
-            plog::encoder encode(stream);
-            encode.encode(value);
+            plog::encoder(stream).encode(value);
 
             T result;
             stream.read((char *)&result, sizeof(T));
             expect(result, equal_to(42));
             });
+
+    _.test("transcode", [](auto value) {
+            using T = mettle::fixture_type_t<decltype(_)>;
+
+            std::stringstream stream;
+            plog::encoder encode(stream);
+            plog::decoder decode(stream);
+            encode.encode(value);
+            expect(decode.decode<T>(), equal_to(42));
+            });
     });
+
+mettle::suite<plog::log_header, plog::msg_header, plog::log_module, plog::type_support, plog::log_record> 
+structures("structures", hana_factory {}, [](auto& _) {
+
+        _.test("transcode", [](auto cls) {
+                using T = mettle::fixture_type_t<decltype(_)>;
+
+                std::stringstream stream;
+                plog::encoder write(stream);
+                plog::decoder read(stream);
+
+                write.encode(cls);
+                expect(read.decode<T>(), hana_equal(cls));
+
+                });
+
+        });

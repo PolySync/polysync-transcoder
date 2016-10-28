@@ -3,30 +3,12 @@
 #include <iostream>
 #include <mettle.hpp>
 #include <boost/hana/ext/std/integral_constant.hpp>
+#include "types.hpp"
+
 using namespace mettle;
 namespace endian = boost::endian;
 namespace plog = polysync::plog;
 namespace hana = boost::hana;
-
-constexpr auto integers = hana::tuple_t<
-    std::int8_t, std::int16_t, std::int32_t, std::int64_t,
-    std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t
-    >;
-
-constexpr auto reals = hana::tuple_t<float, double>;
-
-auto bigendians = hana::transform(integers, [](auto t) { 
-        using namespace boost::endian;
-        using T = typename decltype(t)::type;
-        return hana::type_c<endian_arithmetic<order::big, T, 8*sizeof(T)>>; 
-        });
-
-
-// Define metafunction to compute parameterized mettle::suite from a hana typelist.
-template <typename TypeList>
-using type_suite = typename decltype(
-        hana::unpack(std::declval<TypeList>(), hana::template_<mettle::suite>)
-        )::type;
 
 struct number_factory {
     template <typename T>

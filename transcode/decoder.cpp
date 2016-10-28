@@ -1,4 +1,5 @@
 #include <polysync/plog/decoder.hpp>
+#include <polysync/plog/detector.hpp>
 #include <polysync/plog/io.hpp>
 
 #include <algorithm>
@@ -129,7 +130,7 @@ std::map<std::string, decoder::parser> decoder::parse_map = {
     { ">NTP64", [](decoder& r){ return r.decode<endian::big_uint64_t>(); } },
     { "raw", [](decoder& r) 
         { 
-            plog::sequence<std::uint32_t, std::uint8_t> raw;
+            plog::bytes raw;
             std::streampos rem = r.endpos - r.stream.tellg();
             raw.resize(rem);
             r.stream.read((char *)raw.data(), rem);

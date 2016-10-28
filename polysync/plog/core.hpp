@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <vector>
 #include <map>
+#include <algorithm>
 
 #include <boost/hana.hpp>
 
@@ -42,9 +43,17 @@ struct sequence : std::vector<T> {
     using length_type = LenType;
 };
 
+template <typename LenType, typename T>
+bool operator==(const sequence<LenType, T>& lhs, const sequence<LenType, T>& rhs) {
+    if (lhs.size() != rhs.size())
+        return false;
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), boost::hana::equal);
+}
+
 // specialize the std::uint8_t sequences because they are actually strings
 template <typename LenType>
 struct sequence<LenType, std::uint8_t> : std::string {
+    using std::string::string;
     using length_type = LenType;
 };
 

@@ -37,11 +37,6 @@ public:
         stream.write((char *)(&value), sizeof(Number)); 
     }
     
-    // void encode(const std::uint8_t& value) {
-    //     stream.put(value);
-    //     std::cout << "uint8 " << (int)value << " " << (int)stream.tellp() << std::endl;
-    // }
-
     // Endian swapped types
     template <typename T, size_t N>
     void encode(const boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value) {

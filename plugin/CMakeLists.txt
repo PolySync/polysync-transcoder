@@ -4,8 +4,8 @@
 add_library( csv MODULE csv.cpp )
 set_target_properties( csv PROPERTIES PREFIX "transcode." )
 
-add_library( plog MODULE plog.cpp )
-set_target_properties( plog PROPERTIES PREFIX "transcode." )
+add_library( plog_encode MODULE plog.cpp )
+set_target_properties( plog_encode PROPERTIES PREFIX "transcode." )
 
 if ( ${HDF5_FOUND} )
     include_directories( ${HDF5_INCLUDE_DIRS} )

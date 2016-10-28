@@ -1,5 +1,6 @@
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
+#include <polysync/plog/detector.hpp>
 #include <polysync/transcode/plugin.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/transcode/console.hpp>
@@ -23,9 +24,6 @@ namespace plog = polysync::plog;
 
 using polysync::logging::severity;
 using polysync::logging::logger;
-
-// Instantiate the static console format
-namespace polysync { namespace console { codes format = color(); }}
 
 int main(int ac, char* av[]) {
 
@@ -137,9 +135,9 @@ int main(int ac, char* av[]) {
 
                 // Parse the file in two passes, so the detectors have access to the descriptor's types
                 for (const auto& type: *descfile)
-                    plog::descriptor::load(type.first, type.second->as_table());
+                    plog::descriptor::load(type.first, type.second->as_table(), plog::descriptor::catalog);
                 for (const auto& type: *descfile)
-                    plog::detector::load(type.first, type.second->as_table());
+                    plog::detector::load(type.first, type.second->as_table(), plog::detector::catalog);
             }
         }
     }

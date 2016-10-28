@@ -21,7 +21,8 @@ struct field {
     std::string type;
 };
 
-// The full type description is just a vector of fields
+// The full type description is just a vector of fields.  This has to be a
+// vector, not a map, to preserve the serialization order in the plog flat file.
 using type = std::vector<field>;
 
 struct atom {
@@ -29,11 +30,13 @@ struct atom {
     std::streamoff size;
 };
 
-// Traverse a TOML table to install a new type description in the global catalog
-extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table);
+using catalog_type = std::map<std::string, type>;
+
+// Traverse a TOML table 
+extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type&);
 
 // Global type descriptor catalogs
-extern std::map<std::string, type> catalog;
+extern catalog_type catalog;
 extern std::map<std::type_index, atom> static_typemap; 
 extern std::map<std::string, atom> dynamic_typemap; 
 
@@ -81,22 +84,8 @@ struct size<descriptor::field> {
     descriptor::field desc;
 };
 
-
-namespace detector {
-
-struct type {
-    std::string parent;
-    std::map<std::string, variant> match;
-    std::string child;
-};
-
-extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table);
-
-extern std::vector<type> catalog;
-
-} // detector
-
-
 }} // namespace polysync::plog
+
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::descriptor::field, name, type);
 
 

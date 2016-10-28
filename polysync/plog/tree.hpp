@@ -18,10 +18,10 @@ namespace hana = boost::hana;
 
 struct node;
 using tree = std::shared_ptr<std::vector<node>>;
+using bytes = plog::sequence<std::uint32_t, std::uint8_t>;
+
 using variant = eggs::variant<
-    tree,
-    plog::sequence<std::uint32_t, std::uint8_t>,
-    float, double,
+    tree, bytes, float, double,
     std::int8_t, std::int16_t, int32_t, int64_t,
     std::uint8_t, std::uint16_t, uint32_t, uint64_t,
     endian::big_uint16_t, endian::big_uint32_t, endian::big_uint64_t,
