@@ -1,5 +1,6 @@
 #include <polysync/plog/description.hpp>
 #include <polysync/plog/detector.hpp>
+#include <polysync/exception.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/plog/io.hpp>
 
@@ -65,7 +66,6 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
         return;
     }
 
-    // type dt;
     auto det = table->get("detector");
     if (!det->is_table())
         throw std::runtime_error("detector must be a table");
@@ -73,9 +73,10 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     for (const auto& branch: *det->as_table()) {
 
         if (!branch.second->is_table())
-            throw std::runtime_error("detector pattern must be a table");
+            throw polysync::error("detector must be a TOML table") << exception::type(branch.first);
+
         if (!plog::descriptor::catalog.count(name))
-            throw std::runtime_error("no type description for " + name);
+            throw polysync::error("no type description") << exception::type(name);
 
         decltype(std::declval<detector::type>().match) match;
         const plog::descriptor::type& desc = plog::descriptor::catalog.at(name);
