@@ -1,12 +1,12 @@
-#include <polysync/transcode/plugin.hpp>
+#include <polysync/plugin.hpp>
 #include <polysync/plog/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
 #include <regex>
 
-namespace polysync { namespace transcode { namespace datamodel {
-
 namespace po = boost::program_options;
+
+namespace polysync { namespace transcode { namespace datamodel {
 
 static logging::logger log { "datamodel" };
 using logging::severity;
@@ -55,7 +55,7 @@ struct model_printer {
     std::string sep { "\n" };
 };
 
-struct plugin : transcode::plugin {
+struct plugin : encode::plugin {
 
     po::options_description options() const {
         po::options_description opt("Datamodel Options");
@@ -64,7 +64,7 @@ struct plugin : transcode::plugin {
         return opt;
     };
 
-    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
+    void connect(const po::variables_map& vm, encode::visitor& visit) const {
 
         model_printer printer;
 
@@ -87,7 +87,7 @@ struct plugin : transcode::plugin {
     }
 };
 
-boost::shared_ptr<transcode::plugin> create_plugin() {
+boost::shared_ptr<encode::plugin> create_plugin() {
     return boost::make_shared<plugin>();
 }
 

@@ -1,7 +1,7 @@
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/detector.hpp>
-#include <polysync/transcode/plugin.hpp>
+#include <polysync/plugin.hpp>
 #include <polysync/transcode/logging.hpp>
 #include <polysync/transcode/console.hpp>
 #include <polysync/plog/io.hpp>
@@ -49,7 +49,6 @@ int main(int ac, char* av[]) {
 
     po::options_description filter_opt("Filter Options");
     filter_opt.add_options()
-        // not sure yet how to implement these
         ("first", po::value<size_t>(), "first record index to process (not yet implemented)")
         ("last", po::value<size_t>(), "last record index to process (not yet implemented)")
         ;
@@ -85,14 +84,14 @@ int main(int ac, char* av[]) {
     if (vm.count("nocolor"))
         polysync::console::format = polysync::console::nocolor();
 
-    std::map<std::string, boost::shared_ptr<polysync::transcode::plugin>> plugin_map;
+    std::map<std::string, boost::shared_ptr<polysync::encode::plugin>> plugin_map;
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self(dll::program_location());
     for (std::string plugname: { "dump", "datamodel" } ) {
-        auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::transcode::plugin>()>(plugname + "_plugin");
+        auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::encode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
         helpline.add(opt);
@@ -112,8 +111,8 @@ int main(int ac, char* av[]) {
                 std::string plugname = match[1];
 
                 BOOST_LOG_SEV(log, severity::debug1) << "loading plugin " << plugname << " from " << lib.path();
-                boost::shared_ptr<polysync::transcode::plugin> plugin = 
-                    dll::import<polysync::transcode::plugin>(lib.path(), "plugin");
+                boost::shared_ptr<polysync::encode::plugin> plugin = 
+                    dll::import<polysync::encode::plugin>(lib.path(), "plugin");
                 po::options_description opt = plugin->options();
                 cmdline.add(opt);
                 helpline.add(opt);
@@ -181,7 +180,7 @@ int main(int ac, char* av[]) {
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
-    polysync::transcode::visitor visit;
+    polysync::encode::visitor visit;
 
     if (!vm.count("path")) {
         std::cerr << "error: no plog paths supplied!" << std::endl;

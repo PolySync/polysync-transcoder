@@ -1,4 +1,4 @@
-#include <polysync/transcode/plugin.hpp>
+#include <polysync/plugin.hpp>
 #include <polysync/plog/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
@@ -54,7 +54,7 @@ struct pretty_printer {
     std::string sep { "\n" };
 };
 
-struct plugin : transcode::plugin {
+struct plugin : encode::plugin {
 
     po::options_description options() const {
         po::options_description opt("Dump Options");
@@ -64,7 +64,7 @@ struct plugin : transcode::plugin {
         return opt;
     };
 
-    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
+    void connect(const po::variables_map& vm, encode::visitor& visit) const {
 
         pretty_printer pretty;
 
@@ -87,7 +87,7 @@ struct plugin : transcode::plugin {
     }
 };
 
-boost::shared_ptr<transcode::plugin> create_plugin() {
+boost::shared_ptr<encode::plugin> create_plugin() {
     return boost::make_shared<plugin>();
 }
 

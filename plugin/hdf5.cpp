@@ -1,4 +1,4 @@
-#include <polysync/transcode/plugin.hpp>
+#include <polysync/plugin.hpp>
 #include <polysync/plog/encoder.hpp>
 #include <polysync/plog/decoder.hpp>
 #include <hdf5.h>
@@ -189,7 +189,7 @@ class writer {
 
 std::shared_ptr<writer> hdf;
 
-struct plugin : transcode::plugin { 
+struct plugin : encode::plugin { 
 
     plugin() {
         plog::descriptor::dynamic_typemap.emplace("sequence<octet>", 
@@ -210,7 +210,7 @@ struct plugin : transcode::plugin {
     }
 
 
-    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
+    void connect(const po::variables_map& vm, encode::visitor& visit) const {
 
         fs::path path = vm["name"].as<fs::path>();
 

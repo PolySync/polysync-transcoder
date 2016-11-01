@@ -7,7 +7,11 @@
 #include <boost/signals2/signal.hpp>
 #include <boost/dll/alias.hpp>
 
-namespace polysync { namespace transcode {
+namespace po = boost::program_options;
+
+namespace polysync { 
+
+namespace encode {
 
 // Visitation points.
 struct visitor {
@@ -21,14 +25,36 @@ struct visitor {
     callback<const plog::type_support&> type_support; // Type support name/number association
 };
 
-namespace po = boost::program_options;
-
 struct plugin {
     // Every plugin must provide any special command line options it needs.
     virtual po::options_description options() const = 0;
 
     // Every plugin must register the callbacks it needs.
-    virtual void connect(const po::variables_map&, transcode::visitor&) const = 0;
+    virtual void connect(const po::variables_map&, visitor&) const = 0;
 };
 
-}} // namespace polysync::transcode
+} // namespace encode
+
+namespace filter {
+
+using predicate_type = std::function<bool (plog::iterator)>;
+
+struct plugin {
+    virtual po::options_description options() const = 0;
+    virtual predicate_type predicate() const = 0;  
+};
+
+} // namespace filter
+
+namespace decode {
+
+using type = void;  // Hmm, what should this look like?
+
+struct plugin {
+    virtual po::options_description options() const = 0;
+    virtual type decoder() const = 0;
+};
+
+} // namespace decode
+
+} // namespace polysync

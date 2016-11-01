@@ -1,4 +1,4 @@
-#include <polysync/transcode/plugin.hpp>
+#include <polysync/plugin.hpp>
 #include <polysync/plog/encoder.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/dll/alias.hpp>
@@ -17,7 +17,7 @@ static std::ofstream out;
 static std::shared_ptr<polysync::plog::encoder> encode;
 static logging::logger log { "plog-encode" };
 
-struct plugin : public transcode::plugin { 
+struct plugin : public encode::plugin { 
 
     po::options_description options() const {
         po::options_description opt("PLog-Encoder Options");
@@ -27,7 +27,7 @@ struct plugin : public transcode::plugin {
         return opt;
     }
 
-    void connect(const po::variables_map& vm, transcode::visitor& visit) const {
+    void connect(const po::variables_map& vm, encode::visitor& visit) const {
 
         std::string path = vm["name"].as<fs::path>().string();
 
@@ -56,7 +56,7 @@ struct plugin : public transcode::plugin {
     }
 };
 
-boost::shared_ptr<transcode::plugin> create_plugin() {
+boost::shared_ptr<encode::plugin> create_plugin() {
     return boost::make_shared<struct plugin>();
 }
 

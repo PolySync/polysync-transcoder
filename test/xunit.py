@@ -1,7 +1,8 @@
 import subprocess, shlex, os, sys, re
 from bencodepy import decode
-# import xml.etree.ElementTree as ET
 from lxml import etree
+
+# http://nelsonwells.net/2012/09/how-jenkins-ci-parses-and-displays-junit-output/
 
 class XUnitWriter:
 
