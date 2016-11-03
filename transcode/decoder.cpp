@@ -1,6 +1,7 @@
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/detector.hpp>
 #include <polysync/plog/io.hpp>
+#include <polysync/exception.hpp>
 
 #include <algorithm>
 
@@ -12,77 +13,10 @@ namespace polysync { namespace plog {
 
 using logging::severity;
 
-std::string decoder::detect(const node& parent) {
-    plog::tree tree = *parent.target<plog::tree>();
-    if (tree->empty())
-        throw std::runtime_error("parent tree is empty");
-
-    std::streampos rem = endpos - stream.tellg();
-    BOOST_LOG_SEV(log, severity::debug2) 
-        << "decoding " << (size_t)rem << " byte payload from \"" << parent.name << "\"";
-
-    // Iterate each detector in the catalog and check for a match.  Store the resulting type name in tpname.
-    std::string tpname;
-    for (const detector::type& det: detector::catalog) {
-
-        // Parent is not even the right type, so short circuit and fail this test early.
-        if (det.parent != parent.name) {
-            BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" 
-                << parent.name << "\" != \"" << det.parent << "\"";
-            continue;
-        }
-
-        // Iterate each field in the detector looking for mismatches.
-        std::vector<std::string> mismatch;
-        for (auto field: det.match) {
-            auto it = std::find_if(tree->begin(), tree->end(), 
-                    [field](const node& n) { 
-                    return n.name == field.first; 
-                    });
-            if (it == tree->end()) {
-                BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" << det.parent << "\" missing field \"" << field.first << "\"";
-                break;
-            }
-            if (*it != field.second)
-                mismatch.emplace_back(field.first);
-        }
-        
-        // Too many matches. Catalog is not orthogonal and needs tweaking.
-        if (mismatch.empty() && !tpname.empty())
-            throw std::runtime_error("non-unique detectors: " + tpname + " and " + det.child);
-
-        // Exactly one match. We have detected the sequel type.
-        if (mismatch.empty()) {
-            tpname = det.child;
-            continue;
-        }
-
-        //  The detector failed, print a fancy message to help developer fix catalog.
-        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched" 
-            << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
-                    [&](const std::string& str, auto field) { 
-                        return str + " { " + field + ": " + 
-                        // lex(*std::find_if(tree->begin(), tree->end(), [field](auto f){ return field == f.name; })) + 
-                        // lex(tree->at(field)) + 
-                        // (tree->at(field) == det.match.at(field) ? " == " : " != ")
-                        lex(det.match.at(field)) + " }"; 
-                    });
-    }
-
-    // Absent a detection, return raw bytes.
-    if (tpname.empty()) {
-        BOOST_LOG_SEV(log, severity::debug1) << "type not detected, returning raw sequence";
-        return "raw";
-    }
-
-    BOOST_LOG_SEV(log, severity::debug1) << tpname << " matched from parent \"" << parent.name << "\"";
-
-    return tpname;
-}
-
 // Kick off a decoder with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
 node decoder::operator()(const log_record& record) {
+
     node result = node::from(record, "log_record");
     plog::tree tree = *result.target<plog::tree>();
 
@@ -134,7 +68,7 @@ std::map<std::string, decoder::parser> decoder::parse_map = {
             std::streampos rem = r.endpos - r.stream.tellg();
             raw.resize(rem);
             r.stream.read((char *)raw.data(), rem);
-            return node(raw, "raw", "raw");
+            return node(raw, "raw");
         }},
 };
 
@@ -148,12 +82,16 @@ node decoder::decode_desc(const std::string& type) {
         return parse->second(*this);
 
     if (!descriptor::catalog.count(type))
-        throw std::runtime_error("no decoder for type " + type);
+        throw polysync::error("no decoder for type " + type);
 
     BOOST_LOG_SEV(log, severity::debug2) << "decoding \"" << type << "\"";
-
-    plog::tree child = std::make_shared<plog::tree::element_type>();
     const descriptor::type& desc = descriptor::catalog.at(type);
+    return decode(desc);
+}
+
+plog::node decoder::decode(const descriptor::type& desc) {
+
+    plog::tree child = plog::tree::create();
     std::for_each(desc.begin(), desc.end(), [&](auto field) {
 
             // Burn off unused or reserved space using the "skip" keyword.
@@ -170,10 +108,10 @@ node decoder::decode_desc(const std::string& type) {
             // during the parse.  If this happened, use the better name.
             // Otherwise, use the original descriptor's name.
             std::string fname = a.name.empty() ? field.name : a.name;
-            child->emplace_back(a, fname, field.type);
+            child->emplace_back(a, fname);
         });
 
-    return node(child, type, type);
+    return node(child, desc.name);
 }
 
 

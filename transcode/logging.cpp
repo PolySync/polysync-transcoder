@@ -1,5 +1,5 @@
-#include <polysync/transcode/logging.hpp>
-#include <polysync/transcode/console.hpp>
+#include <polysync/logging.hpp>
+#include <polysync/console.hpp>
 
 #include <boost/log/core.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>

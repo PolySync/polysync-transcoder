@@ -16,6 +16,11 @@ namespace polysync { namespace plog {
 
 namespace descriptor {
 
+struct terminal {
+    std::string name;
+    std::streamoff size;
+};
+
 struct field {
     std::string name;
     std::string type;
@@ -23,11 +28,11 @@ struct field {
 
 // The full type description is just a vector of fields.  This has to be a
 // vector, not a map, to preserve the serialization order in the plog flat file.
-using type = std::vector<field>;
+struct type : std::vector<field> {
+    type(const std::string& n) : name(n) {}
+    type(const char * n, std::initializer_list<field> init) : name(n), std::vector<field>(init) {}
 
-struct atom {
     std::string name;
-    std::streamoff size;
 };
 
 using catalog_type = std::map<std::string, type>;
@@ -37,23 +42,43 @@ extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table,
 
 // Global type descriptor catalogs
 extern catalog_type catalog;
-extern std::map<std::type_index, atom> static_typemap; 
-extern std::map<std::string, atom> dynamic_typemap; 
+extern std::map<std::type_index, terminal> static_typemap; 
+extern std::map<std::string, terminal> dynamic_typemap; 
 
 // Create a type description of a static structure, using hana for class instrospection
 template <typename Struct>
-inline type describe() {
-    namespace hana = boost::hana;
+struct describe {
 
-    return hana::fold(Struct(), type(), [](auto desc, auto pair) { 
-            std::string name = hana::to<char const*>(hana::first(pair));
-            if (static_typemap.count(typeid(hana::second(pair))) == 0)
+    static descriptor::type type() {
+        namespace hana = boost::hana;
+
+        return hana::fold(Struct(), type(), [](auto desc, auto pair) { 
+                std::string name = hana::to<char const*>(hana::first(pair));
+                if (static_typemap.count(typeid(hana::second(pair))) == 0)
                 throw std::runtime_error("missing typemap for " + name);
-            atom a = static_typemap.at(typeid(hana::second(pair)));
-            desc.emplace_back(field { name, a.name });
-            return desc;
-            });
-}
+                terminal a = static_typemap.at(typeid(hana::second(pair)));
+                desc.emplace_back(field { name, a.name });
+                return desc;
+                });
+    }
+        
+    // Generate self descriptions of types 
+    static std::string string() {
+        if (!descriptor::static_typemap.count(typeid(Struct)))
+            throw std::runtime_error("no typemap description");
+        std::string tpname = descriptor::static_typemap.at(typeid(Struct)).name; 
+        std::string result = tpname + " { ";
+        hana::for_each(Struct(), [&result, tpname](auto pair) {
+                std::type_index tp = typeid(hana::second(pair));
+                std::string fieldname = hana::to<char const*>(hana::first(pair));
+                if (descriptor::static_typemap.count(tp) == 0)
+                    throw std::runtime_error("type not described for field \"" + tpname + "::" + fieldname + "\"");
+                result += fieldname + ": " + descriptor::static_typemap.at(tp).name + " " + std::to_string(descriptor::static_typemap.at(tp).size) +  "; ";
+                });
+        return result + "}";
+    }
+
+};
 
 } // namespace descriptor
 

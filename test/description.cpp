@@ -1,22 +1,12 @@
 #include <mettle.hpp>
 
 #include <polysync/plog/description.hpp>
-#include <polysync/transcode/console.hpp>
+#include <polysync/console.hpp>
 #include <polysync/plog/io.hpp>
 #include "types.hpp"
 
 using namespace mettle;
 namespace plog = polysync::plog;
-
-constexpr char const* ps_byte_array_msg = R"toml(
-[ps_byte_array_msg]
-    description = [
-        { name = "dest_guid", type = "ps_guid" },
-        { name = "data_type", type = "uint32" },
-        { name = "payload", type = "uint32" }
-    ]
-    detector = { ibeo.header = { data_type = "160" } } 
-)toml";
 
 // Instantiate the static console format; this is used inside of mettle to
 // print failure messages through operator<<'s defined in io.hpp.

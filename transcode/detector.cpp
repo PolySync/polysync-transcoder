@@ -1,7 +1,7 @@
 #include <polysync/plog/description.hpp>
 #include <polysync/plog/detector.hpp>
 #include <polysync/exception.hpp>
-#include <polysync/transcode/logging.hpp>
+#include <polysync/logging.hpp>
 #include <polysync/plog/io.hpp>
 
 #include <regex>
@@ -99,6 +99,81 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     }
 }
 
-}}} // namespace polysync::plog::detector
+} // namespace detector
+
+std::string detect(const node& parent) {
+    logging::logger log { "detector" };
+
+    plog::tree tree = *parent.target<plog::tree>();
+    if (tree->empty())
+        throw std::runtime_error("parent tree is empty");
+
+    // std::streampos rem = endpos - stream.tellg();
+    // BOOST_LOG_SEV(log, severity::debug2) 
+    //     << "decoding " << (size_t)rem << " byte payload from \"" << parent.name << "\"";
+
+    // Iterate each detector in the catalog and check for a match.  Store the
+    // resulting type name in tpname.
+    std::string tpname;
+    for (const detector::type& det: detector::catalog) {
+
+        // Parent is not even the right type, so short circuit and fail this test early.
+        if (det.parent != parent.name) {
+            BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" 
+                << parent.name << "\" != \"" << det.parent << "\"";
+            continue;
+        }
+
+        // Iterate each field in the detector looking for mismatches.
+        std::vector<std::string> mismatch;
+        for (auto field: det.match) {
+            auto it = std::find_if(tree->begin(), tree->end(), 
+                    [field](const node& n) { 
+                    return n.name == field.first; 
+                    });
+            if (it == tree->end()) {
+                BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" 
+                    << det.parent << "\" missing field \"" << field.first << "\"";
+                break;
+            }
+            if (*it != field.second)
+                mismatch.emplace_back(field.first);
+        }
+        
+        // Too many matches. Catalog is not orthogonal and needs tweaking.
+        if (mismatch.empty() && !tpname.empty())
+            throw std::runtime_error("non-unique detectors: " + tpname + " and " + det.child);
+
+        // Exactly one match. We have detected the sequel type.
+        if (mismatch.empty()) {
+            tpname = det.child;
+            continue;
+        }
+
+        //  The detector failed, print a fancy message to help developer fix catalog.
+        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched" 
+            << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
+                    [&](const std::string& str, auto field) { 
+                        return str + " { " + field + ": " + 
+                        // lex(*std::find_if(tree->begin(), tree->end(), [field](auto f){ return field == f.name; })) + 
+                        // lex(tree->at(field)) + 
+                        // (tree->at(field) == det.match.at(field) ? " == " : " != ")
+                        lex(det.match.at(field)) + " }"; 
+                    });
+    }
+
+    // Absent a detection, return raw bytes.
+    if (tpname.empty()) {
+        BOOST_LOG_SEV(log, severity::debug1) << "type not detected, returning raw sequence";
+        return "raw";
+    }
+
+    BOOST_LOG_SEV(log, severity::debug1) << tpname << " matched from parent \"" << parent.name << "\"";
+
+    return tpname;
+}
+
+
+}} // namespace polysync::plog
 
 

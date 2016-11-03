@@ -17,7 +17,15 @@ namespace hana = boost::hana;
 // factor out std::shared_ptr<tree> to just tree, then.
 
 struct node;
-using tree = std::shared_ptr<std::vector<node>>;
+struct tree : std::shared_ptr<std::vector<node>> {
+    using std::shared_ptr<element_type>::shared_ptr;
+
+    static tree create() { return std::make_shared<element_type>(); }
+    static tree create(std::initializer_list<node> init) {
+        return std::make_shared<element_type>(init);
+    }
+};
+
 using bytes = plog::sequence<std::uint32_t, std::uint8_t>;
 
 using variant = eggs::variant<
@@ -33,27 +41,45 @@ using variant = eggs::variant<
 struct node : variant {
 
     template <typename T>
-    node(const T& value, const std::string& n, const std::string& tp) : variant(value), name(n), type(tp) { }
+        node(const T& value, const std::string& n) : variant(value), name(n) { }
 
     using variant::variant;
     std::string name;
-    std::string type;
 
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
-    static node from(const Struct& s, const std::string& type);
- };
+        static node from(const Struct& s, const std::string&);
+};
+
+inline bool operator==(const tree& lhs, const tree& rhs) { 
+    if (lhs->size() != rhs->size())
+        return false;
+
+    return std::equal(lhs->begin(), lhs->end(), rhs->begin(), rhs->end(), 
+            [](const node& ln, const node& rn) {
+
+                // If the two nodes are both trees, recurse.
+                const tree* ltree = ln.target<tree>();
+                const tree* rtree = ln.target<tree>();
+                if (ltree && rtree)
+                    return operator==(*ltree, *rtree);
+
+                // Otherwise, just use variant operator==()
+                return ln == rn;
+            });
+}
+
 
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
 inline node node::from(const Struct& s, const std::string& type) {
-    tree tr = std::make_shared<tree::element_type>();
+    tree tr = tree::create();
     hana::for_each(s, [tr](auto pair) { 
             std::string name = hana::to<char const*>(hana::first(pair));
-            tr->emplace_back(hana::second(pair), name, "fixme");
+            tr->emplace_back(hana::second(pair), name);
             });
         
-    return node(tr, type, type);
+    return node(tr, type);
 }
 
 

@@ -43,7 +43,7 @@ struct model_printer {
                 os << format.cyan << format.bold << "}" << format.normal << wrap;
             }
             std::for_each(top->begin(), top->end(), [&](const plog::node& n) { 
-                    operator()(os, n.type, n);
+                    operator()(os, n.name, n);
                 });
         }
     }

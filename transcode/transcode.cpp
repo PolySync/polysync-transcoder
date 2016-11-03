@@ -2,8 +2,8 @@
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/detector.hpp>
 #include <polysync/plugin.hpp>
-#include <polysync/transcode/logging.hpp>
-#include <polysync/transcode/console.hpp>
+#include <polysync/logging.hpp>
+#include <polysync/console.hpp>
 #include <polysync/plog/io.hpp>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
@@ -141,8 +141,8 @@ int main(int ac, char* av[]) {
         }
     }
 
-    plog::descriptor::catalog.emplace("log_record", plog::descriptor::describe<plog::log_record>());
-    plog::descriptor::catalog.emplace("msg_header", plog::descriptor::describe<plog::msg_header>());
+    plog::descriptor::catalog.emplace("log_record", plog::descriptor::describe<plog::log_record>::type());
+    plog::descriptor::catalog.emplace("msg_header", plog::descriptor::describe<plog::msg_header>::type());
     plog::detector::catalog.push_back(plog::detector::type {"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
 
     if (vm.count("help")) {

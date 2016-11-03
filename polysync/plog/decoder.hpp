@@ -2,7 +2,7 @@
 
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/description.hpp>
-#include <polysync/transcode/logging.hpp>
+#include <polysync/logging.hpp>
 #include <fstream>
 #include <boost/hana.hpp>
 
@@ -54,9 +54,10 @@ public:
 public:
     // Decode an entire record and return a parse tree.
     node operator()(const plog::log_record&);
+    node operator()(const descriptor::type& type) { return decode(type); }
 
     // Detect the next type from parent decode
-    std::string detect(const node& parent); 
+    // std::string detect(const node& parent); 
 
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
@@ -115,6 +116,8 @@ public:
     // Decode a dynamic type using the description name.  This name will become
     // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
     node decode_desc(const std::string& type);
+
+    node decode(const descriptor::type&);
 
     // Define a set of factory functions that know how to decode specific binary
     // types.  They keys are strings from the "type" field of the TOML descriptions.

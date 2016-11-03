@@ -1,7 +1,7 @@
 #include <polysync/plog/description.hpp>
 #include <polysync/plog/detector.hpp>
 #include <polysync/plog/io.hpp>
-#include <polysync/transcode/logging.hpp>
+#include <polysync/logging.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <regex>
@@ -26,7 +26,7 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
         return;
     }
 
-    descriptor::type desc;
+    descriptor::type desc(name);
     auto dt = table->get("description");
     if (!dt->is_table_array())
         throw std::runtime_error("[description] must be a table array");

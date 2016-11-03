@@ -2,6 +2,7 @@
 
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/io.hpp>
+#include <polysync/exception.hpp>
 #include <fstream>
 #include <boost/hana.hpp>
 
@@ -14,6 +15,10 @@ class encoder {
 public:
 
     encoder(std::ostream& st) : stream(st) {} 
+
+    // Expose the encode() members as operator(), for convenience.
+    template <typename... Args>
+    void operator()(Args... args) { encode(std::forward<Args>(args)...); }
 
 public:
     // Define a set of encode() overloads to pattern match every possible
@@ -41,7 +46,6 @@ public:
     template <typename T, size_t N>
     void encode(const boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value) {
         stream.write((char *)value.data(), sizeof(T));
-        std::cout << "endian " << value << " " << std::dec << (int)stream.tellp() << std::endl;
     }
 
     // Write raw buffer, as bytes of length sz.
@@ -82,10 +86,31 @@ public:
         stream.write((char *)(name.data()), len); 
     }
 
-    void encode(const tree& t) {
-        std::for_each(t->begin(), t->end(), [this](const node& n) { 
-                BOOST_LOG_SEV(log, logging::severity::debug2) << n.name << " = " << n << " (" << n.type << ")";
-                eggs::variants::apply([=](auto f) { encode(f); }, n);
+    void encode(const tree& t, const descriptor::type& desc) {
+        // The serialization must be in the order of the desciptor, so iterate that first
+        std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& f) {
+
+                // Skip is a special case and will never be in the parse tree,
+                // although it is still a critical part of the description.
+                // Just pad out the stream with zeros.
+                if (f.name == "skip") {
+                    size_t skip = std::atol(f.type.c_str());
+                    std::string pad(skip, 0);
+                    stream.write(pad.c_str(), skip);
+                    return;
+                }
+
+                // Search the tree itself to find the field; The tree's natural
+                // order is irrelevant, given a descriptor.  This is exactly
+                // how the type can be re-ordered during a format change
+                // without breaking legacy plogs.
+                auto fi = std::find_if(
+                        t->begin(), t->end(), [f](const node& n) { return n.name == f.name; });
+                if (fi == t->end())
+                    throw polysync::error("field \"" + f.name + "\" not found in tree");
+
+                BOOST_LOG_SEV(log, severity::debug2) << f.name << " = " << *fi << " (" << f.type << ")";
+                eggs::variants::apply([=](auto val) { encode(val); }, *fi);
         });
     }
 
@@ -98,23 +123,6 @@ public:
 
 public:
     
-    // Generate self descriptions of types 
-    template <typename Record>
-    std::string describe() const {
-        if (!descriptor::static_typemap.count(typeid(Record)))
-            throw std::runtime_error("no typemap description");
-        std::string tpname = descriptor::static_typemap.at(typeid(Record)).name; 
-        std::string result = tpname + " { ";
-        hana::for_each(Record(), [&result, tpname](auto pair) {
-                std::type_index tp = typeid(hana::second(pair));
-                std::string fieldname = hana::to<char const*>(hana::first(pair));
-                if (descriptor::static_typemap.count(tp) == 0)
-                    throw std::runtime_error("type not described for field \"" + tpname + "::" + fieldname + "\"");
-                result += fieldname + ": " + descriptor::static_typemap.at(tp).name + " " + std::to_string(descriptor::static_typemap.at(tp).size) +  "; ";
-                });
-        return result + "}";
-    }
-
     logging::logger log { "plog-encoder" };
 
 protected:

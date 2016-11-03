@@ -1,21 +1,11 @@
 #include <mettle.hpp>
 
 #include <polysync/plog/detector.hpp>
-#include <polysync/transcode/console.hpp>
+#include <polysync/console.hpp>
 #include <polysync/plog/io.hpp>
 #include "types.hpp"
 
 namespace plog = polysync::plog;
-
-constexpr char const* ps_byte_array_msg = R"toml(
-[ps_byte_array_msg]
-    description = [
-        { name = "dest_guid", type = "ps_guid" },
-        { name = "data_type", type = "uint32" },
-        { name = "payload", type = "uint32" }
-    ]
-    detector = { ibeo.header = { data_type = "160" } } 
-)toml";
 
 // Define a fixture to parse a TOML string
 struct fixture {

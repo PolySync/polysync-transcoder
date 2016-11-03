@@ -6,6 +6,7 @@
 
 namespace endian = boost::endian;
 namespace hana = boost::hana;
+namespace plog = polysync::plog;
 
 constexpr auto integers = hana::tuple_t<
     std::int8_t, std::int16_t, std::int32_t, std::int64_t,
@@ -36,6 +37,7 @@ auto hana_equal(Struct&& expected) {
             return hana::equal(actual, expected); },
             "hana_equal ");
 }
+
 
 namespace polysync { namespace plog { namespace descriptor { 
 
@@ -78,4 +80,64 @@ struct has_key : mettle::matcher_tag {
     const std::string key;
 };
 
+// Define a mettle matcher that knows how to compare an arbitarily long hex
+// string with a bytes buffer.
+auto bits(const std::string& hex) { 
+    namespace mp = boost::multiprecision;
+
+    std::string truth;
+    mp::export_bits(mp::cpp_int("0x" + hex), std::back_inserter(truth), 8);
+
+    return mettle::make_matcher([truth](const auto& value) -> bool {
+            return truth == value;
+            }, hex);
+}
+
+constexpr char const* ps_byte_array_msg = R"toml(
+[ps_byte_array_msg]
+    description = [
+        { name = "dest_guid", type = "ps_guid" },
+        { name = "data_type", type = "uint32" },
+        { name = "payload", type = "uint32" }
+    ]
+    detector = { ibeo.header = { data_type = "160" } } 
+)toml";
+
+namespace toml {
+
+constexpr char const* ibeo_header = R"toml(
+[ibeo.header]
+    description = [
+        { name = "magic", type = ">uint32" },
+        { name = "prev_size", type = ">uint32" },
+        { name = "size", type = "uint8" },
+        { skip = 4 },
+        { name = "device_id", type = "uint8" },
+        { name = "data_type", type = ">uint16", format = "hex" },
+        { name = "time", "type" = ">NTP64" }
+    ]
+    detector = { ibeo.vehicle_state = { magic = "0xAFFEC0C2", data_type = "0x2807" }, ibeo.scan_data = { magic = "0xAFFEC0C2", data_type = "0x2205" } }
+)toml";
+
+} // namespace toml
+
+namespace descriptor {
+
+plog::descriptor::type ps_byte_array_msg { "ps_byte_array_msg", { 
+        { "dest_guid", "ps_guid" },
+        { "data_type", "uint32" },
+        { "payload", "uint32" } }
+};
+
+plog::descriptor::type ibeo_header { "ibeo.header", {
+    { "magic", "uint32" },
+    { "prev_size", "uint32" },
+    { "size", "uint8" },
+    { "skip", "4" },
+    { "device_id", "uint8" },
+    { "data_type", "uint16" },
+    { "time", "uint64" } }
+};
+
+} // namespace descriptor
 

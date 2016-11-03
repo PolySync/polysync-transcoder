@@ -30,8 +30,8 @@ class writer {
         writer(const fs::path& path) {
             file = H5Fcreate(path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
             type_group = H5Gcreate(file, "/type", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            build_type("msg_header", plog::descriptor::describe<plog::msg_header>());
-            build_type("log_record", plog::descriptor::describe<plog::log_record>());
+            build_type("msg_header", plog::descriptor::describe<plog::msg_header>::type());
+            build_type("log_record", plog::descriptor::describe<plog::log_record>::type());
         }
 
         // Create a custom HDF5 datatype that reflects the plog::type_description
@@ -62,7 +62,7 @@ class writer {
             size_t off = 0;
             std::for_each(desc.begin(), desc.end(), [this, ft, name, &off](auto field) {
                     auto tp = hdf_type.at(field.type);
-                    plog::descriptor::atom ad = plog::descriptor::dynamic_typemap.at(field.type);
+                    plog::descriptor::terminal ad = plog::descriptor::dynamic_typemap.at(field.type);
                     H5Tinsert(ft, field.name.c_str(), off, tp);
                     off += ad.size;
                     });
@@ -193,7 +193,7 @@ struct plugin : encode::plugin {
 
     plugin() {
         plog::descriptor::dynamic_typemap.emplace("sequence<octet>", 
-                plog::descriptor::atom { "sequence<octet>", sizeof(hvl_t) } );
+                plog::descriptor::terminal { "sequence<octet>", sizeof(hvl_t) } );
         hdf_type.emplace("sequence<octet>", H5Tvlen_create(H5T_NATIVE_UINT8));
     }
 
