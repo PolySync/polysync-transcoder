@@ -4,6 +4,8 @@
 #include <polysync/plog/description.hpp>
 #include <polysync/plog/detector.hpp>
 
+#include <boost/endian/arithmetic.hpp>
+
 namespace endian = boost::endian;
 namespace hana = boost::hana;
 namespace plog = polysync::plog;

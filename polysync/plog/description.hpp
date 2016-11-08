@@ -51,6 +51,15 @@ inline bool operator==(const terminal_array& lhs, const terminal_array& rhs) {
     return lhs.size == rhs.size;
 }
 
+struct dynamic_array {
+    std::string sizefield;
+    std::type_index type;
+};
+
+inline bool operator==(const dynamic_array& lhs, const dynamic_array& rhs) {
+    return lhs.sizefield == rhs.sizefield && lhs.type == rhs.type;
+}
+
 struct type;
 
 struct nested_array {
@@ -62,10 +71,9 @@ inline bool operator==(const nested_array& lhs, const nested_array& rhs) {
     return lhs.size == rhs.size;
 }
 
-
 struct field {
     std::string name;
-    eggs::variant<std::type_index, nested, skip, terminal_array, nested_array> type;
+    eggs::variant<std::type_index, nested, skip, terminal_array, nested_array, dynamic_array> type;
 };
 
 inline bool operator==(const field& lhs, const field& rhs) {

@@ -73,8 +73,8 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
                 std::string hex = "0100000000000000" "02000000" "0300000000000000";
                 // This line tickles a gdb bug.
-                // expect([=]() { decode_hex(desc, hex); }, 
-                //         thrown<polysync::error>("no typemap for \"time\""));
+                expect([=]() { decode_hex(desc, hex); }, 
+                        thrown<polysync::error>("no typemap for \"time\""));
 
                 });
 
@@ -192,5 +192,25 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                 expect(correct, equal_to(truth));
                 });
         });
+
+        _.subsuite("dynamic_array", [](auto &_) {
+
+                plog::descriptor::type sometype { "dynarray", {
+                    { "points", typeid(std::uint16_t) },
+                    { "data", plog::descriptor::dynamic_array { "points", typeid(std::uint8_t) } }
+                } };
+
+                plog::tree truth = plog::tree::create({
+                        { "points", std::uint16_t { 3 } },
+                        { "data", std::vector<uint8_t> { 2, 3, 4 } }
+                    });
+
+                _.test("equal", [=]() {
+                        plog::tree correct = decode_hex(sometype, "0100" "02" "03" "04");
+                        expect(correct, equal_to(truth));
+                        });
+
+            });
+
 });
 

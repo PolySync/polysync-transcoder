@@ -3,6 +3,7 @@
 #include <polysync/plog/io.hpp>
 #include <polysync/exception.hpp>
 
+#include <boost/endian/arithmetic.hpp>
 #include <algorithm>
 
 std::string print(const std::vector<std::string>& p) { 
@@ -12,6 +13,7 @@ std::string print(const std::vector<std::string>& p) {
 namespace polysync { namespace plog { 
 
 using logging::severity;
+namespace endian = boost::endian;
 
 // Kick off a decoder with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
@@ -130,7 +132,25 @@ struct branch_builder {
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
     }
    
-    // Array of described compound types
+    // Dynamic array of terminal types
+    void operator()(const descriptor::dynamic_array& ta) const {
+        // The branch should have a previous element with name ta.sizename
+        auto it = std::find_if(branch->begin(), branch->end(), [ta](const node& n) {
+               return n.name == ta.sizefield; }); 
+        if (it == branch->end())
+            throw polysync::error("size indicator field \"" + ta.sizefield + "\" was not found");
+
+        std::uint16_t* size = it->target<std::uint16_t>();
+        if (!size)
+            throw polysync::error("cannot determine array size");
+
+        std::vector<std::uint8_t> array(*size);
+        for(std::uint8_t& val: array)
+           d->decode(val); 
+        branch->emplace_back(field.name, array);
+        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+    }
+     // Array of described compound types
     void operator()(descriptor::nested_array idx) const {
         std::vector<plog::tree> vec;
         for(size_t i = 0; i < idx.size; ++i) 
