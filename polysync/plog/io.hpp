@@ -12,6 +12,40 @@ namespace polysync { namespace plog {
 namespace hana = boost::hana;
 using polysync::console::format;
 
+std::ostream& operator<<(std::ostream& os, tree rec);
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
+    const int psize = 16;
+    os << "[ " << std::hex;
+    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), [&os](auto field) mutable { os << field << " "; });
+    if (record.size() > 2*psize)
+        os << "... ";
+    if (record.size() > psize)
+        std::for_each(record.end() - psize, record.end(), [&os](auto field) mutable { os << field << " "; });
+
+    os << "]" << std::dec << " (" << record.size() << " elements)";
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const std::vector<std::uint8_t>& record) {
+    const int psize = 16;
+    os << "[ " << std::hex;
+    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
+    if (record.size() > 2*psize)
+        os << "... ";
+    if (record.size() > psize)
+        std::for_each(record.end() - psize, record.end(), [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
+
+    os << "]" << std::dec << " (" << record.size() << " elements)";
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const variant& v) {
+    eggs::variants::apply([&os](auto a) { os << a; }, v);
+    return os;
+}
+
 template <typename T>
 auto to_string(const T& record) -> std::string { 
     std::stringstream ss;
@@ -145,8 +179,11 @@ inline std::string lex(const variant& v) {
 
 namespace descriptor {
 
-inline std::ostream& operator<<(std::ostream& os, const field& desc) {
-    return os << format.white << desc.type << ": " << format.blue << desc.name << format.normal;
+inline std::ostream& operator<<(std::ostream& os, const field& f) {
+    const std::type_info& info = f.type.target_type();
+    if (typemap.count(info))
+        return os << format.white << typemap.at(info).name << ": " << format.blue << f.name << format.normal;
+    else return os << format.blue << f.name << format.normal;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const type& desc) {

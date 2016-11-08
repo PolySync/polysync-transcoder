@@ -4,6 +4,7 @@
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include <boost/filesystem.hpp>
+#include <typeindex>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -14,12 +15,12 @@ namespace polysync { namespace transcode { namespace hdf5 {
 // initialized here, but custom types built from self described plog will
 // appear in this list as they are discovered.
 
-std::map<std::string, hid_t> hdf_type {
-    { "float", H5T_NATIVE_FLOAT },
-    { "double", H5T_NATIVE_DOUBLE },
-    { "uint32", H5T_NATIVE_UINT32 },
-    { "uint64", H5T_NATIVE_UINT64 },
-    { "ps_guid", H5T_NATIVE_UINT64 },
+std::map<std::type_index, hid_t> hdf_type {
+    { typeid(float), H5T_NATIVE_FLOAT },
+    { typeid(double), H5T_NATIVE_DOUBLE },
+    { typeid(std::uint32_t), H5T_NATIVE_UINT32 },
+    { typeid(std::uint64_t), H5T_NATIVE_UINT64 },
+    { typeid(plog::guid), H5T_NATIVE_UINT64 },
 };
 
 // Use the standard C interface for HDF5; I think the C++ interface is 90's
@@ -40,18 +41,19 @@ class writer {
             // Calculate the size of the new datatype, needed for H5Tcreate().
             // While we are at it, check that we have descriptions for each
             // field, and we know what that means for HDF5.
-            std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, [name](auto off, auto field) { 
-                    if (plog::descriptor::dynamic_typemap.count(field.type) == 0)
+            std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, 
+                    [name](std::streamoff off, const plog::descriptor::field& field) { 
+                    if (plog::descriptor::typemap.count(field.type.target_type()) == 0)
                         throw std::runtime_error(
-                        "hdf5: no typemap description for \"" + field.type + "\" (" + name 
-                        + "::" + field.name + ")");
+                        "hdf5: no typemap description for " + name 
+                        + "::" + field.name);
 
-                    if (hdf_type.count(field.type) == 0)
+                    if (hdf_type.count(field.type.target_type()) == 0)
                         throw std::runtime_error(
-                                "hdf5: no hdf_type description for \"" + field.type + "\" (" + name 
-                                + "::" + field.name + ")");
+                                "hdf5: no hdf_type description for " + name 
+                                + "::" + field.name);
 
-                    off += plog::descriptor::dynamic_typemap.at(field.type).size; 
+                    off += plog::descriptor::typemap.at(field.type.target_type()).size; 
                     return off;
                     });
             hid_t ft = H5Tcreate(H5T_COMPOUND, size);
@@ -61,15 +63,15 @@ class writer {
             // field, so we can assume the at() member functions will succeed.
             size_t off = 0;
             std::for_each(desc.begin(), desc.end(), [this, ft, name, &off](auto field) {
-                    auto tp = hdf_type.at(field.type);
-                    plog::descriptor::terminal ad = plog::descriptor::dynamic_typemap.at(field.type);
+                    auto tp = hdf_type.at(field.type.target_type());
+                    plog::descriptor::terminal ad = plog::descriptor::typemap.at(field.type.target_type());
                     H5Tinsert(ft, field.name.c_str(), off, tp);
                     off += ad.size;
                     });
 
             H5Tcommit1(type_group, name.c_str(), ft);
-            filetype.emplace(name, ft);
-            hdf_type.emplace(name, ft);
+            // filetype.emplace(name, ft);
+            // hdf_type.emplace(name, ft);
         }
 
     void write(const plog::log_record& record) {
@@ -124,10 +126,10 @@ class writer {
         auto desc = plog::descriptor::catalog.at(msg_type);
         auto blob = record.blob.begin();
         std::for_each(desc.begin(), desc.end(), [&w, record, &blob](auto field) {
-                if (field.type == "log_record") {
+                if (field.name == "log_record") {
                     // core types we know at compile time, so fold using boost::hana
                     w.encode(record);
-                } else if (field.type == "sequence<octet>") {
+                } else if (field.name == "sequence<octet>") {
                     // sequences have variable length per record, which is a special case for HDF5 
                     std::uint32_t* sz = new ((void *)&(*blob)) std::uint32_t;
                     blob += sizeof(std::uint32_t);
@@ -136,9 +138,9 @@ class writer {
                     blob += *sz;
                 } else {
                     // All other fields just get serialized as a raw memory copy
-                    size_t sz = plog::size<plog::descriptor::field>(field).value();
-                    w.encode(&(*blob), sz);
-                    blob += sz;
+                    // size_t sz = plog::size<plog::descriptor::field>(field).value();
+                    // w.encode(&(*blob), sz);
+                    // blob += sz;
                 }
              });
         
@@ -192,13 +194,13 @@ std::shared_ptr<writer> hdf;
 struct plugin : encode::plugin { 
 
     plugin() {
-        plog::descriptor::dynamic_typemap.emplace("sequence<octet>", 
-                plog::descriptor::terminal { "sequence<octet>", sizeof(hvl_t) } );
-        hdf_type.emplace("sequence<octet>", H5Tvlen_create(H5T_NATIVE_UINT8));
+        // plog::descriptor::dynamic_typemap.emplace("sequence<octet>", 
+        //         plog::descriptor::terminal { "sequence<octet>", sizeof(hvl_t) } );
+        // hdf_type.emplace("sequence<octet>", H5Tvlen_create(H5T_NATIVE_UINT8));
     }
 
     ~plugin() {
-        H5Tclose(hdf_type.at("sequence<octet>"));
+        // H5Tclose(hdf_type.at(typeid(plog::sequence<plog::octet>)));
     }
 
     po::options_description options() const {

@@ -20,7 +20,7 @@ const auto bigendians = hana::transform(integers, [](auto t) {
         return hana::type_c<endian::endian_arithmetic<endian::order::big, T, 8*sizeof(T)>>; 
         });
 
-auto scalars = hana::concat(hana::concat(integers, bigendians), reals);
+auto scalars = hana::concat(integers, reals);
 
 // Define metafunction to compute parameterized mettle::suite from a hana typelist.
 template <typename TypeList>
@@ -42,7 +42,8 @@ auto hana_equal(Struct&& expected) {
 namespace polysync { namespace plog { namespace descriptor { 
 
 template <typename Struct>
-auto operator==(const Struct& lhs, const Struct& rhs) -> bool { 
+typename std::enable_if_t<hana::Foldable<Struct>::value> 
+operator==(const Struct& lhs, const Struct& rhs) { 
     return hana::equal(lhs, rhs); 
 }
 
@@ -124,19 +125,19 @@ constexpr char const* ibeo_header = R"toml(
 namespace descriptor {
 
 plog::descriptor::type ps_byte_array_msg { "ps_byte_array_msg", { 
-        { "dest_guid", "ps_guid" },
-        { "data_type", "uint32" },
-        { "payload", "uint32" } }
+        { "dest_guid", typeid(plog::guid) },
+        { "data_type", typeid(uint32_t) },
+        { "payload", typeid(uint32_t) } }
 };
 
 plog::descriptor::type ibeo_header { "ibeo.header", {
-    { "magic", "uint32" },
-    { "prev_size", "uint32" },
-    { "size", "uint8" },
-    { "skip", "4" },
-    { "device_id", "uint8" },
-    { "data_type", "uint16" },
-    { "time", "uint64" } }
+    { "magic", typeid(std::uint32_t) },
+    { "prev_size", typeid(std::uint32_t) },
+    { "size", typeid(std::uint8_t) },
+    { "skip", plog::descriptor::skip { 4 } },
+    { "device_id", typeid(std::uint8_t) },
+    { "data_type", typeid(std::uint16_t) },
+    { "time", typeid(std::uint64_t) } }
 };
 
 } // namespace descriptor

@@ -141,7 +141,7 @@ public:
 
     logging::logger log { "decoder" };
 
-protected:
+// protected:
 
     std::istream& stream;
     std::streamoff endpos;

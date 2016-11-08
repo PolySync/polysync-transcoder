@@ -89,29 +89,74 @@ node decoder::decode_desc(const std::string& type) {
     return decode(desc);
 }
 
+struct branch_builder {
+    plog::tree branch;
+    const descriptor::field& field;
+    decoder* d;
+
+    // Terminal types
+    void operator()(std::type_index idx) const {
+        if (!descriptor::typemap.count(idx))
+            throw polysync::error("no typemap for \"" + to_string(field) + "\"");
+        const descriptor::terminal& term = descriptor::typemap.at(idx);
+        node a = d->decode_desc(term.name);
+        branch->emplace_back(field.name, a);
+        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << a << " (" << term.name << ")";
+    }
+
+    // Nested described type
+    void operator()(const descriptor::nested& nest) const {
+        if (!descriptor::catalog.count(nest.name))
+            throw polysync::error("no descriptor for \"" + nest.name + "\"");
+        const descriptor::type& desc = descriptor::catalog.at(nest.name);
+        node a = d->decode(desc);
+        branch->emplace_back(field.name, a);
+        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << a 
+            << " (nested \"" << nest.name << "\")";
+    }
+
+    // Burn off unused or reserved space
+    void operator()(const descriptor::skip& skip) const {
+        d->stream.seekg(skip.size, std::ios_base::cur);
+        BOOST_LOG_SEV(d->log, severity::debug2) << "skipped " << skip.size << " unused bytes";
+    }
+
+    // Array of terminal types
+    void operator()(const descriptor::terminal_array& ta) const {
+        std::vector<std::uint8_t> array(ta.size);
+        for(std::uint8_t& val: array)
+           d->decode(val); 
+        branch->emplace_back(field.name, array);
+        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+    }
+   
+    // Array of described compound types
+    void operator()(descriptor::nested_array idx) const {
+        std::vector<plog::tree> vec;
+        for(size_t i = 0; i < idx.size; ++i) 
+            vec.emplace_back(*(d->decode(idx.desc).target<plog::tree>()));
+        branch->emplace_back(field.name, vec);
+        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(vec);
+    }
+
+};
+
 plog::node decoder::decode(const descriptor::type& desc) {
 
     plog::tree child = plog::tree::create();
-    std::for_each(desc.begin(), desc.end(), [&](auto field) {
 
-            // Burn off unused or reserved space using the "skip" keyword.
-            if (field.name == "skip") {
-                stream.seekg(std::stoul(field.type), std::ios_base::cur);
-                return;
-            }
+    std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {
+        eggs::variants::apply(branch_builder { child, field, this }, field.type);
+        });
 
-            node a = decode_desc(field.type);
-            BOOST_LOG_SEV(log, severity::debug2) << field.name << " = " << a << " (" << field.type << ")";
 
             // fields that have been parsed recursively start out as
             // sequence<octet>, but a better, more specific name is discovered
             // during the parse.  If this happened, use the better name.
             // Otherwise, use the original descriptor's name.
-            std::string fname = a.name.empty() ? field.name : a.name;
-            child->emplace_back(a, fname);
-        });
+            // std::string fname = a.name.empty() ? field.name : a.name;
 
-    return node(child, desc.name);
+    return node(desc.name, child);
 }
 
 

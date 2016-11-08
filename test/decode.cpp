@@ -19,23 +19,26 @@ plog::tree decode_hex(const plog::descriptor::type& desc, const std::string& hex
     // decode a plog::tree from the description
     std::stringstream stream(blob);
     plog::decoder decode(stream);
-    return *decode(desc).target<plog::tree>();
+    plog::tree result = *decode(desc).target<plog::tree>();
+
+    if (stream.tellg() < decode.endpos)
+        result->emplace_back(decode.decode_desc("raw"));
+    return result;
 }
 
 mettle::suite<> decode("plog::decode", [](auto& _) {
+        polysync::console::format = polysync::console::nocolor();
 
         _.teardown([]() {
                 plog::descriptor::catalog.clear();
             });
-
-
         
         _.test("simple", []() {
                 std::string hex = "0100000000000000" "02000000" "03000000";
                 plog::tree truth = plog::tree::create({
-                        { plog::guid { 1 }, "dest_guid" },
-                        { std::uint32_t { 2 }, "data_type" },
-                        { std::uint32_t { 3 }, "payload" }
+                        { "dest_guid", plog::guid { 1 } },
+                        { "data_type", std::uint32_t { 2 } },
+                        { "payload", std::uint32_t { 3 } }
                     });
 
                 plog::tree tree = decode_hex(descriptor::ps_byte_array_msg, hex);
@@ -49,12 +52,12 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     "04" "0500" "0600000000000000";
 
                 plog::tree truth = plog::tree::create({
-                        { std::uint32_t { 1 }, "magic" },
-                        { std::uint32_t { 2 }, "prev_size" },
-                        { std::uint8_t { 3 }, "size" },
-                        { std::uint8_t { 4 }, "device_id" },
-                        { std::uint16_t { 5 }, "data_type" },
-                        { std::uint64_t { 6 }, "time" },
+                        { "magic", std::uint32_t { 1 } },
+                        { "prev_size", std::uint32_t { 2 } },
+                        { "size", std::uint8_t { 3 } },
+                        { "device_id", std::uint8_t { 4 } },
+                        { "data_type", std::uint16_t { 5 } },
+                        { "time", std::uint64_t { 6 } },
                     });
 
                 plog::tree tree = decode_hex(descriptor::ibeo_header, hex);
@@ -63,47 +66,131 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.test("unknown_type", []() {
                 plog::descriptor::type desc { "incomplete_type", { 
-                    { "dest_guid", "ps_guid" },
-                    { "data_type", "uint32" },
-                    { "time", "NTP64" } }
+                    { "dest_guid", typeid(plog::guid) },
+                    { "data_type", typeid(std::uint32_t) },
+                    { "time", typeid(void) } }
                     };
 
                 std::string hex = "0100000000000000" "02000000" "0300000000000000";
-                expect([=]() { decode_hex(desc, hex); }, 
-                        thrown<polysync::error>("no decoder for type NTP64"));
+                // This line tickles a gdb bug.
+                // expect([=]() { decode_hex(desc, hex); }, 
+                //         thrown<polysync::error>("no typemap for \"time\""));
 
                 });
 
-        _.test("nested_type", []() {
+        _.subsuite("nested_type", [](auto&_) {
+
                 plog::descriptor::type scanner_info { "scanner_info", {
-                    { "device_id", "uint8" },
-                    { "scanner_type", "uint8" } }
+                    { "device_id", typeid(std::uint8_t) },
+                    { "scanner_type", typeid(std::uint8_t) } }
                 };
                 plog::descriptor::catalog.emplace("scanner_info", scanner_info);
-                plog::descriptor::type desc { "container", {
-                    { "start_time", "uint16" },
-                    { "scanner_info_list", "scanner_info" } }
+                plog::descriptor::type container { "container", {
+                    { "start_time", typeid(std::uint16_t) },
+                    { "scanner_info_list", plog::descriptor::nested{"scanner_info"} } }
                 };
                 
-                std::string hex = "0100" "02" "03";
-                plog::tree tree = decode_hex(desc, hex);
-
                 plog::tree truth = plog::tree::create({
-                        { std::uint16_t { 1 }, "start_time" },
-                        { plog::tree::create({ 
-                                { std::uint8_t { 2 }, "device_id" }, 
-                                { std::uint8_t { 3 }, "scanner_type" }
-                                }), "scanner_info" }
+                        { "start_time", std::uint16_t { 1 } },
+                        { "scanner_info", plog::tree::create({ 
+                                { "device_id", std::uint8_t { 2 } }, 
+                                { "scanner_type", std::uint8_t { 3 } }
+                                }) }
                     });
 
-                expect(tree, equal_to(truth));
+                _.test("equal", [=]() {
+                        plog::tree correct = decode_hex(container, "0100" "02" "03");
+                        expect(correct, equal_to(truth));
+                        });
+
+                _.test("notequal", [=]() {
+                        plog::tree wrong = decode_hex(container, "0100" "02" "04");
+                        expect(wrong, not_equal_to(truth));
+                        });
+
+                _.test("tooshort", [=]() {
+                        plog::tree tooshort = decode_hex(container, "0100" "02");
+                        expect(tooshort, not_equal_to(truth));
+                        });
+
+                _.test("toolong", [=]() {
+                        plog::tree toolong = decode_hex(container, "0100" "02" "03" "04");
+                        expect(toolong, not_equal_to(truth));
+                        });
             });
 
-        _.test("fixed_array", []() {
-                plog::descriptor::type desc { "sometype", {
-                    { "time", "uint16" },
-                    { "data", descriptor::sequence(2) }
-                } }
+        _.subsuite("terminal_array", [](auto &_) {
+
+                plog::descriptor::type sometype { "sometype", {
+                    { "time", typeid(std::uint16_t) },
+                    { "data", plog::descriptor::terminal_array { 3, typeid(std::uint8_t) } }
+                } };
+
+                plog::tree truth = plog::tree::create({
+                        { "time", std::uint16_t { 1 } },
+                        { "data", std::vector<uint8_t> { 2, 3, 4 } }
+                    });
+
+                _.test("equal", [=]() {
+                        plog::tree correct = decode_hex(sometype, "0100" "02" "03" "04");
+                        expect(correct, equal_to(truth));
+                        });
+
+                _.test("notequal", [=]() {
+                        plog::tree wrong = decode_hex(sometype, "0100" "02" "04" "04");
+                        expect(wrong, not_equal_to(truth));
+                        });
+
+                _.test("tooshort", [=]() {
+                        plog::tree tooshort = decode_hex(sometype, "0100" "02" "03");
+                        expect(tooshort, not_equal_to(truth));
+                        });
+
+                _.test("toolong", [=]() {
+                        plog::tree toolong = decode_hex(sometype, "0100" "02" "03" "04" "05");
+                        expect(toolong, not_equal_to(truth));
+                        });
+
             });
+
+        _.subsuite("nested_array", [](auto &_) {
+                _.test("equal", [=]() {
+                plog::descriptor::type scanner_info { "scanner_info", {
+                    { "device_id", typeid(std::uint8_t) },
+                    { "scanner_type", typeid(std::uint8_t) } }
+                };
+                plog::descriptor::catalog.emplace("scanner_info", scanner_info);
+                plog::descriptor::type container { "container", {
+                    { "start_time", typeid(std::uint16_t) },
+                    { "scanner_info_list", plog::descriptor::nested_array{ 3, scanner_info } } }
+                };
+
+                plog::tree truth = plog::tree::create({
+                        { "time", std::uint16_t { 1 } },
+                        { "scanner_info", std::vector<plog::tree> {
+                                plog::tree::create({ 
+                                        { "device_id", std::uint8_t { 2 } },
+                                        { "scanner_type", std::uint8_t { 3 } },
+                                        }),
+                                plog::tree::create({ 
+                                        { "device_id", std::uint8_t { 4 } },
+                                        { "scanner_type", std::uint8_t { 5 } }, 
+                                        }),
+                                plog::tree::create({ 
+                                        { "device_id", std::uint8_t { 6 } },
+                                        { "scanner_type", std::uint8_t { 7 } } 
+                                        }),
+                        }}
+                    });
+
+                plog::tree correct = decode_hex(container, 
+                        "0100" 
+                        "02" "03" 
+                        "04" "05"
+                        "06" "07"
+                        );
+                expect(correct, equal_to(truth));
+                });
         });
+});
 

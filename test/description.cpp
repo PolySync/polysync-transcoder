@@ -77,9 +77,9 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
 
                 const plog::descriptor::type& desc = catalog.at("ps_byte_array_msg");
                 expect(desc, array( 
-                            plog::descriptor::field { "dest_guid", "ps_guid" }, 
-                            plog::descriptor::field { "data_type", "uint32"},
-                            plog::descriptor::field { "payload", "uint32"}
+                            plog::descriptor::field { "dest_guid", typeid(plog::guid) }, 
+                            plog::descriptor::field { "data_type", typeid(std::uint32_t) },
+                            plog::descriptor::field { "payload", typeid(std::uint32_t) }
                             ));
                 });
 
@@ -91,9 +91,9 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
 
                 const plog::descriptor::type& desc = catalog.at("ps_byte_array_msg");
                 expect(desc, array( 
-                            plog::descriptor::field { "dest_guid", "ps_guid" }, 
-                            plog::descriptor::field { "data_type", "uint32"},
-                            plog::descriptor::field { "payload", "uint32"}
+                             plog::descriptor::field { "dest_guid", typeid(plog::guid) }, 
+                             plog::descriptor::field { "data_type", typeid(std::uint32_t)},
+                             plog::descriptor::field { "payload", typeid(std::uint32_t)}
                             ));
                 });
 

@@ -2,12 +2,10 @@
 
 #include <polysync/plog/core.hpp>
 #include <eggs/variant.hpp>
-#include <boost/endian/arithmetic.hpp>
 #include <iostream>
 
 namespace polysync { namespace plog {
 
-namespace endian = boost::endian;
 namespace hana = boost::hana;
 
 // Ugh, eggs::variant lacks the recursive feature supported by the old
@@ -17,6 +15,7 @@ namespace hana = boost::hana;
 // factor out std::shared_ptr<tree> to just tree, then.
 
 struct node;
+
 struct tree : std::shared_ptr<std::vector<node>> {
     using std::shared_ptr<element_type>::shared_ptr;
 
@@ -25,31 +24,49 @@ struct tree : std::shared_ptr<std::vector<node>> {
         return std::make_shared<element_type>(init);
     }
 };
+std::ostream& operator<<(std::ostream& os, tree rec);
 
 using bytes = plog::sequence<std::uint32_t, std::uint8_t>;
 
+// Each leaf node in the tree may contain any of a limited set of types, defined here.
 using variant = eggs::variant<
-    tree, bytes, float, double,
-    std::int8_t, std::int16_t, int32_t, int64_t,
-    std::uint8_t, std::uint16_t, uint32_t, uint64_t,
-    endian::big_uint16_t, endian::big_uint32_t, endian::big_uint64_t,
-    endian::big_int16_t, endian::big_int32_t, endian::big_int64_t
+    // Nested types and vectors of nested types
+    tree, std::vector<tree>,
+
+    // Undecoded raw bytes (fallback when description is missing)
+    bytes, 
+
+    // Floating point types and native vectors
+    float, std::vector<float>, 
+    double, std::vector<double>, 
+
+    // Integer types and native vectors
+    std::int8_t, std::vector<std::int8_t>, 
+    std::int16_t, std::vector<std::int16_t>, 
+    std::int32_t, std::vector<std::int32_t>, 
+    std::int64_t, std::vector<std::int64_t>,
+    std::uint8_t, std::vector<std::uint8_t>, 
+    std::uint16_t, std::vector<std::uint16_t>, 
+    std::uint32_t, std::vector<std::uint32_t>, 
+    std::uint64_t, std::vector<std::uint64_t>
     >;
 
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
-// is strongly typed as one of the variant component types.
+// is strongly typed as one of the variant component types.  A node is just a
+// variant with a name.
 struct node : variant {
 
     template <typename T>
-        node(const T& value, const std::string& n) : variant(value), name(n) { }
+    node(const std::string& n, const T& value) : variant(value), name(n) { }
 
     using variant::variant;
-    std::string name;
+    const std::string name;
 
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
-        static node from(const Struct& s, const std::string&);
+    static node from(const Struct& s, const std::string&);
 };
+// std::ostream& operator<<(std::ostream& os, const node& rec);
 
 inline bool operator==(const tree& lhs, const tree& rhs) { 
     if (lhs->size() != rhs->size())
@@ -60,7 +77,7 @@ inline bool operator==(const tree& lhs, const tree& rhs) {
 
                 // If the two nodes are both trees, recurse.
                 const tree* ltree = ln.target<tree>();
-                const tree* rtree = ln.target<tree>();
+                const tree* rtree = rn.target<tree>();
                 if (ltree && rtree)
                     return operator==(*ltree, *rtree);
 
@@ -68,7 +85,7 @@ inline bool operator==(const tree& lhs, const tree& rhs) {
                 return ln == rn;
             });
 }
-
+inline bool operator!=(const tree& lhs, const tree& rhs) { return !operator==(lhs, rhs); }
 
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
@@ -76,10 +93,10 @@ inline node node::from(const Struct& s, const std::string& type) {
     tree tr = tree::create();
     hana::for_each(s, [tr](auto pair) { 
             std::string name = hana::to<char const*>(hana::first(pair));
-            tr->emplace_back(hana::second(pair), name);
+            tr->emplace_back(name, hana::second(pair));
             });
         
-    return node(tr, type);
+    return node(type, tr);
 }
 
 
@@ -106,25 +123,25 @@ namespace eggs { namespace variants {
 
 // For variant on variant equality, just compare the lexical representation.
 // This is really much more user friendly, if not technically typesafe.
-inline bool operator==(const polysync::plog::variant& lhs, const polysync::plog::variant& rhs) {
-    std::stringstream lrep;
-    std::stringstream rrep;
-
-    lrep << lhs;
-    rrep << rhs;
-
-    return lrep.str() == rrep.str();
-}
+// inline bool operator==(const polysync::plog::variant& lhs, const polysync::plog::variant& rhs) {
+//     std::stringstream lrep;
+//     std::stringstream rrep;
+// 
+//     lrep << lhs;
+//     rrep << rhs;
+// 
+//     return lrep.str() == rrep.str();
+// }
 
 template <typename U>
 std::enable_if_t<std::is_integral<U>::value, bool>
 operator==(const polysync::plog::variant& lhs, U const& rhs) 
 {  
-    namespace endian = boost::endian;
+    // namespace endian = boost::endian;
 
-    using bigendian = endian::endian_arithmetic<endian::order::big, U, 8*sizeof(U)>;
-    if (lhs.target_type() == typeid(bigendian)) 
-        return lhs.target<bigendian>()->value() == rhs;
+    // using bigendian = endian::endian_arithmetic<endian::order::big, U, 8*sizeof(U)>;
+    // if (lhs.target_type() == typeid(bigendian)) 
+    //     return lhs.target<bigendian>()->value() == rhs;
 
     if (lhs.target_type() == typeid(U))
         return *lhs.target<U>() == rhs;

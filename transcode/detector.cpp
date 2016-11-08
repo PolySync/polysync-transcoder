@@ -83,15 +83,17 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
         for (auto pair: *branch.second->as_table()) {
 
             // Dig through the type description to get the type of the matching field
-            auto it = std::find_if(desc.begin(), desc.end(), [pair](auto f) { return f.name == pair.first; });
+            auto it = std::find_if(desc.begin(), desc.end(), 
+                    [pair](auto f) { return f.name == pair.first; });
             if (it == desc.end())
                 throw std::runtime_error(name + " has no field \"" + pair.first + "\""); 
 
             // For this purpose, TOML numbers must be strings because TOML is
             // not very type flexible (and does not know about hex notation).
             // Here is where we convert that string into a strong type.
+            // const std::type_info& info = it->type.target_type();
             std::string value = pair.second->as<std::string>()->get();
-            match.emplace(pair.first, convert(value, it->type));
+            match.emplace(pair.first, convert(value, it->name));
         }
         detector::catalog.emplace_back(detector::type { name, match, branch.first });
         BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" << detector::catalog.back().parent 

@@ -8,7 +8,6 @@
 
 using namespace mettle;
 namespace plog = polysync::plog;
-namespace endian = boost::endian;
 namespace hana = boost::hana;
 
 // Instantiate the static console format; this is used inside of mettle to

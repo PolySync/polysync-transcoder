@@ -35,8 +35,8 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 
         // skip reserved bytes
         if (fp->contains("skip")) {
-            int skip = *fp->get_as<int>("skip");
-            desc.emplace_back(field { "skip", std::to_string(skip) });
+            int size = *fp->get_as<int>("skip");
+            desc.emplace_back(field { "skip", skip { size } });
             continue;
         }
 
@@ -48,7 +48,7 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 
         desc.emplace_back(field { 
                 *fp->get_as<std::string>("name"),
-                *fp->get_as<std::string>("type")
+                descriptor::namemap.at(*fp->get_as<std::string>("type"))
                 }); 
     }
 

@@ -30,7 +30,7 @@ struct model_printer {
                 catalog.insert(name);
                 os << format.cyan << format.bold << name << " {" << wrap << format.normal;
                 std::for_each(desc.begin(), desc.end(), [&](const plog::descriptor::field& d) {
-                        std::string tname = d.type;
+                        std::string tname = d.name;
                         std::string tags;
                         if (tname.front() == '>') {
                             tags += format.yellow + std::string(" bigendian ") + format.normal;

@@ -21,10 +21,56 @@ struct terminal {
     std::streamoff size;
 };
 
+inline bool operator==(const terminal& lhs, const terminal& rhs) {
+    return lhs.name == rhs.name && lhs.size == rhs.size;
+}
+
+struct nested {
+    std::string name;
+};
+
+inline bool operator==(const nested& lhs, const nested& rhs) {
+    return lhs.name == rhs.name;
+}
+
+
+struct skip {
+    std::streamoff size;
+};
+
+inline bool operator==(const skip& lhs, const skip& rhs) {
+    return lhs.size == rhs.size;
+}
+
+struct terminal_array {
+    std::size_t size;
+    std::type_index type;
+};
+
+inline bool operator==(const terminal_array& lhs, const terminal_array& rhs) {
+    return lhs.size == rhs.size;
+}
+
+struct type;
+
+struct nested_array {
+    std::size_t size;
+    const type& desc;
+};
+
+inline bool operator==(const nested_array& lhs, const nested_array& rhs) {
+    return lhs.size == rhs.size;
+}
+
+
 struct field {
     std::string name;
-    std::string type;
+    eggs::variant<std::type_index, nested, skip, terminal_array, nested_array> type;
 };
+
+inline bool operator==(const field& lhs, const field& rhs) {
+    return lhs.name == rhs.name && lhs.type == rhs.type;
+}
 
 // The full type description is just a vector of fields.  This has to be a
 // vector, not a map, to preserve the serialization order in the plog flat file.
@@ -44,6 +90,8 @@ extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table,
 extern catalog_type catalog;
 extern std::map<std::type_index, terminal> static_typemap; 
 extern std::map<std::string, terminal> dynamic_typemap; 
+extern std::map<std::type_index, terminal> typemap;
+extern std::map<std::string, std::type_index> namemap; 
 
 // Create a type description of a static structure, using hana for class instrospection
 template <typename Struct>
@@ -56,8 +104,8 @@ struct describe {
                 std::string name = hana::to<char const*>(hana::first(pair));
                 if (static_typemap.count(typeid(hana::second(pair))) == 0)
                 throw std::runtime_error("missing typemap for " + name);
-                terminal a = static_typemap.at(typeid(hana::second(pair)));
-                desc.emplace_back(field { name, a.name });
+                // terminal a = static_typemap.at(typeid(hana::second(pair)));
+                // desc.emplace_back(field { name, typemap.at(a.name) });
                 return desc;
                 });
     }
@@ -88,6 +136,7 @@ struct size {
     static std::streamoff value() { return sizeof(Number); }
 };
 
+
 template <typename Struct>
 struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type> {
     static std::streamoff value() {
@@ -98,16 +147,16 @@ struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type
 };
 
 
-template <>
-struct size<descriptor::field> {
-    size(const descriptor::field& f) : desc(f) { }
-    
-    std::streamoff value() const {
-        return descriptor::dynamic_typemap.at(desc.type).size;
-    }
-
-    descriptor::field desc;
-};
+// template <>
+// struct size<descriptor::field> {
+//     size(const descriptor::field& f) : desc(f) { }
+//     
+//     std::streamoff value() const {
+//         return descriptor::typemap.at(desc.type).size;
+//     }
+// 
+//     descriptor::field desc;
+// };
 
 }} // namespace polysync::plog
 
