@@ -45,39 +45,48 @@ inline bool operator==(const skip& lhs, const skip& rhs) {
     return lhs.size == rhs.size;
 }
 
-struct terminal_array {
-    std::size_t size;
-    std::type_index type;
+struct array {
+    eggs::variant<size_t, std::string> size;
+    eggs::variant<std::type_index, std::string> type;
 };
 
-inline bool operator==(const terminal_array& lhs, const terminal_array& rhs) {
-    return lhs.size == rhs.size;
+inline bool operator==(const array& lhs, const array& rhs) {
+    return lhs.size == rhs.size && lhs.type == rhs.type;
 }
 
-struct dynamic_array {
-    std::string sizefield;
-    std::type_index type;
-};
-
-inline bool operator==(const dynamic_array& lhs, const dynamic_array& rhs) {
-    return lhs.sizefield == rhs.sizefield && lhs.type == rhs.type;
-}
-
-struct type;
-
-struct nested_array {
-    std::size_t size;
-    const type& desc;
-};
-
-inline bool operator==(const nested_array& lhs, const nested_array& rhs) {
-    return lhs.size == rhs.size;
-}
+// struct terminal_array {
+//     std::size_t size;
+//     std::type_index type;
+// };
+// 
+// inline bool operator==(const terminal_array& lhs, const terminal_array& rhs) {
+//     return lhs.size == rhs.size;
+// }
+// 
+// struct dynamic_array {
+//     std::string sizefield;
+//     std::type_index type;
+// };
+// 
+// inline bool operator==(const dynamic_array& lhs, const dynamic_array& rhs) {
+//     return lhs.sizefield == rhs.sizefield && lhs.type == rhs.type;
+// }
+// 
+// struct type;
+// 
+// struct nested_array {
+//     std::size_t size;
+//     const type& desc;
+// };
+// 
+// inline bool operator==(const nested_array& lhs, const nested_array& rhs) {
+//     return lhs.size == rhs.size;
+// }
 
 
 struct field {
     std::string name;
-    using variant = eggs::variant<std::type_index, nested, skip, terminal_array, nested_array, dynamic_array>;
+    using variant = eggs::variant<std::type_index, nested, skip, array>; // terminal_array, nested_array, dynamic_array>;
     variant type;
     bool bigendian { false };
     std::function<std::string (const node&)> format { to_string };

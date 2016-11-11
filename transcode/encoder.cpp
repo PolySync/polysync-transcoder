@@ -49,43 +49,49 @@ struct branch {
     }
 
     static std::map<std::type_index, std::function<void (encoder*, const plog::node&, size_t)>> array_func;
-    void operator()(const descriptor::terminal_array& desc) const {
-            if (!array_func.count(desc.type))
+    void operator()(const descriptor::array& desc) const {
+        auto sizefield = desc.size.target<std::string>();
+        auto fixedsize = desc.size.target<size_t>();
+        size_t size;
+
+        if (sizefield) {
+            auto it = std::find_if(tree->begin(), tree->end(), 
+                    [sizefield](const plog::node& n) { return n.name == *sizefield; }); 
+            if (it == tree->end())
+                throw polysync::error("size indicator field not found") << exception::field(*sizefield);
+
+            // Figure out the size, irregardless of the integer type
+            std::stringstream os;
+            os << *it;
+            size = std::stoll(os.str());
+        } else
+            size = *fixedsize; 
+
+        BOOST_LOG_SEV(enc->log, severity::debug2) << "encoding " << size << " elements";
+        auto nesttype = desc.type.target<std::string>();
+        
+        if (nesttype) {
+            if (!descriptor::catalog.count(*nesttype))
+                throw polysync::error("unknown nested type");
+
+            const descriptor::type& nest = descriptor::catalog.at(*nesttype);
+            const std::vector<plog::tree>* arr = node.target<std::vector<plog::tree>>();
+
+            // Actual data type is not a vector like the description requires.
+            if (arr == nullptr)
+                throw polysync::error("mismatched type") << exception::field(node.name);
+
+            std::for_each(arr->begin(), arr->end(), [this, nest](auto elem) {
+                    enc->encode(elem, nest);
+                    });
+        } else {
+            std::type_index idx = *desc.type.target<std::type_index>();
+            if (!array_func.count(idx))
                 throw polysync::error("unknown terminal type");
-
-            return array_func.at(desc.type)(enc, node, desc.size);
+            return array_func.at(idx)(enc, node, size);
+        }
     }
 
-    void operator()(const descriptor::dynamic_array& dynarray) const {
-        // The branch should have a previous element with name dynarray.sizename
-        // const log::tree& branch = *node.target<plog::tree>();
-        auto it = std::find_if(tree->begin(), tree->end(), [dynarray](const plog::node& n) {
-                return n.name == dynarray.sizefield; }); 
-        if (it == tree->end())
-            throw polysync::error("size indicator field \"" + dynarray.sizefield + "\" was not found");
-
-        std::uint16_t* size = it->target<std::uint16_t>();
-        if (!size)
-            throw polysync::error("cannot determine array size");
-
-        BOOST_LOG_SEV(enc->log, severity::debug2) << "encoding " << *size << " elements";
-        return array_func.at(dynarray.type)(enc, node, *size);
-    }
-
-    void operator()(const descriptor::nested_array& idx) const {
-        const std::vector<plog::tree>* arr = node.target<std::vector<plog::tree>>();
-
-        // Actual data type is not a vector like the description requires.
-        if (arr == nullptr)
-            throw polysync::error("mismatched type in field \"" + node.name + "\"");
-
-        if (idx.desc.empty())
-            throw polysync::error("empty type descriptor \""  "\" for field \"" + field.name + "\"");
-
-        std::for_each(arr->begin(), arr->end(), [this, idx](auto elem) {
-                enc->encode(elem, idx.desc);
-                });
-    }
 };
 
 std::map<std::type_index, std::function<void (encoder*, const plog::node&, size_t)>> 

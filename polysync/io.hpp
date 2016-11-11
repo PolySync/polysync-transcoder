@@ -7,6 +7,8 @@
 #include <sstream>
 #include <string>
 
+namespace polysync { namespace plog {
+
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
     const int psize = 16;
@@ -34,7 +36,6 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<std::uint8_t
     return os;
 }
 
-namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
 using polysync::console::format;
@@ -152,7 +153,7 @@ inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
 }
 
 inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
-    return os << "value";
+    return os << static_cast<std::uint16_t>(value);
 }
 
 // inline std::ostream& operator<<(std::ostream& os, const plog::node& value) {
@@ -169,10 +170,11 @@ inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
 //     return os << "}";
 // }
 
-inline std::string lex(const variant& v) {
-    std::stringstream os;
-    eggs::variants::apply([&os](auto a) { os << a; }, v);
-    return os.str();
+inline std::ostream& operator<<(std::ostream& os, const std::vector<tree>& array) {
+    os << "{ ";
+    std::for_each(array.begin(), array.end(), [&os](tree t) { os << "node "; });
+    os << "}";
+    return os;
 }
 
 namespace descriptor {

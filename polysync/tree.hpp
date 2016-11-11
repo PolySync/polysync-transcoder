@@ -24,7 +24,6 @@ struct tree : std::shared_ptr<std::vector<node>> {
         return std::make_shared<element_type>(init);
     }
 };
-// std::ostream& operator<<(std::ostream& os, tree rec);
 
 using bytes = plog::sequence<std::uint32_t, std::uint8_t>;
 

@@ -9,6 +9,7 @@ std::string to_string(const node& n) {
 }
 
 std::ostream& operator<<(std::ostream& os, const plog::variant& v) {
+    // std::cout << v.target_type().name() << std::endl;
     eggs::variants::apply([&os](auto a) { os << a; }, v);
     return os;
 }

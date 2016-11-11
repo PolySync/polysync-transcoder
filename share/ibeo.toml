@@ -44,13 +44,61 @@
         { name = "longitudinal_acceleration", type = "float32", endian="big" } 
     ]
 
+[ibeo.resolution_info]
+    description = [
+        { name = "start_angle", type = "float32", endian="big"  },
+        { name = "resolution", type = "float32", endian="big"  }
+    ]
+
+[ibeo.scan_point]
+    description = [
+        { name = "x_position", type = "float32", endian="big" },
+        { name = "y_position", type = "float32", endian="big" },
+        { name = "z_position", type = "float32", endian="big" },
+        { name = "echo_width", type = "float32", endian="big" },
+        { name = "device_id", type = "uint8" },
+        { name = "layer", type = "uint8" },
+        { name = "echo", type = "uint8" },
+        { skip = 1 },
+        { name = "timestamp", type = "uint32", endian="big"  },
+        { name = "flags", type = "uint16", endian="big", format="hex" },
+        { skip = 2 }
+    ]
+
+[ibeo.scanner_info]
+    description = [
+        { name = "device_id", type = "uint8" },
+        { name = "scanner_type", type = "uint8" },
+        { name = "scan_number", type = "uint16" },
+        { skip = 4 },
+        { name = "start_angle", type = "float32", endian="big" },
+        { name = "end_angle", type = "float32", endian="big"  },
+        { name = "scan_start_time", type = "uint64", format="hex", endian="big" },
+        { name = "scan_end_time", type = "uint64", format="hex", endian="big" },
+        { name = "scan_start_time_from_device", type = "uint64", format="hex", endian="big" },
+        { name = "scan_end_time_from_device", type = "uint64", format="hex", endian="big" },
+        { name = "scan_frequency", type = "float32", endian="big" },
+        { name = "beam_tilt", type = "float32", endian="big" },
+        { name = "scan_flags", type = "uint32", endian="big" },
+        { name = "yaw_angle", type = "float32", endian="big"  },
+        { name = "pitch_angle", type = "float32", endian="big"  },
+        { name = "roll_angle", type = "float32", endian="big"  },
+        { name = "offset_x", type = "float32", endian="big"  },
+        { name = "offset_y", type = "float32", endian="big"  },
+        { name = "offset_z", type = "float32", endian="big"  },
+        { name = "resolution", type = "ibeo.resolution_info", count = 8 }
+    ]
+
+       
 [ibeo.scan_data]
     description = [
-        { name = "scan_start_time", type = "uint64", format="hex", endian="big" },
+        { name = "scan_start_time", type = "uint64", endian="big", format="hex" },
         { name = "scan_end_time_offset", type = "uint32", endian="big" },
-        { name = "flags", type = "uint32", endian="big" },
+        { name = "flags", type = "uint32", endian="big", format="hex" },
         { name = "scan_number", type = "uint16", endian="big" },
-        { name = "scan_points", type = "int16", endian="big" },
+        { name = "scan_points", type = "uint16", endian="big" },
         { name = "number_of_scanner_infos", type = "uint8" },
-        { skip = 3 }
+        { skip = 3 },
+        { name = "scanner_info_list", type = "ibeo.scanner_info", count = "number_of_scanner_infos" },
+        { name = "scanner_point_list", type = "ibeo.scan_point", count = "scan_points" }
     ]

@@ -132,41 +132,85 @@ struct branch_builder {
         BOOST_LOG_SEV(d->log, severity::debug2) << "skipped " << skip.size << " unused bytes";
     }
 
+    void operator()(const descriptor::array& desc) const {
+        auto sizefield = desc.size.target<std::string>();
+        auto fixedsize = desc.size.target<size_t>();
+        size_t size;
+
+        if (sizefield) {
+            // The branch should have a previous element with name sizefield
+            auto it = std::find_if(branch->begin(), branch->end(), 
+                    [sizefield](const node& n) { return n.name == *sizefield; }); 
+            if (it == branch->end())
+                throw polysync::error("size indicator field not found") << exception::field(*sizefield);
+
+            // Figure out the size, irregardless of the integer type
+            std::stringstream os;
+            os << *it;
+            size = std::stoll(os.str());
+        } else
+            size = *fixedsize; 
+
+        auto nesttype = desc.type.target<std::string>();
+        
+        if (nesttype) {
+            if (!descriptor::catalog.count(*nesttype))
+                throw polysync::error("unknown nested type");
+
+            const descriptor::type& nest = descriptor::catalog.at(*nesttype);
+            std::vector<plog::tree> array;
+            for (size_t i = 0; i < size; ++i) {
+                BOOST_LOG_SEV(d->log, severity::debug2) << "decoding " << nest.name 
+                    <<  " #" << i + 1 << " of " << size;
+                array.push_back(*(d->decode(nest).target<plog::tree>()));
+            }
+            branch->emplace_back(field.name, array);
+            BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << array;
+        } else {
+            std::type_index idx = *desc.type.target<std::type_index>();
+            std::vector<std::uint8_t> array(size);
+            for(std::uint8_t& val: array)
+                d->decode(val); 
+            branch->emplace_back(field.name, array);
+            BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+        }
+    }
+
     // Array of terminal types
-    void operator()(const descriptor::terminal_array& ta) const {
-        std::vector<std::uint8_t> array(ta.size);
-        for(std::uint8_t& val: array)
-           d->decode(val); 
-        branch->emplace_back(field.name, array);
-        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
-    }
+    // void operator()(const descriptor::terminal_array& ta) const {
+    //     std::vector<std::uint8_t> array(ta.size);
+    //     for(std::uint8_t& val: array)
+    //        d->decode(val); 
+    //     branch->emplace_back(field.name, array);
+    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+    // }
    
-    // Dynamic array of terminal types
-    void operator()(const descriptor::dynamic_array& ta) const {
-        // The branch should have a previous element with name ta.sizename
-        auto it = std::find_if(branch->begin(), branch->end(), [ta](const node& n) {
-               return n.name == ta.sizefield; }); 
-        if (it == branch->end())
-            throw polysync::error("size indicator field \"" + ta.sizefield + "\" was not found");
+    // // Dynamic array of terminal types
+    // void operator()(const descriptor::dynamic_array& ta) const {
+    //     // The branch should have a previous element with name ta.sizename
+    //     auto it = std::find_if(branch->begin(), branch->end(), [ta](const node& n) {
+    //            return n.name == ta.sizefield; }); 
+    //     if (it == branch->end())
+    //         throw polysync::error("size indicator field \"" + ta.sizefield + "\" was not found");
 
-        std::uint16_t* size = it->target<std::uint16_t>();
-        if (!size)
-            throw polysync::error("cannot determine array size");
+    //     std::uint16_t* size = it->target<std::uint16_t>();
+    //     if (!size)
+    //         throw polysync::error("cannot determine array size");
 
-        std::vector<std::uint8_t> array(*size);
-        for(std::uint8_t& val: array)
-           d->decode(val); 
-        branch->emplace_back(field.name, array);
-        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
-    }
-     // Array of described compound types
-    void operator()(descriptor::nested_array idx) const {
-        std::vector<plog::tree> vec;
-        for(size_t i = 0; i < idx.size; ++i) 
-            vec.emplace_back(*(d->decode(idx.desc).target<plog::tree>()));
-        branch->emplace_back(field.name, vec);
-        BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(vec);
-    }
+    //     std::vector<std::uint8_t> array(*size);
+    //     for(std::uint8_t& val: array)
+    //        d->decode(val); 
+    //     branch->emplace_back(field.name, array);
+    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+    // }
+    //  // Array of described compound types
+    // void operator()(descriptor::nested_array idx) const {
+    //     std::vector<plog::tree> vec;
+    //     for(size_t i = 0; i < idx.size; ++i) 
+    //         vec.emplace_back(*(d->decode(idx.desc).target<plog::tree>()));
+    //     branch->emplace_back(field.name, vec);
+    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(vec);
+    // }
 
 };
 

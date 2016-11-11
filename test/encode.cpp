@@ -148,7 +148,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
 
                 plog::descriptor::type sometype { "sometype", {
                     { "time", typeid(std::uint16_t) },
-                    { "data", plog::descriptor::terminal_array { 3, typeid(std::uint8_t) } }
+                    { "data", plog::descriptor::array { 3, typeid(std::uint8_t) } }
                 } };
 
                 std::string truth = "0100" "02" "03" "04";
@@ -211,10 +211,9 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
         };
 
         struct container : plog::descriptor::type {
-            scanner_info info;
             container() : plog::descriptor::type { "container", {
                 { "start_time", typeid(std::uint16_t) },
-                { "scanner_info_list", plog::descriptor::nested_array { 2, info } } } } 
+                { "scanner_info_list", plog::descriptor::array { 2, "scanner_info" } } } } 
             {
             }
         };
@@ -226,7 +225,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 _.test("equal", [=](const container& c) {
                         plog::descriptor::type intvec { "intvec", {
                             { "points", typeid(std::uint16_t) },
-                            { "data", plog::descriptor::dynamic_array { "points", typeid(std::uint8_t) } } }
+                            { "data", plog::descriptor::array { "points", typeid(std::uint8_t) } } }
                         };
 
                         plog::tree tree = plog::tree::create({

@@ -174,7 +174,8 @@ std::string detect(const node& parent) {
                         // lex(*std::find_if(tree->begin(), tree->end(), [field](auto f){ return field == f.name; })) + 
                         // lex(tree->at(field)) + 
                         // (tree->at(field) == det.match.at(field) ? " == " : " != ")
-                        lex(det.match.at(field)) + " }"; 
+                        // lex(det.match.at(field)) 
+                        + " }"; 
                     });
     }
 

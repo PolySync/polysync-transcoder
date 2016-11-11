@@ -74,7 +74,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                 std::string hex = "0100000000000000" "02000000" "0300000000000000";
                 // This line tickles a gdb bug.
                 expect([=]() { decode_hex(desc, hex); }, 
-                        thrown<polysync::error>("no typemap for \"time\""));
+                        thrown<polysync::error>("no typemap"));
 
                 });
 
@@ -123,7 +123,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
                 plog::descriptor::type sometype { "sometype", {
                     { "time", typeid(std::uint16_t) },
-                    { "data", plog::descriptor::terminal_array { 3, typeid(std::uint8_t) } }
+                    { "data", plog::descriptor::array { 3, typeid(std::uint8_t) } }
                 } };
 
                 plog::tree truth = plog::tree::create({
@@ -162,7 +162,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                 plog::descriptor::catalog.emplace("scanner_info", scanner_info);
                 plog::descriptor::type container { "container", {
                     { "start_time", typeid(std::uint16_t) },
-                    { "scanner_info_list", plog::descriptor::nested_array{ 3, scanner_info } } }
+                    { "scanner_info_list", plog::descriptor::array{ 3, "scanner_info" } } }
                 };
 
                 plog::tree truth = plog::tree::create({
@@ -197,7 +197,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
                 plog::descriptor::type sometype { "dynarray", {
                     { "points", typeid(std::uint16_t) },
-                    { "data", plog::descriptor::dynamic_array { "points", typeid(std::uint8_t) } }
+                    { "data", plog::descriptor::array { "points", typeid(std::uint8_t) } }
                 } };
 
                 plog::tree truth = plog::tree::create({
