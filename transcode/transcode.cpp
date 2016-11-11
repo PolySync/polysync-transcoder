@@ -3,12 +3,14 @@
 #include <polysync/plog/detector.hpp>
 #include <polysync/plugin.hpp>
 #include <polysync/logging.hpp>
+#include <polysync/exception.hpp>
 #include <polysync/console.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/io.hpp>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
 // benefits, it eases a Windows port.
 #include <boost/dll/import.hpp>
+#include <boost/dll/shared_library.hpp>
 #include <boost/dll/runtime_symbol_info.hpp> // for program_location()
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -21,11 +23,22 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 namespace dll = boost::dll;
 namespace plog = polysync::plog;
+namespace ps = polysync;
 
-using polysync::logging::severity;
-using polysync::logging::logger;
+using ps::logging::severity;
+using ps::logging::logger;
+using ps::console::format;
 
-int main(int ac, char* av[]) {
+namespace std {
+
+std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
+    std::for_each(paths.begin(), paths.end(), [&os](const fs::path& p) { os << p << " "; });
+    return os;
+}
+
+}
+
+int catch_main(int ac, char* av[]) {
 
     logger log("transcode");
 
@@ -37,14 +50,17 @@ int main(int ac, char* av[]) {
     po::options_description general_opt("General Options");
     general_opt.add_options()
         ("help,h", "print this help message")
-        ("debug,d", po::value<std::string>()->default_value("info"), "debug level")
-        ("nocolor", "remove color from formatting")
-        ("plug,p", po::value<std::vector<fs::path>>()
-         ->default_value(std::vector<fs::path>(), TRANSCODE_PLUGIN_PATH)->composing(),
-         "configure plugin path")
-        ("description", po::value<std::vector<fs::path>>()
-         ->default_value(std::vector<fs::path>(), {"."})->composing(), 
-         "description TOFL path")
+        ("verbose,v", po::value<std::string>()->default_value("info"), "debug level")
+        ("nocolor,c", "remove color from formatting")
+        ("plugdir,P", po::value<std::vector<fs::path>>()
+                ->default_value(std::vector<fs::path>{"./plugin"})
+                ->composing(),
+                "plugin path last")
+        ("descdir,D", po::value<std::vector<fs::path>>()
+                ->default_value(std::vector<fs::path>{"../share"})
+                ->composing()
+                ->multitoken(),
+                "TOFL type description path list")
         ;
 
     po::options_description filter_opt("Filter Options");
@@ -79,19 +95,19 @@ int main(int ac, char* av[]) {
     po::notify(vm);
 
     // Set the debug option right away
-    polysync::logging::set_level(vm["debug"].as<std::string>());
+    ps::logging::set_level(vm["verbose"].as<std::string>());
 
     if (vm.count("nocolor"))
-        polysync::console::format = polysync::console::nocolor();
+        ps::console::format = ps::console::nocolor();
 
-    std::map<std::string, boost::shared_ptr<polysync::encode::plugin>> plugin_map;
+    std::map<std::string, boost::shared_ptr<ps::encode::plugin>> plugin_map;
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self(dll::program_location());
     for (std::string plugname: { "dump", "datamodel" } ) {
-        auto plugin_factory = self.get_alias<boost::shared_ptr<polysync::encode::plugin>()>(plugname + "_plugin");
+        auto plugin_factory = self.get_alias<boost::shared_ptr<ps::encode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
         helpline.add(opt);
@@ -101,7 +117,7 @@ int main(int ac, char* av[]) {
 
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
-    for (fs::path plugdir: vm["plug"].as<std::vector<fs::path>>()) {
+    for (fs::path plugdir: vm["plugdir"].as<std::vector<fs::path>>()) {
         BOOST_LOG_SEV(log, severity::debug1) << "searching " << plugdir << " for plugins";
         static std::regex is_plugin(R"(.*transcode\.(.+)\.so)");
         for (fs::directory_entry& lib: fs::directory_iterator(plugdir)) {
@@ -110,33 +126,60 @@ int main(int ac, char* av[]) {
             if (match.size()) {
                 std::string plugname = match[1];
 
-                BOOST_LOG_SEV(log, severity::debug1) << "loading plugin " << plugname << " from " << lib.path();
-                boost::shared_ptr<polysync::encode::plugin> plugin = 
-                    dll::import<polysync::encode::plugin>(lib.path(), "plugin");
-                po::options_description opt = plugin->options();
-                cmdline.add(opt);
-                helpline.add(opt);
-                plugin_map.emplace(plugname, plugin);
+                try {
+                    boost::shared_ptr<ps::encode::plugin> plugin = 
+                        dll::import<ps::encode::plugin>(lib.path(), "encoder");
+                // dll::shared_library so(lib.path());
+                // if (plugin) { // so.has("encode_plugin")) {
+                    BOOST_LOG_SEV(log, severity::debug1) << "loading encoder from " << lib.path();
+                    // auto plugin = dll::import_alias<ps::encode::plugin>(boost::move(lib), "encode_plugin"); 
+                // auto plugin = dll::import_alias<ps::encode::plugin>(lib.path(), "encode_plugin");
+                plugin->options();
+                    // po::options_description opt = plugin->options();
+                // cmdline.add(opt);
+                // helpline.add(opt);
+                    // plugin_map.emplace(plugname, plugin);
+                } catch (std::runtime_error) {
+                    BOOST_LOG_SEV(log, severity::debug2) << lib.path() << " provides no encoder";
+                }
             }
         }
     }
 
-    for (fs::path descdir: vm["description"].as<std::vector<fs::path>>()) {
+    if (vm.count("help")) {
+        std::cout << format.bold << format.cyan << "PolySync Transcoder" 
+                  << format.normal << std::endl << std::endl;
+        std::cout << "Usage:" << std::endl;
+        std::cout << "\ttranscode [general-options] <input-file> <output-plugin> [output-options]" 
+                  << std::endl;
+        std::cout << helpline << std::endl << std::endl;
+        return ps::status::ok;
+    }
+
+
+    for (fs::path descdir: vm["descdir"].as<std::vector<fs::path>>()) {
         BOOST_LOG_SEV(log, severity::debug1) << "searching " << descdir << " for type descriptions";
         static std::regex is_description(R"((.+)\.toml)");
         for (fs::directory_entry& tofl: fs::directory_iterator(descdir)) {
             std::cmatch match;
             std::regex_match(tofl.path().string().c_str(), match, is_description);
             if (match.size()) {
-                std::string descname = match[1];
                 BOOST_LOG_SEV(log, severity::debug1) << "loading descriptions from " << tofl;
                 std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file(tofl.path().string());
 
-                // Parse the file in two passes, so the detectors have access to the descriptor's types
-                for (const auto& type: *descfile)
-                    plog::descriptor::load(type.first, type.second->as_table(), plog::descriptor::catalog);
-                for (const auto& type: *descfile)
-                    plog::detector::load(type.first, type.second->as_table(), plog::detector::catalog);
+                try {
+                    // Parse the file in two passes, so the detectors have
+                    // access to the descriptor's types
+                    for (const auto& type: *descfile)
+                        plog::descriptor::load(type.first, type.second->as_table(), plog::descriptor::catalog);
+                    for (const auto& type: *descfile)
+                        plog::detector::load(type.first, type.second->as_table(), plog::detector::catalog);
+                } catch (ps::error& e) {
+                    e << ps::status::description_error;
+                    e << ps::exception::path(tofl.path().string());
+                    throw;
+                }
+
             }
         }
     }
@@ -145,24 +188,22 @@ int main(int ac, char* av[]) {
     plog::descriptor::catalog.emplace("msg_header", plog::descriptor::describe<plog::msg_header>::type());
     plog::detector::catalog.push_back(plog::detector::type {"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
 
-    if (vm.count("help")) {
-        std::cout << "PolySync Transcoder" << std::endl << std::endl;
-        std::cout << "Usage:" << std::endl;
-        std::cout << "\ttranscode [options] <plog> <output> [options]" << std::endl;
-        std::cout << helpline << std::endl << std::endl;
-        return true;
-    }
+    if (!vm.count("path")) 
+        throw ps::error("no input files") << ps::status::bad_input;
 
     std::string output;
 
     if (vm.count("output"))
         output = vm["output"].as<std::string>();
-    else
-        std::cerr << "warning: no output plugin requested!" << std::endl;
+    else {
+        std::cerr << "error: no output plugin requested!" << std::endl;
+        exit(ps::status::no_plugin);
+    }
+
 
     if (!plugin_map.count(output)) {
-        std::cerr << "error: no plugin " << output << std::endl;
-        exit(-1);
+        std::cerr << "error: unknown output \"" << output << "\"" << std::endl;
+        exit(ps::status::no_plugin);
     }
 
     BOOST_LOG_SEV(log, severity::verbose) << "configuring plugin " << output;
@@ -180,12 +221,7 @@ int main(int ac, char* av[]) {
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
-    polysync::encode::visitor visit;
-
-    if (!vm.count("path")) {
-        std::cerr << "error: no plog paths supplied!" << std::endl;
-        return -1;
-    }
+    ps::encode::visitor visit;
 
     // PLogs key each message type by a number, but the number is generally
     // different in every plog.  Constant names are provided in the header in
@@ -212,6 +248,8 @@ int main(int ac, char* av[]) {
     {
         try {
             std::ifstream st(path.c_str(), std::ifstream::binary);
+            if (!st)
+                throw polysync::error("cannot open file");
 
             // Construct the next reader in the file list
             plog::decoder decoder(st);
@@ -222,12 +260,35 @@ int main(int ac, char* av[]) {
 
             decoder.decode(head);
             visit.log_header(head);
-            std::for_each(head.type_supports.begin(), head.type_supports.end(), std::ref(visit.type_support));
+            std::for_each(head.type_supports.begin(), head.type_supports.end(), 
+                          std::ref(visit.type_support));
             std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
             visit.cleanup(decoder);
-        } catch (const std::exception& e) {
-            BOOST_LOG_SEV(log, severity::error) << e.what();
-            break;
+        } catch (ps::error& e) {
+            e << ps::status::bad_input;
+            e << ps::exception::path(path.c_str());
+            throw;
         }
     }
+    return ps::status::ok;
 }
+
+int main(int ac, char* av[]) {
+    try {
+        return catch_main(ac, av);
+    } catch (const ps::error& e) {
+        const ps::status* stat = boost::get_error_info<ps::exception::status>(e);
+        std::cerr << format.red << format.bold << "Transcoder abort: " << format.normal 
+            << e.what() << std::endl;
+        if (const std::string* tpname = boost::get_error_info<ps::exception::type>(e))
+            std::cerr << "\tType: " << format.cyan << *tpname << format.normal << std::endl;
+        if (const std::string* fieldname = boost::get_error_info<ps::exception::field>(e))
+            std::cerr << "\tField: " << format.cyan << *fieldname << format.normal << std::endl;
+        if (const std::string* path = boost::get_error_info<ps::exception::path>(e))
+            std::cerr << "\tPath: " << format.cyan << *path << format.normal << std::endl;
+        if (const std::string* module = boost::get_error_info<ps::exception::module>(e))
+            std::cerr << "\tModule: " << format.cyan << *module << format.normal << std::endl;
+        exit(stat ? *stat : ps::status::ok);
+    }
+}
+

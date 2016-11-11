@@ -7,13 +7,6 @@
 #include <sstream>
 #include <string>
 
-namespace polysync { namespace plog {
-
-namespace hana = boost::hana;
-using polysync::console::format;
-
-std::ostream& operator<<(std::ostream& os, tree rec);
-
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
     const int psize = 16;
@@ -41,10 +34,14 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<std::uint8_t
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const variant& v) {
-    eggs::variants::apply([&os](auto a) { os << a; }, v);
-    return os;
-}
+namespace polysync { namespace plog {
+
+namespace hana = boost::hana;
+using polysync::console::format;
+
+// std::ostream& operator<<(std::ostream& os, tree rec);
+
+extern std::ostream& operator<<(std::ostream& os, const variant& v);
 
 template <typename T>
 auto to_string(const T& record) -> std::string { 
@@ -103,7 +100,8 @@ template <>
 inline std::ostream& operator<<(std::ostream& os, const sequence<std::uint32_t, std::uint8_t>& record) {
     const int psize = 16;
     os << "[ " << std::hex;
-    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
+    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
+            [&os](std::uint8_t value) mutable { os << ((std::uint16_t)value & 0xFF) << " "; });
     if (record.size() > 2*psize)
         os << "... ";
     if (record.size() > psize)
@@ -157,19 +155,19 @@ inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
     return os << "value";
 }
 
-inline std::ostream& operator<<(std::ostream& os, const plog::node& value) {
-    eggs::variants::apply([&os](auto a) { os << plog::to_string(a); }, value);
-    return os;
-}
+// inline std::ostream& operator<<(std::ostream& os, const plog::node& value) {
+//     eggs::variants::apply([&os](auto a) { os << plog::to_string(a); }, value);
+//     return os;
+// }
 
-inline std::ostream& operator<<(std::ostream& os, tree rec) {
-    os << "{ ";
-    if (rec->size() > 0) {
-        std::for_each(rec->begin(), rec->end() - 1, [&os](auto node) { os << node << ", "; });
-        os << rec->back() << " ";  // Make the last one special so it does not print ",".
-    }
-    return os << "}";
-}
+// inline std::ostream& operator<<(std::ostream& os, tree rec) {
+//     os << "{ ";
+//     if (rec->size() > 0) {
+//         std::for_each(rec->begin(), rec->end() - 1, [&os](auto node) { os << node << ", "; });
+//         os << rec->back() << " ";  // Make the last one special so it does not print ",".
+//     }
+//     return os << "}";
+// }
 
 inline std::string lex(const variant& v) {
     std::stringstream os;
@@ -187,7 +185,7 @@ inline std::ostream& operator<<(std::ostream& os, const field& f) {
 }
 
 inline std::ostream& operator<<(std::ostream& os, const type& desc) {
-    os << "type_descriptor { ";
+    os << desc.name << ": { ";
     std::for_each(desc.begin(), desc.end(), [&os](auto f) { os << f << ", "; });
     return os << "}";
 }

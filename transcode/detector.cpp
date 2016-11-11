@@ -2,7 +2,7 @@
 #include <polysync/plog/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/io.hpp>
 
 #include <regex>
 
@@ -31,21 +31,18 @@ inline T hex_stoul(const std::string& value) {
 // Description strings have type information, but the type comes out as a
 // string (because TOML does not have a very powerful type system).  Define
 // factory functions to look up a type by string name and convert to a strong type.
-static variant convert(const std::string value, const std::string type) {
-    static const std::map<std::string, std::function<variant (const std::string&)>> factory = {
-        { "uint8", [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
-        { "uint16", [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
-        { "uint32", [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
-        { "uint64", [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
-        { ">uint16", [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
-        { ">uint32", [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
-        { ">uint64", [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
-        { "float", [](const std::string& value) { return static_cast<float>(stof(value)); } },
-        { "double", [](const std::string& value) { return static_cast<double>(stod(value)); } },
+static variant convert(const std::string value, const std::type_index& type) {
+    static const std::map<std::type_index, std::function<variant (const std::string&)>> factory = {
+        { typeid(std::uint8_t), [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
+        { typeid(std::uint16_t), [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
+        { typeid(std::uint32_t), [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
+        { typeid(std::uint64_t), [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
+        { typeid(float), [](const std::string& value) { return static_cast<float>(stof(value)); } },
+        { typeid(double), [](const std::string& value) { return static_cast<double>(stod(value)); } },
     };
 
     if (!factory.count(type))
-        throw std::runtime_error("no string converter known for \"" + type + "\"");
+        throw polysync::error("no string converter") << exception::type(descriptor::typemap.at(type).name);
 
     return factory.at(type)(value);
 }
@@ -68,7 +65,7 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 
     auto det = table->get("detector");
     if (!det->is_table())
-        throw std::runtime_error("detector must be a table");
+        throw polysync::error("detector must be a table");
 
     for (const auto& branch: *det->as_table()) {
 
@@ -85,19 +82,36 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             // Dig through the type description to get the type of the matching field
             auto it = std::find_if(desc.begin(), desc.end(), 
                     [pair](auto f) { return f.name == pair.first; });
+            
+            // The field name did not match at all; throw to get out of here.
             if (it == desc.end())
-                throw std::runtime_error(name + " has no field \"" + pair.first + "\""); 
+                throw polysync::error("unknown field") 
+                    << exception::type(pair.first) 
+                    << exception::field(it->name)
+                    << status::description_error;
+
+            // Disallow branching on any non-native field type.  Branching on
+            // arrays or nested types is not supported (and hopefully never
+            // will need to be).
+            const std::type_index* idx = it->type.target<std::type_index>();
+            if (!idx)
+                throw polysync::error("illegal branch on compound type")
+                    << exception::type(pair.first)
+                    << exception::field(it->name)
+                    << status::description_error; 
 
             // For this purpose, TOML numbers must be strings because TOML is
             // not very type flexible (and does not know about hex notation).
             // Here is where we convert that string into a strong type.
             // const std::type_info& info = it->type.target_type();
             std::string value = pair.second->as<std::string>()->get();
-            match.emplace(pair.first, convert(value, it->name));
+            match.emplace(pair.first, convert(value, *idx));
         }
         detector::catalog.emplace_back(detector::type { name, match, branch.first });
-        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" << detector::catalog.back().parent 
-            << "\" -> \"" << detector::catalog.back().child << "\"";
+
+        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" 
+            << detector::catalog.back().parent << "\" -> \"" 
+            << detector::catalog.back().child << "\"";
     }
 }
 
@@ -108,7 +122,7 @@ std::string detect(const node& parent) {
 
     plog::tree tree = *parent.target<plog::tree>();
     if (tree->empty())
-        throw std::runtime_error("parent tree is empty");
+        throw polysync::error("parent tree is empty");
 
     // std::streampos rem = endpos - stream.tellg();
     // BOOST_LOG_SEV(log, severity::debug2) 
@@ -144,7 +158,7 @@ std::string detect(const node& parent) {
         
         // Too many matches. Catalog is not orthogonal and needs tweaking.
         if (mismatch.empty() && !tpname.empty())
-            throw std::runtime_error("non-unique detectors: " + tpname + " and " + det.child);
+            throw polysync::error("non-unique detectors: " + tpname + " and " + det.child);
 
         // Exactly one match. We have detected the sequel type.
         if (mismatch.empty()) {

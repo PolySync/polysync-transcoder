@@ -18,3 +18,7 @@ add_subdirectory( plugin )
 add_subdirectory( binding )
 add_subdirectory( test )
 
+enable_testing()
+foreach ( component IN ITEMS decode_hana tree size description detector encode decode )
+    add_test(NAME ${component} COMMAND test_${component} )
+endforeach( component )

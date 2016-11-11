@@ -6,13 +6,16 @@
 // message types are found in every plog file, and are specially defined in
 // core.hpp, and not by the dynamic mechanism implemented here.
 
-#include <polysync/plog/tree.hpp>
+#include <polysync/tree.hpp>
+#include <polysync/exception.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <boost/hana.hpp>
 #include <typeindex>
 
 namespace polysync { namespace plog {
+
+extern std::string to_string(const node&);
 
 namespace descriptor {
 
@@ -71,9 +74,13 @@ inline bool operator==(const nested_array& lhs, const nested_array& rhs) {
     return lhs.size == rhs.size;
 }
 
+
 struct field {
     std::string name;
-    eggs::variant<std::type_index, nested, skip, terminal_array, nested_array, dynamic_array> type;
+    using variant = eggs::variant<std::type_index, nested, skip, terminal_array, nested_array, dynamic_array>;
+    variant type;
+    bool bigendian { false };
+    std::function<std::string (const node&)> format { to_string };
 };
 
 inline bool operator==(const field& lhs, const field& rhs) {
@@ -86,8 +93,15 @@ struct type : std::vector<field> {
     type(const std::string& n) : name(n) {}
     type(const char * n, std::initializer_list<field> init) : name(n), std::vector<field>(init) {}
 
-    std::string name;
+    const std::string name;
 };
+
+inline bool operator==(const type& lhs, const type& rhs) {
+    std::cout << lhs.name << " " << rhs.name << std::endl;
+    return (lhs.name == rhs.name) 
+        // && (static_cast<std::vector<field>>(lhs) == static_cast<std::vector<field>>(rhs))
+        ;
+}
 
 using catalog_type = std::map<std::string, type>;
 
@@ -105,15 +119,19 @@ extern std::map<std::string, std::type_index> namemap;
 template <typename Struct>
 struct describe {
 
+    // Static introspection of the descriptor for Struct
     static descriptor::type type() {
         namespace hana = boost::hana;
+        std::string tpname = descriptor::static_typemap.at(typeid(Struct)).name; 
 
-        return hana::fold(Struct(), type(), [](auto desc, auto pair) { 
+        return hana::fold(Struct(), descriptor::type(tpname), [](auto desc, auto pair) { 
                 std::string name = hana::to<char const*>(hana::first(pair));
-                if (static_typemap.count(typeid(hana::second(pair))) == 0)
-                throw std::runtime_error("missing typemap for " + name);
-                // terminal a = static_typemap.at(typeid(hana::second(pair)));
-                // desc.emplace_back(field { name, typemap.at(a.name) });
+
+                if (typemap.count(typeid(hana::second(pair))) == 0)
+                    throw polysync::error("missing typemap") << exception::type(name);
+
+                terminal a = typemap.at(std::type_index(typeid(hana::second(pair))));
+                desc.emplace_back(field { name, typeid(hana::second(pair)) });
                 return desc;
                 });
     }
@@ -121,15 +139,16 @@ struct describe {
     // Generate self descriptions of types 
     static std::string string() {
         if (!descriptor::static_typemap.count(typeid(Struct)))
-            throw std::runtime_error("no typemap description");
+            throw polysync::error("no typemap description");
         std::string tpname = descriptor::static_typemap.at(typeid(Struct)).name; 
         std::string result = tpname + " { ";
         hana::for_each(Struct(), [&result, tpname](auto pair) {
                 std::type_index tp = typeid(hana::second(pair));
                 std::string fieldname = hana::to<char const*>(hana::first(pair));
                 if (descriptor::static_typemap.count(tp) == 0)
-                    throw std::runtime_error("type not described for field \"" + tpname + "::" + fieldname + "\"");
-                result += fieldname + ": " + descriptor::static_typemap.at(tp).name + " " + std::to_string(descriptor::static_typemap.at(tp).size) +  "; ";
+                    throw polysync::error("type not described") 
+                        << exception::type(tpname) << exception::field(fieldname);
+                result += fieldname + ": " + descriptor::static_typemap.at(tp).name + "; ";
                 });
         return result + "}";
     }

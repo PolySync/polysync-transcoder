@@ -2,7 +2,7 @@
 
 #include <polysync/exception.hpp>
 #include <polysync/plog/decoder.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/io.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/console.hpp>
 #include "types.hpp"
@@ -206,7 +206,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     });
 
                 _.test("equal", [=]() {
-                        plog::tree correct = decode_hex(sometype, "0100" "02" "03" "04");
+                        plog::tree correct = decode_hex(sometype, "0300" "02" "03" "04");
                         expect(correct, equal_to(truth));
                         });
 

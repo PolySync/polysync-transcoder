@@ -44,14 +44,15 @@ class writer {
             std::streamoff size = std::accumulate(desc.begin(), desc.end(), 0, 
                     [name](std::streamoff off, const plog::descriptor::field& field) { 
                     if (plog::descriptor::typemap.count(field.type.target_type()) == 0)
-                        throw std::runtime_error(
-                        "hdf5: no typemap description for " + name 
-                        + "::" + field.name);
+                        throw polysync::error("no description") 
+                            << exception::type(name) << exception::field(field.name)
+                            << exception::plugin("HDF5");
 
                     if (hdf_type.count(field.type.target_type()) == 0)
-                        throw std::runtime_error(
-                                "hdf5: no hdf_type description for " + name 
-                                + "::" + field.name);
+                        throw polysync::error("no HDF description") 
+                            << exception::type(name)
+                            << exception::field(field.name)
+                            << exception::plugin("HDF5");
 
                     off += plog::descriptor::typemap.at(field.type.target_type()).size; 
                     return off;
@@ -86,7 +87,7 @@ class writer {
         // Create a key value that distinguishes a specific datatype from a specific source.
         topic_type topic { msg_header.type, msg_header.src_guid };
         if (plog::type_support_map.count(msg_header.type) == 0)
-            throw std::runtime_error("hdf5: no msg_type_map for type " + std::to_string(msg_header.type));
+            throw polysync::error("no msg_type_map for type " + std::to_string(msg_header.type));
         std::string msg_type = plog::type_support_map.at(msg_header.type); 
 
         // If this is the first time we have seen this topic, create a new dataset for it.

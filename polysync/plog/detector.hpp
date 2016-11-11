@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/hana.hpp>
-#include <polysync/plog/tree.hpp>
+#include <polysync/tree.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <map>

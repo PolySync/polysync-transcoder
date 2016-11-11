@@ -1,5 +1,6 @@
 #include <polysync/plugin.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/exception.hpp>
+#include <polysync/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
 #include <regex>
@@ -15,12 +16,18 @@ namespace hana = boost::hana;
 
 struct pretty_printer {
 
+    template <typename T>
+    void print(std::ostream& os, const std::string& name, const std::vector<T>& value) const {
+        os << "sequence";
+    }
+
     // Pretty print terminal types
     template <typename Number>
     typename std::enable_if_t<!hana::Foldable<Number>::value>
     print(std::ostream& os, const std::string& name, const Number& value) const {
         os << tab.back() << format.green << name << ": " << format.normal 
-           << value << sep << format.normal;
+         << value 
+         << sep << format.normal;
     }
 
     // Pretty print boost::hana (static) structures

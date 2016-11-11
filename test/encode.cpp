@@ -219,6 +219,26 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
             }
         };
 
+        mettle::subsuite<container>(_, "dynamic_array", [](auto &_) {
+
+                std::string truth = "0300" "02" "03" "04";
+
+                _.test("equal", [=](const container& c) {
+                        plog::descriptor::type intvec { "intvec", {
+                            { "points", typeid(std::uint16_t) },
+                            { "data", plog::descriptor::dynamic_array { "points", typeid(std::uint8_t) } } }
+                        };
+
+                        plog::tree tree = plog::tree::create({
+                                { "points", std::uint16_t { 3 } },
+                                { "data", std::vector<uint8_t> { 2, 3, 4 } }
+                                });
+                        std::string enc = encode_tree(tree, intvec);
+                        expect(enc, equal_to(truth));
+                        });
+
+        });
+
         mettle::subsuite<container>(_, "nested_array", [](auto &_) {
 
                 std::string truth = "0100" "02" "03" "04" "05";

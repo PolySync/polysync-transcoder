@@ -2,7 +2,7 @@
 
 #include <polysync/plog/detector.hpp>
 #include <polysync/console.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/io.hpp>
 #include "types.hpp"
 
 namespace plog = polysync::plog;

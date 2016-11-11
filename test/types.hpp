@@ -1,6 +1,6 @@
 #pragma once
 
-#include <polysync/plog/tree.hpp>
+#include <polysync/tree.hpp>
 #include <polysync/plog/description.hpp>
 #include <polysync/plog/detector.hpp>
 

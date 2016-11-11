@@ -1,5 +1,5 @@
 #include <polysync/plugin.hpp>
-#include <polysync/plog/io.hpp>
+#include <polysync/io.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
 #include <regex>
@@ -22,7 +22,7 @@ struct model_printer {
         if (node.target_type() == typeid(plog::tree)) {
             plog::tree top = *node.target<plog::tree>();
             if (!plog::descriptor::catalog.count(name)) 
-                throw std::runtime_error("non-described type \"" + name + "\"");
+                throw polysync::error("no description") << exception::type(name);
                 
             const plog::descriptor::type& desc = plog::descriptor::catalog.at(name);
             if (!catalog.count(name)) 

@@ -5,6 +5,7 @@ namespace polysync { namespace plog {
 struct branch {
     encoder* enc;
     const plog::node& node;
+    const plog::tree tree;
     const descriptor::field& field;
 
     void operator()(std::type_index idx) const {
@@ -55,23 +56,24 @@ struct branch {
             return array_func.at(desc.type)(enc, node, desc.size);
     }
 
-    void operator()(const descriptor::dynamic_array& ta) const {
-        // The branch should have a previous element with name ta.sizename
-        const plog::tree& branch = *node.target<plog::tree>();
-        auto it = std::find_if(branch->begin(), branch->end(), [ta](const plog::node& n) {
-                return n.name == ta.sizefield; }); 
-        if (it == branch->end())
-            throw polysync::error("size indicator field \"" + ta.sizefield + "\" was not found");
+    void operator()(const descriptor::dynamic_array& dynarray) const {
+        // The branch should have a previous element with name dynarray.sizename
+        // const log::tree& branch = *node.target<plog::tree>();
+        auto it = std::find_if(tree->begin(), tree->end(), [dynarray](const plog::node& n) {
+                return n.name == dynarray.sizefield; }); 
+        if (it == tree->end())
+            throw polysync::error("size indicator field \"" + dynarray.sizefield + "\" was not found");
 
         std::uint16_t* size = it->target<std::uint16_t>();
         if (!size)
             throw polysync::error("cannot determine array size");
 
-        return array_func.at(ta.type)(enc, node, (size_t)size);
+        BOOST_LOG_SEV(enc->log, severity::debug2) << "encoding " << *size << " elements";
+        return array_func.at(dynarray.type)(enc, node, *size);
     }
 
     void operator()(const descriptor::nested_array& idx) const {
-        const std::vector<plog::tree>* arr = node.target<std::vector<tree>>();
+        const std::vector<plog::tree>* arr = node.target<std::vector<plog::tree>>();
 
         // Actual data type is not a vector like the description requires.
         if (arr == nullptr)
@@ -120,7 +122,7 @@ void encoder::encode(const tree& t, const descriptor::type& desc) {
                 if (fi == t->end() && field.name != "skip")
                     throw polysync::error("field \"" + field.name + "\" not found in tree");
 
-                eggs::variants::apply(branch { this, *fi, field }, field.type);
+                eggs::variants::apply(branch { this, *fi, t, field }, field.type);
 
         });
     }

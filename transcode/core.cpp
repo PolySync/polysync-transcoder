@@ -53,6 +53,9 @@ std::map<std::string, std::type_index> descriptor::namemap {
     { "uint16", typeid(std::uint16_t) },
     { "uint32", typeid(std::uint32_t) },
     { "uint64", typeid(std::uint64_t) },
+    { "float", typeid(float) },
+    { "float32", typeid(float) },
+    { "double", typeid(double) },
     // { ">uint8",  typeid(std::) },
     // { ">uint16", typeid(std::) },
     // { ">uint32", typeid(std::) },
@@ -74,6 +77,8 @@ std::map<std::type_index, descriptor::terminal> descriptor::typemap {
     { typeid(std::uint16_t), { "uint16", sizeof(std::uint16_t) } },
     { typeid(std::uint32_t), { "uint32", sizeof(std::uint32_t) } },
     { typeid(std::uint64_t), { "uint64", sizeof(std::uint64_t) } },
+    { typeid(float), { "float", sizeof(float) } },
+    { typeid(double), { "double", sizeof(double) } },
 };
 
 }} // namespace polysync::plog

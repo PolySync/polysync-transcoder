@@ -24,7 +24,7 @@ struct tree : std::shared_ptr<std::vector<node>> {
         return std::make_shared<element_type>(init);
     }
 };
-std::ostream& operator<<(std::ostream& os, tree rec);
+// std::ostream& operator<<(std::ostream& os, tree rec);
 
 using bytes = plog::sequence<std::uint32_t, std::uint8_t>;
 
@@ -66,7 +66,13 @@ struct node : variant {
     template <typename Struct>
     static node from(const Struct& s, const std::string&);
 };
-// std::ostream& operator<<(std::ostream& os, const node& rec);
+
+// inline std::ostream& operator<<(std::ostream& os, const node& value) {
+//     eggs::variants::apply([&os](auto a) { os << plog::to_string(a); }, value);
+//     return os;
+// }
+
+// extern std::ostream& operator<<(std::ostream& os, const node& rec);
 
 inline bool operator==(const tree& lhs, const tree& rhs) { 
     if (lhs->size() != rhs->size())

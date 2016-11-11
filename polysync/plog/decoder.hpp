@@ -56,9 +56,6 @@ public:
     node operator()(const plog::log_record&);
     node operator()(const descriptor::type& type) { return decode(type); }
 
-    // Detect the next type from parent decode
-    // std::string detect(const node& parent); 
-
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
     // match every possible struct, sequence, or terminal type, nested or not,
@@ -115,7 +112,7 @@ public:
 
     // Decode a dynamic type using the description name.  This name will become
     // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
-    node decode_desc(const std::string& type);
+    node decode_desc(const std::string& type, bool endian = false);
 
     node decode(const descriptor::type&);
 

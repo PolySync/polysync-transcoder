@@ -8,49 +8,49 @@
 
 [ibeo.header]
     description = [
-        { name = "magic", type = ">uint32" },
-        { name = "prev_size", type = ">uint32" },
+        { name = "magic", type = "uint32", endian="big", format="hex" },
+        { name = "prev_size", type = "uint32", endian="big" },
         { name = "size", type = "uint8" },
         { skip = 4 },
         { name = "device_id", type = "uint8" },
-        { name = "data_type", type = ">uint16", format = "hex" },
-        { name = "time", "type" = ">NTP64" }
+        { name = "data_type", type = "uint16", endian="big", format = "hex" },
+        { name = "time", "type" = "uint64", endian="big", format="hex" }
     ]
     detector = { ibeo.vehicle_state = { magic = "0xAFFEC0C2", data_type = "0x2807" }, ibeo.scan_data = { magic = "0xAFFEC0C2", data_type = "0x2205" } }
 
 [ibeo.vehicle_state]
     description = [
         { skip = 4 },
-        { name = "timestamp", type = ">NTP64" },
-        { name = "distance_x", type = ">int32" },
-        { name = "distance_y", type = ">int32" },
-        { name = "course_angle", type = ">float32" },
-        { name = "longitudinal_velocity", type = ">float32" },
-        { name = "yaw_rate", type = ">float32" }, 
-        { name = "steering_wheel_angle", type = ">float32" },
+        { name = "timestamp", type = "uint64", endian="big", format="hex"},
+        { name = "distance_x", type = "int32", endian="big" },
+        { name = "distance_y", type = "int32", endian="big" },
+        { name = "course_angle", type = "float32", endian="big" },
+        { name = "longitudinal_velocity", type = "float32", endian="big" },
+        { name = "yaw_rate", type = "float32", endian="big" }, 
+        { name = "steering_wheel_angle", type = "float32", endian="big" },
         { skip = 4 },
-        { name = "front_wheel_angle", type = ">float32" }, 
+        { name = "front_wheel_angle", type = "float32", endian="big" }, 
         { skip = 2 }, 
-        { name = "vehicle_width", type = ">float32" }, 
+        { name = "vehicle_width", type = "float32", endian="big" }, 
         { skip = 4 },
-        { name = "distance_axle_front_to_front", type = ">float32" }, 
-        { name = "distance_axle_front_to_rear", type = ">float32" }, 
-        { name = "distance_axle_rear_to_rear", type = ">float32" }, 
+        { name = "distance_axle_front_to_front", type = "float32", endian="big" }, 
+        { name = "distance_axle_front_to_rear", type = "float32", endian="big" }, 
+        { name = "distance_axle_rear_to_rear", type = "float32", endian="big" }, 
         { skip = 4 }, 
-        { name = "steer_ratio_poly_0", type = ">float32" }, 
-        { name = "steer_ratio_poly_1", type = ">float32" }, 
-        { name = "steer_ratio_poly_2", type = ">float32" },
-        { name = "steer_ratio_poly_3", type = ">float32" }, 
-        { name = "longitudinal_acceleration", type = ">float32" } 
+        { name = "steer_ratio_poly_0", type = "float32", endian="big" }, 
+        { name = "steer_ratio_poly_1", type = "float32", endian="big" }, 
+        { name = "steer_ratio_poly_2", type = "float32", endian="big" },
+        { name = "steer_ratio_poly_3", type = "float32", endian="big" }, 
+        { name = "longitudinal_acceleration", type = "float32", endian="big" } 
     ]
 
 [ibeo.scan_data]
     description = [
-        { name = "scan_start_time", type = ">NTP64" },
-        { name = "scan_end_time_offset", type = ">uint32" },
-        { name = "flags", type = ">uint32" },
-        { name = "scan_number", type = ">uint16" },
-        { name = "scan_points", type = ">uint16" },
+        { name = "scan_start_time", type = "uint64", format="hex", endian="big" },
+        { name = "scan_end_time_offset", type = "uint32", endian="big" },
+        { name = "flags", type = "uint32", endian="big" },
+        { name = "scan_number", type = "uint16", endian="big" },
+        { name = "scan_points", type = "int16", endian="big" },
         { name = "number_of_scanner_infos", type = "uint8" },
         { skip = 3 }
     ]
