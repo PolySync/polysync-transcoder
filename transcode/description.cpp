@@ -1,13 +1,13 @@
-#include <polysync/plog/description.hpp>
-#include <polysync/plog/detector.hpp>
+#include <polysync/description.hpp>
+#include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
-#include <polysync/io.hpp>
+#include <polysync/print_hana.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/3rdparty/cpptoml.h>
 
 #include <regex>
 
-namespace polysync { namespace plog {
+namespace polysync { 
 
 using polysync::logging::logger;
 using polysync::logging::severity;
@@ -108,4 +108,4 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 
 } // namespace descriptor
 
-}} // namespace polysync::plog
+} // namespace polysync

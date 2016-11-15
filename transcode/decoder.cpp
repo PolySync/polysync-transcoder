@@ -1,26 +1,21 @@
 #include <polysync/plog/decoder.hpp>
-#include <polysync/plog/detector.hpp>
-#include <polysync/io.hpp>
+#include <polysync/detector.hpp>
+#include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
 
 #include <boost/endian/arithmetic.hpp>
 #include <algorithm>
 
-std::string print(const std::vector<std::string>& p) { 
-    return std::accumulate(p.begin(), p.end(), std::string(), [](auto s, auto f) { return s + "1"; }); 
-}
-
 namespace polysync { namespace plog { 
 
 using logging::severity;
-namespace endian = boost::endian;
 
-// Kick off a decoder with an implict type "log_record" and starting type
+// Kick off a decode with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
 node decoder::operator()(const log_record& record) {
 
     node result = node::from(record, "log_record");
-    plog::tree tree = *result.target<plog::tree>();
+    polysync::tree tree = *result.target<polysync::tree>();
 
     // There is no simple way to detect and enforce that a blob starts with a
     // msg_header.  Hence, we must just assume that every message is well
@@ -38,19 +33,9 @@ node decoder::operator()(const log_record& record) {
 
 // Define a set of factory functions that know how to decode specific binary
 // types.  They keys are strings from the "type" field of the TOML descriptions.
+
 std::map<std::string, decoder::parser> decoder::parse_map = {
-    { "float", [](decoder& r) { return r.decode<float>(); } },
-    { "float32", [](decoder& r) { return r.decode<float>(); } },
-    { "float.be", [](decoder& r) {
-            std::uint32_t swap = r.decode<endian::big_uint32_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
-    { "float32.be", [](decoder& r) {
-            std::uint32_t swap = r.decode<endian::big_uint32_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
-    { "double", [](decoder& r) { return r.decode<double>(); } },
-    { "float64", [](decoder& r) { return r.decode<double>(); } },
+    // Native integers
     { "uint8", [](decoder& r) { return r.decode<std::uint8_t>(); } },
     { "uint16", [](decoder& r) { return r.decode<std::uint16_t>(); } },
     { "uint32", [](decoder& r) { return r.decode<std::uint32_t>(); } },
@@ -59,23 +44,53 @@ std::map<std::string, decoder::parser> decoder::parse_map = {
     { "int16", [](decoder& r) { return r.decode<std::int16_t>(); } },
     { "int32", [](decoder& r) { return r.decode<std::int32_t>(); } },
     { "int64", [](decoder& r) { return r.decode<std::int64_t>(); } },
-    { "uint16.be", [](decoder& r){ return r.decode<endian::big_uint16_t>(); } },
-    { "uint32.be", [](decoder& r){ return r.decode<endian::big_uint32_t>(); } },
-    { "uint64.be", [](decoder& r){ return r.decode<endian::big_uint64_t>(); } },
-    { "int16.be", [](decoder& r){ return r.decode<endian::big_int16_t>(); } },
-    { "int32.be", [](decoder& r){ return r.decode<endian::big_int32_t>(); } },
-    { "int64.be", [](decoder& r){ return r.decode<endian::big_int64_t>(); } },
-    { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
-    { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
-    { "NTP64.be", [](decoder& r){ return r.decode<endian::big_uint64_t>(); } },
+    
+    // Bigendian integers
+    { "uint16.be", [](decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
+    { "uint32.be", [](decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
+    { "uint64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
+    { "int16.be", [](decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
+    { "int32.be", [](decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
+    { "int64.be", [](decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
+
+    // Floating point types and aliases
+    { "float", [](decoder& r) { return r.decode<float>(); } },
+    { "float32", [](decoder& r) { return r.decode<float>(); } },
+    { "double", [](decoder& r) { return r.decode<double>(); } },
+    { "float64", [](decoder& r) { return r.decode<double>(); } },
+    
+    // Bigendian floats: first byteswap as uint, then emplacement new to float.
+    { "float.be", [](decoder& r) {
+            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
+            return *(new ((void *)&swap) float);
+        } },
+    { "float32.be", [](decoder& r) {
+            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
+            return *(new ((void *)&swap) float);
+        } },
+    { "double.be", [](decoder& r) {
+            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
+            return *(new ((void *)&swap) float);
+        } },
+    { "float64.be", [](decoder& r) {
+            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
+            return *(new ((void *)&swap) float);
+        } },
+
+    // Fallback bytes buffer
     { "raw", [](decoder& r) 
         { 
-            plog::bytes raw;
+            polysync::bytes raw;
             std::streampos rem = r.endpos - r.stream.tellg();
             raw.resize(rem);
             r.stream.read((char *)raw.data(), rem);
             return node("raw", raw);
         }},
+
+    // PLog aliases
+    { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
+    { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
+    { "NTP64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
 };
 
 // Read a field, described by looking up the type by string.  The type strings can
@@ -98,7 +113,7 @@ node decoder::decode_desc(const std::string& type, bool bigendian) {
 }
 
 struct branch_builder {
-    plog::tree branch;
+    polysync::tree branch;
     const descriptor::field& field;
     decoder* d;
 
@@ -133,21 +148,34 @@ struct branch_builder {
     }
 
     void operator()(const descriptor::array& desc) const {
+        
+        // Not sure yet if the array size is fixed, or read from a field in the parent node.
         auto sizefield = desc.size.target<std::string>();
         auto fixedsize = desc.size.target<size_t>();
         size_t size;
 
         if (sizefield) {
+
             // The branch should have a previous element with name sizefield
             auto it = std::find_if(branch->begin(), branch->end(), 
                     [sizefield](const node& n) { return n.name == *sizefield; }); 
-            if (it == branch->end())
-                throw polysync::error("size indicator field not found") << exception::field(*sizefield);
 
-            // Figure out the size, irregardless of the integer type
+            if (it == branch->end())
+                throw polysync::error("size indicator field not found") 
+                    << exception::field(*sizefield)
+                    << status::description_error;
+
+            // Figure out the size, regardless of the integer type
             std::stringstream os;
             os << *it;
-            size = std::stoll(os.str());
+            try {
+                size = std::stoll(os.str());
+            } catch (std::invalid_argument) {
+                throw polysync::error("cannot parse size value \"" + os.str() + 
+                        "\", string of size " + std::to_string(os.str().size())) 
+                    << exception::field(*sizefield)
+                    << status::description_error;
+            }
         } else
             size = *fixedsize; 
 
@@ -158,11 +186,11 @@ struct branch_builder {
                 throw polysync::error("unknown nested type");
 
             const descriptor::type& nest = descriptor::catalog.at(*nesttype);
-            std::vector<plog::tree> array;
+            std::vector<polysync::tree> array;
             for (size_t i = 0; i < size; ++i) {
                 BOOST_LOG_SEV(d->log, severity::debug2) << "decoding " << nest.name 
                     <<  " #" << i + 1 << " of " << size;
-                array.push_back(*(d->decode(nest).target<plog::tree>()));
+                array.push_back(*(d->decode(nest).target<polysync::tree>()));
             }
             branch->emplace_back(field.name, array);
             BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << array;
@@ -172,59 +200,24 @@ struct branch_builder {
             for(std::uint8_t& val: array)
                 d->decode(val); 
             branch->emplace_back(field.name, array);
-            BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
+            BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << "to_string(array)";
         }
     }
 
-    // Array of terminal types
-    // void operator()(const descriptor::terminal_array& ta) const {
-    //     std::vector<std::uint8_t> array(ta.size);
-    //     for(std::uint8_t& val: array)
-    //        d->decode(val); 
-    //     branch->emplace_back(field.name, array);
-    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
-    // }
-   
-    // // Dynamic array of terminal types
-    // void operator()(const descriptor::dynamic_array& ta) const {
-    //     // The branch should have a previous element with name ta.sizename
-    //     auto it = std::find_if(branch->begin(), branch->end(), [ta](const node& n) {
-    //            return n.name == ta.sizefield; }); 
-    //     if (it == branch->end())
-    //         throw polysync::error("size indicator field \"" + ta.sizefield + "\" was not found");
-
-    //     std::uint16_t* size = it->target<std::uint16_t>();
-    //     if (!size)
-    //         throw polysync::error("cannot determine array size");
-
-    //     std::vector<std::uint8_t> array(*size);
-    //     for(std::uint8_t& val: array)
-    //        d->decode(val); 
-    //     branch->emplace_back(field.name, array);
-    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(array);
-    // }
-    //  // Array of described compound types
-    // void operator()(descriptor::nested_array idx) const {
-    //     std::vector<plog::tree> vec;
-    //     for(size_t i = 0; i < idx.size; ++i) 
-    //         vec.emplace_back(*(d->decode(idx.desc).target<plog::tree>()));
-    //     branch->emplace_back(field.name, vec);
-    //     BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << to_string(vec);
-    // }
-
 };
 
-plog::node decoder::decode(const descriptor::type& desc) {
+polysync::node decoder::decode(const descriptor::type& desc) {
 
-    plog::tree child = plog::tree::create();
+    polysync::tree child = polysync::tree::create();
 
     try {
         std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {
                 eggs::variants::apply(branch_builder { child, field, this }, field.type);
                 });
     } catch (polysync::error& e) {
-        e << exception::type(desc.name);
         e << exception::module("plog::decoder");
+        e << exception::type(desc.name);
+        e << exception::tree(child);
         throw;
     }
 

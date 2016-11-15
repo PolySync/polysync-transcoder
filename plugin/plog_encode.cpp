@@ -5,7 +5,7 @@
 #include <boost/dll/alias.hpp>
 #include <boost/filesystem.hpp>
 
-#include <polysync/io.hpp>
+#include <polysync/print_hana.hpp>
 
 namespace polysync {
 
@@ -53,7 +53,7 @@ public:
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
-                plog::node top = decode(record);
+                polysync::node top = decode(record);
                 encode_->encode(top); 
                 });
     }

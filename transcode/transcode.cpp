@@ -1,11 +1,11 @@
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
-#include <polysync/plog/detector.hpp>
+#include <polysync/detector.hpp>
 #include <polysync/plugin.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/console.hpp>
-#include <polysync/io.hpp>
+#include <polysync/print_hana.hpp>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
 // benefits, it eases a Windows port.
@@ -31,6 +31,8 @@ using ps::console::format;
 
 namespace std {
 
+// boost::program_options likes to print the arguments, so here we teach it how
+// to print out a vector of fs::path.
 std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
     std::for_each(paths.begin(), paths.end(), [&os](const fs::path& p) { os << p << " "; });
     return os;
@@ -63,6 +65,7 @@ int catch_main(int ac, char* av[]) {
                 "TOFL type description path list")
         ;
 
+    // These will move to a filters plugin.
     po::options_description filter_opt("Filter Options");
     filter_opt.add_options()
         ("first", po::value<size_t>(), "first record index to process (not yet implemented)")
@@ -129,17 +132,9 @@ int catch_main(int ac, char* av[]) {
                 try {
                     boost::shared_ptr<ps::encode::plugin> plugin = 
                         dll::import<ps::encode::plugin>(lib.path(), "encoder");
-                // dll::shared_library so(lib.path());
-                // if (plugin) { // so.has("encode_plugin")) {
                     BOOST_LOG_SEV(log, severity::debug1) << "loading encoder from " << lib.path();
-                    // auto plugin = dll::import_alias<ps::encode::plugin>(boost::move(lib), "encode_plugin"); 
-                // auto plugin = dll::import_alias<ps::encode::plugin>(lib.path(), "encode_plugin");
-                plugin->options();
-                    // po::options_description opt = plugin->options();
-                // cmdline.add(opt);
-                // helpline.add(opt);
-                    // plugin_map.emplace(plugname, plugin);
-                } catch (std::runtime_error) {
+                    plugin->options();
+                } catch (std::runtime_error&) {
                     BOOST_LOG_SEV(log, severity::debug2) << lib.path() << " provides no encoder";
                 }
             }
@@ -147,7 +142,7 @@ int catch_main(int ac, char* av[]) {
     }
 
     if (vm.count("help")) {
-        std::cout << format.bold << format.cyan << "PolySync Transcoder" 
+        std::cout << format.bold << format.verbose << "PolySync Transcoder" 
                   << format.normal << std::endl << std::endl;
         std::cout << "Usage:" << std::endl;
         std::cout << "\ttranscode [general-options] <input-file> <output-plugin> [output-options]" 
@@ -171,9 +166,9 @@ int catch_main(int ac, char* av[]) {
                     // Parse the file in two passes, so the detectors have
                     // access to the descriptor's types
                     for (const auto& type: *descfile)
-                        plog::descriptor::load(type.first, type.second->as_table(), plog::descriptor::catalog);
+                        ps::descriptor::load(type.first, type.second->as_table(), ps::descriptor::catalog);
                     for (const auto& type: *descfile)
-                        plog::detector::load(type.first, type.second->as_table(), plog::detector::catalog);
+                        ps::detector::load(type.first, type.second->as_table(), ps::detector::catalog);
                 } catch (ps::error& e) {
                     e << ps::status::description_error;
                     e << ps::exception::path(tofl.path().string());
@@ -184,9 +179,10 @@ int catch_main(int ac, char* av[]) {
         }
     }
 
-    plog::descriptor::catalog.emplace("log_record", plog::descriptor::describe<plog::log_record>::type());
-    plog::descriptor::catalog.emplace("msg_header", plog::descriptor::describe<plog::msg_header>::type());
-    plog::detector::catalog.push_back(plog::detector::type {"msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
+    ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
+    ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
+    ps::detector::catalog.push_back(ps::detector::type {
+            "msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
 
     if (!vm.count("path")) 
         throw ps::error("no input files") << ps::status::bad_input;
@@ -228,10 +224,12 @@ int catch_main(int ac, char* av[]) {
     // the type_support field; stash them so we can map the (random) numbers to
     // (useful) static strings.  Most if not every plugin needs these, so just
     // add it globally here.
-    visit.type_support.connect([](plog::type_support t) { plog::type_support_map.emplace(t.type, t.name); });
+    visit.type_support.connect([](plog::type_support t) { 
+            plog::type_support_map.emplace(t.type, t.name); });
 
     plugin_map.at(output)->connect(vm, visit);
 
+    // These rudimentary filters will move to a filter plugin
     std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
     if (vm.count("first")) {
         size_t first = vm["first"].as<size_t>(); 
@@ -270,6 +268,8 @@ int catch_main(int ac, char* av[]) {
             throw;
         }
     }
+
+    // We seemed to have survive the run!
     return ps::status::ok;
 }
 
@@ -278,16 +278,20 @@ int main(int ac, char* av[]) {
         return catch_main(ac, av);
     } catch (const ps::error& e) {
         const ps::status* stat = boost::get_error_info<ps::exception::status>(e);
-        std::cerr << format.red << format.bold << "Transcoder abort: " << format.normal 
+        std::cerr << format.error << format.bold << "Transcoder abort: " << format.normal 
             << e.what() << std::endl;
-        if (const std::string* tpname = boost::get_error_info<ps::exception::type>(e))
-            std::cerr << "\tType: " << format.cyan << *tpname << format.normal << std::endl;
-        if (const std::string* fieldname = boost::get_error_info<ps::exception::field>(e))
-            std::cerr << "\tField: " << format.cyan << *fieldname << format.normal << std::endl;
-        if (const std::string* path = boost::get_error_info<ps::exception::path>(e))
-            std::cerr << "\tPath: " << format.cyan << *path << format.normal << std::endl;
         if (const std::string* module = boost::get_error_info<ps::exception::module>(e))
-            std::cerr << "\tModule: " << format.cyan << *module << format.normal << std::endl;
+            std::cerr << "\tModule: " << format.fieldname << *module << format.normal << std::endl;
+        if (const std::string* tpname = boost::get_error_info<ps::exception::type>(e))
+            std::cerr << "\tType: " << format.fieldname << *tpname << format.normal << std::endl;
+        if (const std::string* fieldname = boost::get_error_info<ps::exception::field>(e))
+            std::cerr << "\tField: " << format.fieldname << *fieldname << format.normal << std::endl;
+        if (const std::string* path = boost::get_error_info<ps::exception::path>(e))
+            std::cerr << "\tPath: " << format.fieldname << *path << format.normal << std::endl;
+        if (const std::string* detector = boost::get_error_info<ps::exception::detector>(e))
+            std::cerr << "\tDetector: " << format.fieldname << *detector << format.normal << std::endl;
+        if (const polysync::tree* tree = boost::get_error_info<ps::exception::tree>(e))
+            std::cerr << "\tPartial Decode: " << **tree << std::endl;
         exit(stat ? *stat : ps::status::ok);
     }
 }

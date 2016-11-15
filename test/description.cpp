@@ -1,8 +1,7 @@
 #include <mettle.hpp>
 
-#include <polysync/plog/description.hpp>
+#include <polysync/description.hpp>
 #include <polysync/console.hpp>
-#include <polysync/io.hpp>
 #include "types.hpp"
 
 using namespace mettle;
@@ -10,7 +9,7 @@ namespace plog = polysync::plog;
 
 // Instantiate the static console format; this is used inside of mettle to
 // print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { codes format = color(); }}
+namespace polysync { namespace console { style format = color(); }}
 
 // Define a fixture to parse a TOML string
 struct fixture {
@@ -24,12 +23,12 @@ struct fixture {
     std::shared_ptr<cpptoml::table> operator->() const { return root; };
 };
 
-mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_array_msg),
+mettle::suite<fixture> description("description", mettle::bind_factory(toml::ps_byte_array_msg),
         [](auto& _) {
 
         _.subsuite("type", [](auto&_) {
                 _.test("equal", [](fixture&) {
-                        plog::descriptor::type desc { "ps_byte_array_msg", {
+                        polysync::descriptor::type desc { "ps_byte_array_msg", {
                             { "dest_guid", typeid(plog::guid) },
                             { "data_type", typeid(uint32_t) },
                             { "payload", typeid(uint32_t) } }
@@ -39,7 +38,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
                 });
 
                 _.test("name-mismatch", { mettle::skip }, [](fixture&) {
-                        polysync::plog::descriptor::type desc { "byte_array_msg", {
+                        polysync::descriptor::type desc { "byte_array_msg", {
                             { "dest_guid", typeid(plog::guid) },
                             { "data_type", typeid(uint32_t) },
                             { "payload", typeid(uint32_t) } }
@@ -53,7 +52,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
                 });
 
                 _.test("field-name-mismatch", [](fixture&) {
-                        plog::descriptor::type desc { "byte_array_msg", {
+                        polysync::descriptor::type desc { "byte_array_msg", {
                             { "dest_guid", typeid(plog::guid) },
                             { "type", typeid(uint32_t) },
                             { "payload", typeid(uint32_t) } }
@@ -63,7 +62,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
                 });
 
                 _.test("field-type-mismatch", [](fixture&) {
-                        plog::descriptor::type desc { "byte_array_msg", {
+                        polysync::descriptor::type desc { "byte_array_msg", {
                             { "dest_guid", typeid(plog::guid) },
                             { "data_type", typeid(uint16_t) },
                             { "payload", typeid(uint32_t) } }
@@ -120,24 +119,24 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
 
         _.subsuite("build-description", [](auto&_) {
                 _.test("TOML", [](fixture& root) {
-                        plog::descriptor::catalog_type catalog;
-                        plog::descriptor::load(
+                        polysync::descriptor::catalog_type catalog;
+                        polysync::descriptor::load(
                                 "ps_byte_array_msg", root->get_table("ps_byte_array_msg"), catalog);
                         expect(catalog, has_key("ps_byte_array_msg"));
 
-                        const plog::descriptor::type& desc = catalog.at("ps_byte_array_msg");
+                        const polysync::descriptor::type& desc = catalog.at("ps_byte_array_msg");
                         expect(desc, array( 
-                                    plog::descriptor::field { "dest_guid", typeid(plog::guid) }, 
-                                    plog::descriptor::field { "data_type", typeid(std::uint32_t) },
-                                    plog::descriptor::field { "payload", typeid(std::uint32_t) }
+                                    polysync::descriptor::field { "dest_guid", typeid(plog::guid) }, 
+                                    polysync::descriptor::field { "data_type", typeid(std::uint32_t) },
+                                    polysync::descriptor::field { "payload", typeid(std::uint32_t) }
                                     ));
                         });
 
                 });
 
                 _.test("static", [](auto&_) {
-                        plog::descriptor::describe<plog::msg_header> desc;
-                        plog::descriptor::type truth { "msg_header", {
+                        polysync::descriptor::describe<plog::msg_header> desc;
+                        polysync::descriptor::type truth { "msg_header", {
                             { "type", typeid(plog::msg_type) },
                             { "timestamp", typeid(plog::timestamp) },
                             { "src_guid", typeid(plog::guid) },
@@ -146,7 +145,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(ps_byte_a
                         });
 
                 _.test("string", [](auto&_) {
-                        plog::descriptor::describe<plog::msg_header> desc;
+                        polysync::descriptor::describe<plog::msg_header> desc;
                         std::string truth = "msg_header { "
                             "type: uint32; timestamp: uint64; src_guid: uint64; }";
                         expect(desc.string(), equal_to(truth));

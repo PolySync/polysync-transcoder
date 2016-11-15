@@ -1,7 +1,6 @@
 #pragma once
 
 #include <polysync/plog/core.hpp>
-#include <polysync/plog/description.hpp>
 #include <polysync/logging.hpp>
 #include <fstream>
 #include <boost/hana.hpp>
@@ -53,7 +52,7 @@ public:
 
 public:
     // Decode an entire record and return a parse tree.
-    node operator()(const plog::log_record&);
+    node operator()(const log_record&);
     node operator()(const descriptor::type& type) { return decode(type); }
 
 public:
@@ -153,7 +152,7 @@ inline iterator& iterator::operator++() {
     // Advance the iterator's position to the beginning of the next record.
     // Keep going as long as the filter returns false.
     do {
-        pos += size<log_record>::value() + stream->decode<log_record>(pos).size;
+        pos += descriptor::size<log_record>::value() + stream->decode<log_record>(pos).size;
     } while (pos < end && !filter(*this));
 
     return *this;

@@ -26,12 +26,12 @@ static struct console::color console;
 std::ostream& operator<< (std::ostream& os, severity s)
 {
     static std::map<severity, std::string> pretty = {
-        { severity::error, console.red + std::string("err") + console.normal },
-        { severity::warn, console.magenta + std::string("warn") + console.normal },
-        { severity::info, console.yellow + std::string("info") + console.normal },
-        { severity::verbose, console.yellow + std::string("verbose") + console.normal },
-        { severity::debug1, console.white + std::string("debug1") + console.normal },
-        { severity::debug2, console.white + std::string("debug2") + console.normal },
+        { severity::error, console.error + std::string("err") + console.normal },
+        { severity::warn, console.warn + std::string("warn") + console.normal },
+        { severity::info, console.info + std::string("info") + console.normal },
+        { severity::verbose, console.verbose + std::string("verbose") + console.normal },
+        { severity::debug1, console.debug1 + std::string("debug1") + console.normal },
+        { severity::debug2, console.debug2 + std::string("debug2") + console.normal },
     };
 
     return os << pretty.at(s);
@@ -68,7 +68,7 @@ struct init_logger {
 
         sink->set_formatter (
                  expr::stream
-                 << console.green << console.bold << expr::attr<std::string>("Channel") << console.normal
+                 << console.channel << console.bold << expr::attr<std::string>("Channel") << console.normal
                  << "[" << severity_attr << "]"
                  << ": " << expr::smessage
                  );

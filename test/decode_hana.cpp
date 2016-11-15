@@ -12,11 +12,11 @@ namespace hana = boost::hana;
 
 // Instantiate the static console format; this is used inside of mettle to
 // print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { codes format = color(); }}
+namespace polysync { namespace console { style format = color(); }}
 
 struct number_factory {
     template <typename T>
-    plog::variant make() { return static_cast<T>(42); }
+    polysync::variant make() { return static_cast<T>(42); }
 };
 
 struct hana_factory {

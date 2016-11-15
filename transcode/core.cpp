@@ -1,50 +1,14 @@
 #include <polysync/plog/core.hpp>
-#include <polysync/plog/description.hpp>
 
-namespace polysync { namespace plog {
+namespace polysync { 
 
+namespace plog {
 std::map<plog::msg_type, std::string> type_support_map;
+} 
 
-std::map<std::type_index, descriptor::terminal> descriptor::static_typemap {
-    { std::type_index(typeid(std::int8_t)),  { "int8",  sizeof(std::int8_t) } },
-    { std::type_index(typeid(std::int16_t)), { "int16", sizeof(std::int16_t) } },
-    { std::type_index(typeid(std::int32_t)), { "int32", sizeof(std::int32_t) } },
-    { std::type_index(typeid(std::int64_t)), { "int64", sizeof(std::int64_t) } },
-    { std::type_index(typeid(std::uint8_t)), { "uint8", sizeof(std::uint8_t) } },
-    { std::type_index(typeid(std::uint16_t)), { "uint16", sizeof(std::uint16_t) } },
-    { std::type_index(typeid(std::uint32_t)), { "uint32", sizeof(std::uint32_t) } },
-    { std::type_index(typeid(std::uint64_t)), { "uint64", sizeof(std::uint64_t) } },
-    { std::type_index(typeid(msg_header)), { "msg_header", size<msg_header>::value() } },
-    { std::type_index(typeid(log_record)), { "log_record", size<log_record>::value() } },
-    { std::type_index(typeid(log_header)), { "log_header", size<log_header>::value() } },
-    { std::type_index(typeid(sequence<std::uint32_t, log_module>)), 
-        { "sequence<log_module>", size<sequence<std::uint32_t, log_module>>::value() } },
-    { std::type_index(typeid(timestamp)), { "ps_timestamp", size<timestamp>::value() } },
-    { std::type_index(typeid(sequence<std::uint32_t, type_support>)), 
-        { "sequence<type_support>", size<sequence<std::uint32_t, type_support>>::value() } },
-};
+namespace descriptor {
 
-std::map<std::string, descriptor::terminal> descriptor::dynamic_typemap {
-    { "int8",  { "int8",  sizeof(std::int8_t) } },
-    { "int16", { "int16", sizeof(std::int16_t) } },
-    { "int32", { "int32", sizeof(std::int32_t) } },
-    { "int64", { "int64", sizeof(std::int64_t) } },
-    { "uint8",  { "uint8",  sizeof(std::uint8_t) } },
-    { "uint16", { "uint16", sizeof(std::uint16_t) } },
-    { "uint32", { "uint32", sizeof(std::uint32_t) } },
-    { "uint64", { "uint64", sizeof(std::uint64_t) } },
-    { ">uint8",  { ">uint8",  sizeof(std::uint8_t) } },
-    { ">uint16", { ">uint16", sizeof(std::uint16_t) } },
-    { ">uint32", { ">uint32", sizeof(std::uint32_t) } },
-    { ">uint64", { ">uint64", sizeof(std::uint64_t) } },
-    { "ps_guid", { "ps_guid", sizeof(guid) } },
-    { "ps_msg_type", { "ps_msg_type", sizeof(msg_type) } },
-    { "log_record", { "log_record", size<log_record>::value() } },
-    { "msg_header", { "msg_header", size<msg_header>::value() } },
-    { "ps_timestamp", { "ps_timestamp", size<timestamp>::value() } },
-};
-
-std::map<std::string, std::type_index> descriptor::namemap {
+std::map<std::string, std::type_index> namemap {
     { "int8", typeid(std::int8_t) },
     { "int16", typeid(std::int16_t) },
     { "int32", typeid(std::int32_t) },
@@ -56,19 +20,10 @@ std::map<std::string, std::type_index> descriptor::namemap {
     { "float", typeid(float) },
     { "float32", typeid(float) },
     { "double", typeid(double) },
-    // { ">uint8",  typeid(std::) },
-    // { ">uint16", typeid(std::) },
-    // { ">uint32", typeid(std::) },
-    // { ">uint64", typeid(std::) },
     { "ps_guid", typeid(std::uint64_t) },
-    // { "ps_msg_type", typeid(std::) },
-    // { "log_record", typeid(std::) },
-    // { "msg_header", typeid(std::) },
-    // { "ps_timestamp", typeid(std::) },
-
 };
 
-std::map<std::type_index, descriptor::terminal> descriptor::typemap {
+std::map<std::type_index, descriptor::terminal> typemap {
     { typeid(std::int8_t), { "int8", sizeof(std::int8_t) } },
     { typeid(std::int16_t), { "int16", sizeof(std::int16_t) } },
     { typeid(std::int32_t), { "int32", sizeof(std::int32_t) } },
@@ -79,6 +34,15 @@ std::map<std::type_index, descriptor::terminal> descriptor::typemap {
     { typeid(std::uint64_t), { "uint64", sizeof(std::uint64_t) } },
     { typeid(float), { "float", sizeof(float) } },
     { typeid(double), { "double", sizeof(double) } },
+    
+    { typeid(plog::msg_header), { "msg_header", size<plog::msg_header>::value() } },
+    { typeid(plog::log_record), { "log_record", size<plog::log_record>::value() } },
+    { typeid(plog::log_header), { "log_header", size<plog::log_header>::value() } },
+    { typeid(plog::sequence<std::uint32_t, plog::log_module>), 
+        { "sequence<log_module>", size<plog::sequence<std::uint32_t, plog::log_module>>::value() } },
+    { typeid(plog::timestamp), { "ps_timestamp", size<plog::timestamp>::value() } },
+    { typeid(plog::sequence<std::uint32_t, plog::type_support>), 
+        { "sequence<type_support>", size<plog::sequence<std::uint32_t, plog::type_support>>::value() }}
 };
 
-}} // namespace polysync::plog
+}} // namespace polysync::descriptor

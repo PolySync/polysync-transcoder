@@ -4,8 +4,8 @@ namespace polysync { namespace plog {
 
 struct branch {
     encoder* enc;
-    const plog::node& node;
-    const plog::tree tree;
+    const polysync::node& node;
+    const polysync::tree tree;
     const descriptor::field& field;
 
     void operator()(std::type_index idx) const {
@@ -19,7 +19,7 @@ struct branch {
     }
 
     void operator()(const descriptor::nested& idx) const {
-        const plog::tree* nest = node.target<plog::tree>();
+        const polysync::tree* nest = node.target<polysync::tree>();
         if (nest == nullptr)
             throw polysync::error("mismatched type in field \"" + node.name + "\"");
 
@@ -37,7 +37,7 @@ struct branch {
     }
 
     template <typename T>
-    static void array(encoder* enc, const plog::node& node, size_t size) {
+    static void array(encoder* enc, const polysync::node& node, size_t size) {
         const std::vector<T>* arr = node.target<std::vector<T>>();
         if (arr == nullptr)
             throw polysync::error("mismatched type in field \"" + node.name + "\"");
@@ -48,7 +48,7 @@ struct branch {
         std::for_each(arr->begin(), arr->end(), [enc](const auto& val) { enc->encode(val); });
     }
 
-    static std::map<std::type_index, std::function<void (encoder*, const plog::node&, size_t)>> array_func;
+    static std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>> array_func;
     void operator()(const descriptor::array& desc) const {
         auto sizefield = desc.size.target<std::string>();
         auto fixedsize = desc.size.target<size_t>();
@@ -56,14 +56,19 @@ struct branch {
 
         if (sizefield) {
             auto it = std::find_if(tree->begin(), tree->end(), 
-                    [sizefield](const plog::node& n) { return n.name == *sizefield; }); 
+                    [sizefield](const polysync::node& n) { return n.name == *sizefield; }); 
             if (it == tree->end())
                 throw polysync::error("size indicator field not found") << exception::field(*sizefield);
 
             // Figure out the size, irregardless of the integer type
             std::stringstream os;
             os << *it;
-            size = std::stoll(os.str());
+            try {
+                size = std::stoll(os.str());
+            } catch (std::invalid_argument) {
+                std::cout << it->name << std::endl;
+                throw polysync::error("cannot parse size") << exception::type(it->name);
+            }
         } else
             size = *fixedsize; 
 
@@ -75,7 +80,7 @@ struct branch {
                 throw polysync::error("unknown nested type");
 
             const descriptor::type& nest = descriptor::catalog.at(*nesttype);
-            const std::vector<plog::tree>* arr = node.target<std::vector<plog::tree>>();
+            const std::vector<polysync::tree>* arr = node.target<std::vector<polysync::tree>>();
 
             // Actual data type is not a vector like the description requires.
             if (arr == nullptr)
@@ -94,7 +99,7 @@ struct branch {
 
 };
 
-std::map<std::type_index, std::function<void (encoder*, const plog::node&, size_t)>> 
+std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>> 
     branch::array_func {
         { typeid(float), branch::array<float> }, 
         { typeid(double), branch::array<double> }, 

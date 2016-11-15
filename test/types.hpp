@@ -1,8 +1,8 @@
 #pragma once
 
-#include <polysync/tree.hpp>
-#include <polysync/plog/description.hpp>
-#include <polysync/plog/detector.hpp>
+#include <polysync/plog/core.hpp>
+#include <polysync/description.hpp>
+#include <polysync/detector.hpp>
 
 #include <boost/endian/arithmetic.hpp>
 
@@ -41,7 +41,7 @@ auto hana_equal(Struct&& expected) {
 }
 
 
-namespace polysync { namespace plog { namespace descriptor { 
+namespace polysync { namespace descriptor { 
 
 template <typename Struct>
 typename std::enable_if_t<hana::Foldable<Struct>::value> 
@@ -49,7 +49,7 @@ operator==(const Struct& lhs, const Struct& rhs) {
     return hana::equal(lhs, rhs); 
 }
 
-}}}
+}}
 
 namespace cpptoml {
 
@@ -96,6 +96,8 @@ auto bits(const std::string& hex) {
             }, hex);
 }
 
+namespace toml {
+
 constexpr char const* ps_byte_array_msg = R"toml(
 [ps_byte_array_msg]
     description = [
@@ -105,8 +107,6 @@ constexpr char const* ps_byte_array_msg = R"toml(
     ]
     detector = { ibeo.header = { data_type = "160" } } 
 )toml";
-
-namespace toml {
 
 constexpr char const* ibeo_header = R"toml(
 [ibeo.header]
@@ -126,21 +126,22 @@ constexpr char const* ibeo_header = R"toml(
 
 namespace descriptor {
 
-plog::descriptor::type ps_byte_array_msg { "ps_byte_array_msg", { 
+polysync::descriptor::type ps_byte_array_msg { "ps_byte_array_msg", { 
         { "dest_guid", typeid(plog::guid) },
         { "data_type", typeid(uint32_t) },
         { "payload", typeid(uint32_t) } }
 };
 
-plog::descriptor::type ibeo_header { "ibeo.header", {
+polysync::descriptor::type ibeo_header { "ibeo.header", {
     { "magic", typeid(std::uint32_t) },
     { "prev_size", typeid(std::uint32_t) },
     { "size", typeid(std::uint8_t) },
-    { "skip", plog::descriptor::skip { 4 } },
+    { "skip", polysync::descriptor::skip { 4 } },
     { "device_id", typeid(std::uint8_t) },
     { "data_type", typeid(std::uint16_t) },
     { "time", typeid(std::uint64_t) } }
 };
 
-} // namespace descriptor
+}
+
 

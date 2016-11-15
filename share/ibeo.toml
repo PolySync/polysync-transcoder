@@ -4,7 +4,9 @@
         { name = "data_type", type = "uint32" },
         { name = "payload", type = "uint32" }
     ]
-    detector = { ibeo.header = { data_type = "160" } } 
+    detector = [ 
+        { name = "ibeo.header", data_type = "160" } 
+    ] 
 
 [ibeo.header]
     description = [
@@ -16,7 +18,10 @@
         { name = "data_type", type = "uint16", endian="big", format = "hex" },
         { name = "time", "type" = "uint64", endian="big", format="hex" }
     ]
-    detector = { ibeo.vehicle_state = { magic = "0xAFFEC0C2", data_type = "0x2807" }, ibeo.scan_data = { magic = "0xAFFEC0C2", data_type = "0x2205" } }
+    detector = [ 
+        { name = "ibeo.vehicle_state", magic = "0xAFFEC0C2", data_type = "0x2807" }, 
+        { name = "ibeo.scan_data", magic = "0xAFFEC0C2", data_type = "0x2205" }
+    ] 
 
 [ibeo.vehicle_state]
     description = [

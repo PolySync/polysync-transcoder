@@ -1,16 +1,16 @@
-#include <polysync/plog/description.hpp>
-#include <polysync/plog/detector.hpp>
+#include <polysync/description.hpp>
+#include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/io.hpp>
+#include <polysync/print_hana.hpp>
 
 #include <regex>
 
 // Instantiate the static console format; this is used inside of mettle to
 // print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { codes format = color(); }}
+namespace polysync { namespace console { style format = color(); }}
 
-namespace polysync { namespace plog { 
+namespace polysync { 
 
 using polysync::logging::logger;
 using polysync::logging::severity;
@@ -19,10 +19,12 @@ namespace detector {
 
 catalog_type catalog; 
 
+// Helper function to get an integer out of a hex string.  This would not be
+// necessary if TOML supported hex formatted integers natively, or if
+// std::stoul() could.
 template <typename T>
 inline T hex_stoul(const std::string& value) {
-    std::regex is_hex("0x.+");
-    if (std::regex_match(value, is_hex))
+    if (std::regex_match(value, std::regex("0x.+")))
         return static_cast<T>(std::stoul(value, 0, 16));
     else
         return static_cast<T>(std::stoul(value));
@@ -33,23 +35,40 @@ inline T hex_stoul(const std::string& value) {
 // factory functions to look up a type by string name and convert to a strong type.
 static variant convert(const std::string value, const std::type_index& type) {
     static const std::map<std::type_index, std::function<variant (const std::string&)>> factory = {
-        { typeid(std::uint8_t), [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
-        { typeid(std::uint16_t), [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
-        { typeid(std::uint32_t), [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
-        { typeid(std::uint64_t), [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
-        { typeid(float), [](const std::string& value) { return static_cast<float>(stof(value)); } },
-        { typeid(double), [](const std::string& value) { return static_cast<double>(stod(value)); } },
+        { typeid(std::int8_t), 
+            [](const std::string& value) { return hex_stoul<std::int8_t>(value); } },
+        { typeid(std::int16_t), 
+            [](const std::string& value) { return hex_stoul<std::int16_t>(value); } },
+        { typeid(std::int32_t), 
+            [](const std::string& value) { return hex_stoul<std::int32_t>(value); } },
+        { typeid(std::int64_t), 
+            [](const std::string& value) { return hex_stoul<std::int64_t>(value); } },
+        { typeid(std::uint8_t), 
+            [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
+        { typeid(std::uint16_t), 
+            [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
+        { typeid(std::uint32_t), 
+            [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
+        { typeid(std::uint64_t), 
+            [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
+        { typeid(float), 
+            [](const std::string& value) { return static_cast<float>(stof(value)); } },
+        { typeid(double), 
+            [](const std::string& value) { return static_cast<double>(stod(value)); } },
     };
 
     if (!factory.count(type))
-        throw polysync::error("no string converter") << exception::type(descriptor::typemap.at(type).name);
+        throw polysync::error("no string converter defined") 
+            << exception::type(descriptor::typemap.at(type).name)
+            << status::description_error;
 
     return factory.at(type)(value);
 }
 
 // Load the global type detector dictionary detector::catalog with an entry from a TOML table.
 void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& catalog) {
-    logger log("detector[" + name + "]");
+
+    logger log("detector");
 
     // Recurse nested tables
     if (!table->contains("description")) {
@@ -59,34 +78,58 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     }
 
     if (!table->contains("detector")) {
-        BOOST_LOG_SEV(log, severity::debug1) << "no sequel";
+        BOOST_LOG_SEV(log, severity::debug1) << "no sequel types following \"" << name << "\"";
         return;
     }
 
+    if (!descriptor::catalog.count(name))
+        throw polysync::error("no type description") 
+            << exception::type(name)
+            << status::description_error;
+
     auto det = table->get("detector");
-    if (!det->is_table())
-        throw polysync::error("detector must be a table");
 
-    for (const auto& branch: *det->as_table()) {
+    if (!det->is_table_array())
+        throw polysync::error("detector list must be an array") 
+            << exception::type(name)
+            << status::description_error;
 
-        if (!branch.second->is_table())
-            throw polysync::error("detector must be a TOML table") << exception::type(branch.first);
+    for (const auto& branch: *det->as_table_array()) {
 
-        if (!plog::descriptor::catalog.count(name))
-            throw polysync::error("no type description") << exception::type(name);
+        if (!branch->is_table())
+            throw polysync::error("detector must be a table") 
+                << exception::type(name)
+                << status::description_error;
+
+        auto table = branch->as_table();
+        if (!table->contains("name"))
+            throw polysync::error("detector requires a \"name\" field")
+                << exception::type(name)
+                << status::description_error;
+
+        auto sequel = table->get_as<std::string>("name");
+        if (!sequel)
+            throw polysync::error("detector name must be a string")
+                << exception::type(name)
+                << status::description_error;
 
         decltype(std::declval<detector::type>().match) match;
-        const plog::descriptor::type& desc = plog::descriptor::catalog.at(name);
-        for (auto pair: *branch.second->as_table()) {
+        const descriptor::type& desc = descriptor::catalog.at(name);
+        for (auto pair: *table) {
+
+            if (pair.first == "name") // special field
+                continue;
+
 
             // Dig through the type description to get the type of the matching field
             auto it = std::find_if(desc.begin(), desc.end(), 
                     [pair](auto f) { return f.name == pair.first; });
             
-            // The field name did not match at all; throw to get out of here.
+            // The field name did not match at all; get out of here.
             if (it == desc.end())
                 throw polysync::error("unknown field") 
-                    << exception::type(pair.first) 
+                    << exception::type(name)
+                    << exception::detector(pair.first) 
                     << exception::field(it->name)
                     << status::description_error;
 
@@ -96,18 +139,18 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             const std::type_index* idx = it->type.target<std::type_index>();
             if (!idx)
                 throw polysync::error("illegal branch on compound type")
-                    << exception::type(pair.first)
+                    << exception::type(name)
+                    << exception::detector(pair.first)
                     << exception::field(it->name)
                     << status::description_error; 
 
             // For this purpose, TOML numbers must be strings because TOML is
             // not very type flexible (and does not know about hex notation).
             // Here is where we convert that string into a strong type.
-            // const std::type_info& info = it->type.target_type();
             std::string value = pair.second->as<std::string>()->get();
             match.emplace(pair.first, convert(value, *idx));
         }
-        detector::catalog.emplace_back(detector::type { name, match, branch.first });
+        detector::catalog.emplace_back(detector::type { name, match, *sequel });
 
         BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" 
             << detector::catalog.back().parent << "\" -> \"" 
@@ -120,13 +163,9 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 std::string detect(const node& parent) {
     logging::logger log { "detector" };
 
-    plog::tree tree = *parent.target<plog::tree>();
+    polysync::tree tree = *parent.target<polysync::tree>();
     if (tree->empty())
         throw polysync::error("parent tree is empty");
-
-    // std::streampos rem = endpos - stream.tellg();
-    // BOOST_LOG_SEV(log, severity::debug2) 
-    //     << "decoding " << (size_t)rem << " byte payload from \"" << parent.name << "\"";
 
     // Iterate each detector in the catalog and check for a match.  Store the
     // resulting type name in tpname.
@@ -191,6 +230,6 @@ std::string detect(const node& parent) {
 }
 
 
-}} // namespace polysync::plog
+} // namespace polysync::plog
 
 

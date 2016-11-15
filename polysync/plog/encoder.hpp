@@ -1,7 +1,7 @@
 # pragma once
 
 #include <polysync/plog/core.hpp>
-#include <polysync/io.hpp>
+#include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
 #include <fstream>
 #include <boost/hana.hpp>
@@ -88,11 +88,11 @@ public:
         stream.write((char *)(name.data()), len); 
     }
 
-    void encode(const plog::tree& t, const descriptor::type& desc);
+    void encode(const polysync::tree& t, const descriptor::type& desc);
 
 public:
 
-    void encode(const plog::node& n) {
+    void encode(const polysync::node& n) {
         BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
         eggs::variants::apply([this](auto value) { encode(value); }, n);
     }

@@ -1,5 +1,5 @@
 #include <polysync/plugin.hpp>
-#include <polysync/io.hpp>
+#include <polysync/print_hana.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/hana.hpp>
 #include <regex>
@@ -18,31 +18,31 @@ struct model_printer {
     mutable std::set<std::string> catalog;
 
     // Pretty print plog::tree (dynamic) structures
-    void operator()(std::ostream& os, const std::string& name, const plog::node& node) const {
-        if (node.target_type() == typeid(plog::tree)) {
-            plog::tree top = *node.target<plog::tree>();
-            if (!plog::descriptor::catalog.count(name)) 
+    void operator()(std::ostream& os, const std::string& name, const polysync::node& node) const {
+        if (node.target_type() == typeid(polysync::tree)) {
+            polysync::tree top = *node.target<polysync::tree>();
+            if (!polysync::descriptor::catalog.count(name)) 
                 throw polysync::error("no description") << exception::type(name);
                 
-            const plog::descriptor::type& desc = plog::descriptor::catalog.at(name);
+            const polysync::descriptor::type& desc = polysync::descriptor::catalog.at(name);
             if (!catalog.count(name)) 
             {
                 catalog.insert(name);
-                os << format.cyan << format.bold << name << " {" << wrap << format.normal;
-                std::for_each(desc.begin(), desc.end(), [&](const plog::descriptor::field& d) {
+                os << format.fieldname << format.bold << name << " {" << wrap << format.normal;
+                std::for_each(desc.begin(), desc.end(), [&](const polysync::descriptor::field& d) {
                         std::string tname = d.name;
                         std::string tags;
                         if (tname.front() == '>') {
-                            tags += format.yellow + std::string(" bigendian ") + format.normal;
+                            tags += format.note + std::string(" bigendian ") + format.normal;
                             tname.erase(tname.begin());
                         }
-                        os << tab.back() << format.green << tname << ": " << format.normal << d.name 
-                        << format.green << (tags.empty() ? std::string() : " (" + tags + format.green + ")") << format.normal
+                        os << tab.back() << format.fieldname << tname << ": " << format.normal << d.name 
+                        << format.note << (tags.empty() ? std::string() : " (" + tags + format.note + ")") << format.normal
                         << wrap;
                         });
-                os << format.cyan << format.bold << "}" << format.normal << wrap;
+                os << format.fieldname << format.bold << "}" << format.normal << wrap;
             }
-            std::for_each(top->begin(), top->end(), [&](const plog::node& n) { 
+            std::for_each(top->begin(), top->end(), [&](const polysync::node& n) { 
                     operator()(os, n.name, n);
                 });
         }
@@ -80,8 +80,8 @@ struct plugin : encode::plugin {
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
-                plog::node top = decode(record);
-                printer(std::cout, top.name, *top.target<plog::tree>());
+                polysync::node top = decode(record);
+                printer(std::cout, top.name, top); // *top.target<polysync::tree>());
                 std::cout << printer.finish;
                 });
     }

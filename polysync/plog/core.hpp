@@ -16,6 +16,9 @@
 // Most of the PolySync message types are dynamically defined elsewhere, which
 // is why this file is deliberately small.
 
+#include <polysync/print_hana.hpp>
+#include <polysync/description.hpp>
+
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -116,5 +119,48 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
+
+namespace polysync { namespace plog {
+
+inline std::ostream& operator<<(std::ostream& os, const log_module& record) {
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    return hana::fold(record, os, f);
+}
+
+inline std::ostream& operator<<(std::ostream& os, const type_support& record) {
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    return hana::fold(record, os, f);
+}
+
+inline std::ostream& operator<<(std::ostream& os, const log_header& record) {
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    return hana::fold(record, os, f);
+}
+
+inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
+    os << "{ ";
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
+    hana::fold(record, os, f);
+    return os << " }";
+}
+
+inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
+    os << "log_record { ";
+    hana::fold(record, os, f);
+    return os << "payload: " << record.blob.size() << " bytes }";
+}
+
+template <typename LenType, typename T>
+std::ostream& operator<<(std::ostream& os, const sequence<LenType, T>& record) {
+    return os << static_cast<std::vector<T>>(record);
+}
+
+inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
+    return os << static_cast<std::uint16_t>(value);
+}
+
+
+}} // namespace polysync::plog
 
 
