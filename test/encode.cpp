@@ -26,7 +26,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
 
         _.test("simple", []() {
                 std::string truth = "0100000000000000" "02000000" "03000000";
-                polysync::tree simple = polysync::tree::create({
+                polysync::tree simple = polysync::tree::create("type", {
                         { "dest_guid", plog::guid { 1 } },
                         { "data_type", std::uint32_t { 2 } },
                         { "payload", std::uint32_t { 3 } }
@@ -42,7 +42,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 "00000000" // 4 byte skip
                 "04" "0500" "0600000000000000";
 
-                polysync::tree header = polysync::tree::create({
+                polysync::tree header = polysync::tree::create("type", {
                         { "magic", std::uint32_t { 1 } },
                         { "prev_size", std::uint32_t { 2 } },
                         { "size", std::uint8_t { 3 } },
@@ -63,7 +63,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                     { "payload", typeid(void) } }
                 };
 
-                polysync::tree simple = polysync::tree::create({
+                polysync::tree simple = polysync::tree::create("type", {
                         { "dest_guid", plog::guid { 1 } },
                         { "data_type", std::uint32_t { 2 } },
                         { "payload", std::uint32_t { 3 } }
@@ -90,9 +90,9 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 std::string truth = "0100" "02" "03";
 
                 _.test("equal", [=]() {
-                        polysync::tree nest = polysync::tree::create({
+                        polysync::tree nest = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
-                                { "scanner_info_list", polysync::tree::create({ 
+                                { "scanner_info_list", polysync::tree::create("type", { 
                                         { "device_id", std::uint8_t { 2 } }, 
                                         { "scanner_type", std::uint8_t { 3 } }
                                         }) }
@@ -103,9 +103,9 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("not_equal", [=]() {
-                        polysync::tree nest = polysync::tree::create({
+                        polysync::tree nest = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
-                                { "scanner_info_list", polysync::tree::create({ 
+                                { "scanner_info_list", polysync::tree::create("type", { 
                                         { "device_id", std::uint8_t { 2 } }, 
                                         { "scanner_type", std::uint8_t { 4 } }
                                         }) }
@@ -116,9 +116,9 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("too_short", [=]() {
-                        polysync::tree nest = polysync::tree::create({
+                        polysync::tree nest = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
-                                { "scanner_info_list", polysync::tree::create({ 
+                                { "scanner_info_list", polysync::tree::create("type", { 
                                         { "device_id", std::uint8_t { 2 } }, 
                                         }) }
                                 });
@@ -129,9 +129,9 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("extra_data", [=]() {
-                        polysync::tree nest = polysync::tree::create({
+                        polysync::tree nest = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
-                                { "scanner_info_list", polysync::tree::create({ 
+                                { "scanner_info_list", polysync::tree::create("type", { 
                                         { "device_id", std::uint8_t { 2 } }, 
                                         { "scanner_type", std::uint8_t { 3 } },
                                         { "more_data", std::uint8_t { 4 } }
@@ -154,7 +154,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 std::string truth = "0100" "02" "03" "04";
 
                 _.test("equal", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "time", std::uint16_t { 1 } },
                                 { "data", std::vector<std::uint8_t> { 2, 3, 4 } }
                                 });
@@ -163,7 +163,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("not_equal", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "time", std::uint16_t { 1 } },
                                 { "data", std::vector<std::uint8_t> { 2, 5, 4 } }
                                 });
@@ -172,7 +172,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("type_error", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "time", std::uint16_t { 1 } },
                                 { "data", std::vector<std::uint16_t> { 2, 5, 4 } }
                                 });
@@ -181,7 +181,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("too_short", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "time", std::uint16_t { 1 } },
                                 { "data", std::vector<std::uint8_t> { 2, 3 } }
                                 });
@@ -190,7 +190,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("too_long", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "time", std::uint16_t { 1 } },
                                 { "data", std::vector<uint8_t> { 2, 3, 4, 5 } }
                                 });
@@ -228,7 +228,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                             { "data", polysync::descriptor::array { "points", typeid(std::uint8_t) } } }
                         };
 
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "points", std::uint16_t { 3 } },
                                 { "data", std::vector<uint8_t> { 2, 3, 4 } }
                                 });
@@ -243,14 +243,14 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 std::string truth = "0100" "02" "03" "04" "05";
 
                 _.test("equal", [=](const container& c) {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_info_list", std::vector<polysync::tree> {
-                                        polysync::tree::create({ 
+                                        polysync::tree::create("type", { 
                                                 { "device_id", std::uint8_t { 2 } },
                                                 { "scanner_type", std::uint8_t { 3 } },
                                                 }),
-                                        polysync::tree::create({ 
+                                        polysync::tree::create("type", { 
                                                 { "device_id", std::uint8_t { 4 } },
                                                 { "scanner_type", std::uint8_t { 5 } }, 
                                                 }),
@@ -261,14 +261,14 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("not_equal", [=](const container& c) {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_info_list", std::vector<polysync::tree> {
-                                        polysync::tree::create({ 
+                                        polysync::tree::create("type", { 
                                                 { "device_id", std::uint8_t { 2 } },
                                                 { "scanner_type", std::uint8_t { 3 } },
                                                 }),
-                                        polysync::tree::create({ 
+                                        polysync::tree::create("type", { 
                                                 { "device_id", std::uint8_t { 4 } },
                                                 { "scanner_type", std::uint8_t { 6 } }, 
                                                 }),
@@ -278,7 +278,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("missing_array", [=](const container& c) {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 });
                         expect([=]() { encode_tree(tree, c); },
@@ -290,7 +290,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
         _.subsuite("order", [](auto&_) {
                 _.test("same", [=]() {
 
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "dest_guid", plog::guid { 1 } },
                                 { "data_type", std::uint32_t { 2 } },
                                 { "payload", std::uint32_t { 3 } }
@@ -304,7 +304,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         });
 
                 _.test("swapped", [=]() {
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "data_type", std::uint32_t { 2 } },
                                 { "payload", std::uint32_t { 3 }  },
                                 { "dest_guid", plog::guid { 1 } },
@@ -319,7 +319,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
 
                 _.test("skip-same", [=]() {
 
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "magic", std::uint32_t { 1 }, },
                                 { "prev_size", std::uint32_t { 2 } },
                                 { "size", std::uint8_t { 3 } },
@@ -340,7 +340,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
 
                 _.test("skip-swapped", [=]() {
 
-                        polysync::tree tree = polysync::tree::create({
+                        polysync::tree tree = polysync::tree::create("type", {
                                 { "magic", std::uint32_t { 1 } },
                                 { "data_type", std::uint16_t { 5 } },
                                 { "prev_size", std::uint32_t { 2 } },

@@ -106,6 +106,42 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     }
 };
 
-} // namespace descriptor
+lex::lex(const field::variant& v) : std::string(eggs::variants::apply(*this, v)) {}
 
-} // namespace polysync
+std::string lex::operator()(std::type_index idx) const {
+    return typemap.at(idx).name;
+}
+
+std::string lex::operator()(nested idx) const {
+    return idx.name;
+}
+
+std::string lex::operator()(skip idx) const {
+    return "skip(" + std::to_string(idx.size) + ")";
+}
+
+std::string lex::operator()(array idx) const {
+    return "array<" + eggs::variants::apply(*this, idx.type) + ">(" 
+        + eggs::variants::apply(*this, idx.size) + ")";
+}
+
+std::string lex::operator()(std::string s) const { return s; }
+std::string lex::operator()(size_t s) const { return std::to_string(s); }
+
+std::ostream& operator<<(std::ostream& os, const field& f) {
+    using console::format;
+
+    return os << format.fieldname << f.name << ": " 
+              << format.value << lex(f.type) << format.normal;
+}
+
+std::ostream& operator<<(std::ostream& os, const type& desc) {
+    using console::format;
+
+    os << format.tpname << desc.name << ": { " << format.normal;
+    std::for_each(desc.begin(), desc.end(), [&os](auto f) { os << f << ", "; });
+    return os << format.tpname << desc.name << "}" << format.normal;
+}
+
+
+}} // namespace polysync::descriptor

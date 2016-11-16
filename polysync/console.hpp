@@ -55,6 +55,17 @@ struct color : style {
     {}
 };
 
+struct markdown : style {
+    markdown() : style {
+        // Explicit terms
+        "", "",
+        // Messages
+        "", "", "", "", "",
+        // Logging severity levels
+        "", "", "", "", "", ""
+    } {}
+};
+
 // Default non-colorful style
 struct nocolor : style {};
 

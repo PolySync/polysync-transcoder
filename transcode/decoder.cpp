@@ -208,7 +208,7 @@ struct branch_builder {
 
 polysync::node decoder::decode(const descriptor::type& desc) {
 
-    polysync::tree child = polysync::tree::create();
+    polysync::tree child = polysync::tree::create(desc.name);
 
     try {
         std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {

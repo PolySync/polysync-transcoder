@@ -8,6 +8,7 @@ path = '../../build/transcode/'
 def step_impl(context):
     args = shlex.split(context.text)
     context.response = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
+    print ('status',context.response.returncode)
 
 @then('return value is {retval}')
 def step_impl(context, retval):

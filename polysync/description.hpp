@@ -81,6 +81,7 @@ struct field {
             os << n;
             return os.str(); 
         }};
+
 };
 
 inline bool operator==(const field& lhs, const field& rhs) {
@@ -158,6 +159,17 @@ struct describe {
 
 };
 
+struct lex : std::string {
+
+    lex(const field::variant& v);
+    std::string operator()(std::type_index idx) const; 
+    std::string operator()(nested idx) const;
+    std::string operator()(skip idx) const;
+    std::string operator()(array idx) const;
+    std::string operator()(std::string s) const;
+    std::string operator()(size_t s) const;
+};
+
 // Define some metaprograms to compute the sizes of types.
 template <typename Number, class Enable = void>
 struct size {
@@ -177,22 +189,7 @@ struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type
 // Unit tests, exception handling, and the logger all require printing the type
 // descriptions to the console.
  
-inline std::ostream& operator<<(std::ostream& os, const field& f) {
-    using console::format;
-
-    const std::type_info& info = f.type.target_type();
-    if (typemap.count(info))
-        return os << format.fieldname << typemap.at(info).name 
-            << ": " << format.value << f.name << format.normal;
-    else return os << format.value << f.name << format.normal;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const type& desc) {
-    using console::format;
-
-    os << format.tpname << desc.name << ": { " << format.normal;
-    std::for_each(desc.begin(), desc.end(), [&os](auto f) { os << f << ", "; });
-    return os << format.tpname << desc.name << "}" << format.normal;
-}
+extern std::ostream& operator<<(std::ostream& os, const field& f);
+extern std::ostream& operator<<(std::ostream& os, const type& desc);
 
 }} // namespace polysync::descriptor

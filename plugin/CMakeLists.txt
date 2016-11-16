@@ -8,6 +8,10 @@ add_library( plog_encode MODULE plog_encode.cpp )
 target_link_libraries ( plog_encode plog dl )
 set_target_properties( plog_encode PROPERTIES PREFIX "transcode." )
 
+add_library( matlab MODULE matlab.cpp )
+target_link_libraries ( matlab plog dl )
+set_target_properties( matlab PROPERTIES PREFIX "transcode." )
+
 set ( HDF5_FOUND FALES )
 if ( ${HDF5_FOUND} )
     include_directories( ${HDF5_INCLUDE_DIRS} )

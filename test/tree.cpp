@@ -100,15 +100,15 @@ mettle::suite<> terminal_array("terminal_array", [](auto& _) {
 mettle::suite<> tree("tree", [](auto& _) {
 
         _.test("equal", []() {
-                polysync::tree equal = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree equal = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 })
@@ -118,15 +118,15 @@ mettle::suite<> tree("tree", [](auto& _) {
                 });
 
         _.test("notequal", []() {
-                polysync::tree notequal = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree notequal = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 })
@@ -136,14 +136,14 @@ mettle::suite<> tree("tree", [](auto& _) {
                 });
 
         _.test("tooshort", []() {
-                polysync::tree tooshort = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree tooshort = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 })
@@ -153,16 +153,16 @@ mettle::suite<> tree("tree", [](auto& _) {
                 });
 
         _.test("toolong", []() {
-                polysync::tree toolong = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree toolong = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } },
                                 { "stop_time", std::uint16_t { 3 } },
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
-                        polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 })
@@ -175,17 +175,17 @@ mettle::suite<> tree("tree", [](auto& _) {
 mettle::suite<> nested_tree("nested_tree", [](auto& _) {
 
         _.test("equal", []() {
-                polysync::tree equal = polysync::tree::create({
+                polysync::tree equal = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })
@@ -195,17 +195,17 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
                 });
 
         _.test("notequal", []() {
-                polysync::tree notequal = polysync::tree::create({
+                polysync::tree notequal = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 4 } }
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })
@@ -215,16 +215,16 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
                 });
 
         _.test("tooshort", []() {
-                polysync::tree tooshort = polysync::tree::create({
+                polysync::tree tooshort = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })
@@ -234,18 +234,18 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
                 });
 
         _.test("toolong", []() {
-                polysync::tree toolong = polysync::tree::create({
+                polysync::tree toolong = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } },
                                 { "stop_time", std::uint16_t { 4 } },
                                 })
                         });
 
-                polysync::tree truth = polysync::tree::create({
+                polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create({
+                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                                 })

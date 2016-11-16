@@ -25,11 +25,19 @@ namespace hana = boost::hana;
 struct node;
 
 struct tree : std::shared_ptr<std::vector<node>> {
+    std::string type;
     using std::shared_ptr<element_type>::shared_ptr;
 
-    static tree create() { return std::make_shared<element_type>(); }
-    static tree create(std::initializer_list<node> init) {
-        return std::make_shared<element_type>(init);
+    static tree create(const std::string& type) { 
+        auto res = tree(std::make_shared<element_type>()); 
+        res.type = type;
+        return res;
+    }
+
+    static tree create(const std::string& type, std::initializer_list<node> init) {
+        auto res = tree(std::make_shared<element_type>(init));
+        res.type = type;
+        return res;
     }
 };
 
@@ -102,7 +110,7 @@ inline bool operator!=(const tree& lhs, const tree& rhs) { return !operator==(lh
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
 inline node node::from(const Struct& s, const std::string& type) {
-    tree tr = tree::create();
+    tree tr = tree::create(type);
     hana::for_each(s, [tr](auto pair) { 
             std::string name = hana::to<char const*>(hana::first(pair));
             tr->emplace_back(name, hana::second(pair));

@@ -40,6 +40,8 @@ std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
 
 }
 
+std::map<std::string, boost::shared_ptr<ps::encode::plugin>> plugin_map;
+
 int catch_main(int ac, char* av[]) {
 
     logger log("transcode");
@@ -97,13 +99,15 @@ int catch_main(int ac, char* av[]) {
     po::store(parse, vm);
     po::notify(vm);
 
+
     // Set the debug option right away
     ps::logging::set_level(vm["verbose"].as<std::string>());
 
     if (vm.count("nocolor"))
         ps::console::format = ps::console::nocolor();
+    if (vm.count("markdown"))
+        ps::console::format = ps::console::markdown();
 
-    std::map<std::string, boost::shared_ptr<ps::encode::plugin>> plugin_map;
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
     // misconfigured.  It also makes the query options appear first in the help
@@ -132,11 +136,18 @@ int catch_main(int ac, char* av[]) {
                 try {
                     boost::shared_ptr<ps::encode::plugin> plugin = 
                         dll::import<ps::encode::plugin>(lib.path(), "encoder");
-                    BOOST_LOG_SEV(log, severity::debug1) << "loading encoder from " << lib.path();
-                    plugin->options();
+                    BOOST_LOG_SEV(log, severity::debug1) << "loaded encoder from " << lib.path();
+                    po::options_description opt = plugin->options();
+                    helpline.add(opt);
+                    cmdline.add(opt);
+                    plugin_map.emplace(plugname, plugin);
                 } catch (std::runtime_error&) {
-                    BOOST_LOG_SEV(log, severity::debug2) << lib.path() << " provides no encoder";
+                    BOOST_LOG_SEV(log, severity::debug1) 
+                        << lib.path() << " provides no encoder; symbols not found";
                 }
+            } else {
+                BOOST_LOG_SEV(log, severity::debug1) 
+                    << lib.path() << " provides no encoder; filename mismatch";
             }
         }
     }
@@ -261,10 +272,9 @@ int catch_main(int ac, char* av[]) {
             std::for_each(head.type_supports.begin(), head.type_supports.end(), 
                           std::ref(visit.type_support));
             std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
-            visit.cleanup(decoder);
-        } catch (ps::error& e) {
-            e << ps::status::bad_input;
+        } catch (polysync::error& e) {
             e << ps::exception::path(path.c_str());
+            e << polysync::status::bad_input;
             throw;
         }
     }
@@ -277,7 +287,6 @@ int main(int ac, char* av[]) {
     try {
         return catch_main(ac, av);
     } catch (const ps::error& e) {
-        const ps::status* stat = boost::get_error_info<ps::exception::status>(e);
         std::cerr << format.error << format.bold << "Transcoder abort: " << format.normal 
             << e.what() << std::endl;
         if (const std::string* module = boost::get_error_info<ps::exception::module>(e))
@@ -292,7 +301,10 @@ int main(int ac, char* av[]) {
             std::cerr << "\tDetector: " << format.fieldname << *detector << format.normal << std::endl;
         if (const polysync::tree* tree = boost::get_error_info<ps::exception::tree>(e))
             std::cerr << "\tPartial Decode: " << **tree << std::endl;
-        exit(stat ? *stat : ps::status::ok);
+        if (const ps::status* stat = boost::get_error_info<ps::exception::status>(e)) {
+            std::cout << "retval " << *stat << std::endl;
+            exit(*stat);
+        }
     }
 }
 

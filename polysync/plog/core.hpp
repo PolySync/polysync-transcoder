@@ -7,7 +7,7 @@
 // software, they are actually just copied here and will have to be manually
 // updated as the plog format evolves.
 //
-// Parsing of the plog (reader.hpp) is typesafe and generic, even for the
+// Parsing of the plog (plog/decoder.hpp) is typesafe and generic, even for the
 // compile time defined message types found here.  This is implemented via
 // boost::hana.  The hana wrappers are defined at the bottom of this file, and
 // the reader class knows how to introspect these hana structures for
@@ -23,8 +23,6 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-
-#include <boost/hana.hpp>
 
 // Pull in a multiprecision type to support the PolySync hash and any other CRC types.
 #include <boost/multiprecision/cpp_int.hpp>
@@ -111,15 +109,14 @@ extern std::map<plog::msg_type, std::string> type_support_map;
 
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_header,
         version_major, version_minor, version_subminor, build_date, node_guid 
-       , modules, type_supports
-        );
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor, version_subminor, build_date
-        , build_hash, name
-         );
+       , modules, type_supports);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor, 
+        version_subminor, build_date, build_hash, name);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
+// Printing is required by the logger and unit testing.
 namespace polysync { namespace plog {
 
 inline std::ostream& operator<<(std::ostream& os, const log_module& record) {
