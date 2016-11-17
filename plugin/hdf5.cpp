@@ -83,7 +83,6 @@ class writer {
         auto it = std::find_if(tree->begin(), tree->end(), [](auto n) { return n.name == "msg_header"; });
         const plog::msg_header& msg_header = *it->target<plog::msg_header>();
 
-
         // Create a key value that distinguishes a specific datatype from a specific source.
         topic_type topic { msg_header.type, msg_header.src_guid };
         if (plog::type_support_map.count(msg_header.type) == 0)

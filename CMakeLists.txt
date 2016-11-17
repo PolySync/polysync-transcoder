@@ -8,7 +8,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif()
 
 find_package(Threads)
-find_package(Boost COMPONENTS log log_setup system filesystem program_options thread)
+find_package(Boost COMPONENTS log log_setup system filesystem program_options thread regex)
 find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
@@ -17,6 +17,7 @@ add_subdirectory( transcode )
 add_subdirectory( plugin )
 add_subdirectory( binding )
 add_subdirectory( test )
+add_subdirectory( features )
 
 enable_testing()
 foreach ( component IN ITEMS decode_hana tree size description detector encode decode )
