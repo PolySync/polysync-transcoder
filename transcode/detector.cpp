@@ -206,16 +206,21 @@ std::string detect(const node& parent) {
         }
 
         //  The detector failed, print a fancy message to help developer fix catalog.
-        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched" 
+        auto details = [&](const std::string& field) -> std::string {
+            std::stringstream os;
+            os << field + ": ";
+            auto it = std::find_if(tree->begin(), tree->end(), 
+                    [field](auto f){ return field == f.name; });
+            os << *it;
+            os << (*it == det.match.at(field) ? " == " : " != ");
+            eggs::variants::apply([&os](auto v) { os << v; }, det.match.at(field));
+            return os.str(); 
+        };
+
+        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched { " 
             << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
-                    [&](const std::string& str, auto field) { 
-                        return str + " { " + field + ": " + 
-                        // lex(*std::find_if(tree->begin(), tree->end(), [field](auto f){ return field == f.name; })) + 
-                        // lex(tree->at(field)) + 
-                        // (tree->at(field) == det.match.at(field) ? " == " : " != ")
-                        // lex(det.match.at(field)) 
-                        + " }"; 
-                    });
+                    [&](const std::string& str, auto field) { return str + details(field); }) 
+            << " }";
     }
 
     // Absent a detection, return raw bytes.

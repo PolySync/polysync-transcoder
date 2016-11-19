@@ -62,6 +62,8 @@ using name_type = sequence<std::uint16_t, std::uint8_t>;
 using msg_type = std::uint32_t;
 using guid = std::uint64_t;
 using timestamp = std::uint64_t;
+using identifier = std::uint32_t;
+using sensor_kind = std::uint32_t;
 
 struct log_module {
     std::uint8_t version_major;

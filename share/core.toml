@@ -1,0 +1,49 @@
+ps_guid = "uint64"
+ps_timestamp = "uint64"
+ps_identifier = "uint32"
+ps_sensor_kind = "uint32"
+
+[ps_byte_array_msg]
+    description = [
+        { name = "dest_guid", type = "ps_guid" },
+        { name = "data_type", type = "uint32" },
+        { name = "payload", type = "uint32" }
+    ]
+    detector = [ 
+        { name = "ibeo.header", data_type = "160" } 
+    ] 
+
+[ps_can_frame_msg]
+    description = [
+        { name = "timestamp", type = "ps_timestamp" },
+        { name = "native_timestamp", type = "ps_native_timestamp" },
+        { name = "hardware_id", type = "ps_identifier" },
+        { name = "circuit_id", type = "uint16" },
+        { name = "system_id", type = "ps_identifier" },
+        { name = "id", type = "ps_identifier" },
+        { name = "flags", type = "uint16" },
+    ]
+
+[ps_native_timestamp]
+    description = [
+        { name = "format", type = "uint8" },
+        { name = "value", type = "uint64" },
+    ]
+
+[ps_transform_stack]
+    description = [
+        { name = "parent_id", type = "ps_identifier" },
+        { name = "timestamp", type = "ps_timestamp" },
+        { name = "count", type = "uint32" },
+        { name = "stack", type = "ps_transform_descriptor", count = "count" },
+    ]
+
+[ps_transform_descriptor]
+    description = [
+        { name = "id", type = "ps_identifier" },
+        { name = "timestamp", type = "ps_timestamp" },
+        { name = "origin", type = "double", count = 3 },
+        { name = "orientation", type = "double", count = 4 },
+    ] 
+
+

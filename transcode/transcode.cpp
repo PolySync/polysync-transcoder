@@ -105,8 +105,6 @@ int catch_main(int ac, char* av[]) {
 
     if (vm.count("nocolor"))
         ps::console::format = ps::console::nocolor();
-    if (vm.count("markdown"))
-        ps::console::format = ps::console::markdown();
 
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
@@ -171,30 +169,44 @@ int catch_main(int ac, char* av[]) {
             std::regex_match(tofl.path().string().c_str(), match, is_description);
             if (match.size()) {
                 BOOST_LOG_SEV(log, severity::debug1) << "loading descriptions from " << tofl;
-                std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file(tofl.path().string());
-
                 try {
+                    std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file(tofl.path().string());
+
                     // Parse the file in two passes, so the detectors have
                     // access to the descriptor's types
+                    for (const auto& type: *descfile) {
+                        if (type.second->is_table())
+                            ps::descriptor::load(
+                                    type.first, type.second->as_table(), ps::descriptor::catalog);
+                        else if (type.second->is_value()) {
+                            auto val = type.second->as<std::string>();
+                            if (!ps::descriptor::namemap.count(val->get()))
+                                throw ps::error("unknown type alias") << ps::exception::type(type.first);
+                            std::type_index idx = ps::descriptor::namemap.at(val->get());
+                            ps::descriptor::namemap.emplace(type.first, idx);
+                            BOOST_LOG_SEV(log, severity::debug2) << "loaded type alias " << type.first << " = " << val->get();
+                        }
+                        else
+                            BOOST_LOG_SEV(log, severity::warn) << "unused description: " << type.first;
+                    }
                     for (const auto& type: *descfile)
-                        ps::descriptor::load(type.first, type.second->as_table(), ps::descriptor::catalog);
-                    for (const auto& type: *descfile)
-                        ps::detector::load(type.first, type.second->as_table(), ps::detector::catalog);
+                        if (type.second->is_table())
+                            ps::detector::load(
+                                    type.first, type.second->as_table(), ps::detector::catalog);
                 } catch (ps::error& e) {
                     e << ps::status::description_error;
                     e << ps::exception::path(tofl.path().string());
                     throw;
+                } catch (cpptoml::parse_exception& e) {
+                    throw polysync::error(e.what()) << ps::status::description_error
+                        << ps::exception::path(tofl.path().string());
                 }
-
             }
         }
     }
 
     ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
     ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
-    ps::detector::catalog.push_back(ps::detector::type {
-            "msg_header", { { "type", (plog::msg_type)16 } }, "ps_byte_array_msg"});
-
     if (!vm.count("path")) 
         throw ps::error("no input files") << ps::status::bad_input;
 
@@ -236,7 +248,13 @@ int catch_main(int ac, char* av[]) {
     // (useful) static strings.  Most if not every plugin needs these, so just
     // add it globally here.
     visit.type_support.connect([](plog::type_support t) { 
-            plog::type_support_map.emplace(t.type, t.name); });
+            // Don't bother registering detectors for types if do not have the descriptor.
+            if (ps::descriptor::catalog.count(t.name))
+                ps::detector::catalog.push_back(ps::detector::type { "msg_header", 
+                    { { "type", t.type } }, 
+                    t.name });
+            plog::type_support_map.emplace(t.type, t.name); 
+            });
 
     plugin_map.at(output)->connect(vm, visit);
 

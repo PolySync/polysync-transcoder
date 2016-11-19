@@ -1,0 +1,21 @@
+ps_pixel_format_kind = "uint32"
+
+[ps_image_data_msg]
+    description = [
+        { name = "sensor_descriptor", type = "ps_sensor_descriptor" },
+        { name = "timestamp", type = "ps_timestamp" },
+        { name = "native_timestamp", type = "ps_native_timestamp" },
+        { name = "pixel_format", type = "ps_pixel_format_kind" },
+        { name = "frame_id", type = "ps_identifier" },
+        { name = "width", type = "uint32" },
+        { name = "height", type = "uint16" }
+    ]
+
+[ps_sensor_descriptor]
+    description = [
+        { name = "id", type = "ps_identifier" },
+        { name = "type", type = "ps_sensor_kind" },
+        { name = "transform", type = "ps_transform_stack" },
+    ]
+
+

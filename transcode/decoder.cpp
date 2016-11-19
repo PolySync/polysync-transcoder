@@ -132,8 +132,15 @@ struct branch_builder {
 
     // Nested described type
     void operator()(const descriptor::nested& nest) const {
+        // Type aliases sometimes appear as nested types because the alias was
+        // defined after the type that uses it.  This is why we check typemap
+        // here; if we could know when parsing the TOML that the type was
+        // actually an alias not a nested type, then this would not be necessary.
+        if (descriptor::namemap.count(nest.name))
+            return operator()(descriptor::namemap.at(nest.name));
+
         if (!descriptor::catalog.count(nest.name))
-            throw polysync::error("no descriptor for \"" + nest.name + "\"");
+            throw polysync::error("no nested descriptor for \"" + nest.name + "\"");
         const descriptor::type& desc = descriptor::catalog.at(nest.name);
         node a = d->decode(desc);
         branch->emplace_back(field.name, a);

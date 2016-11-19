@@ -1,13 +1,3 @@
-[ps_byte_array_msg]
-    description = [
-        { name = "dest_guid", type = "ps_guid" },
-        { name = "data_type", type = "uint32" },
-        { name = "payload", type = "uint32" }
-    ]
-    detector = [ 
-        { name = "ibeo.header", data_type = "160" } 
-    ] 
-
 [ibeo.header]
     description = [
         { name = "magic", type = "uint32", endian="big", format="hex" },

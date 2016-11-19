@@ -6,6 +6,10 @@
 // that are not ansi-aware, like debugger displays, and a GUI tool would
 // certainly want to control the look by itself. 
 
+#include <string>
+#include <vector>
+#include <iostream>
+
 namespace polysync { namespace console {
 
 // Standard ANSI terminal escape codes
@@ -71,5 +75,82 @@ struct nocolor : style {};
 
 extern style format;
 
-}} // namespace polysync::console
+} // namespace console
+
+namespace formatter {
+
+using polysync::console::escape;
+
+struct interface {
+    virtual void begin_block( const std::string& ) const = 0;
+    virtual void end_block() const = 0;
+    virtual void item( const std::string&, const std::string&, const std::string& = "" ) const = 0;
+    virtual void begin_ordered() const = 0;
+    virtual void end_ordered() const = 0;
+
+    std::ostream& os;
+    bool show_type { true };
+
+    interface(std::ostream& os) : os(os) { }
+};
+
+struct console : interface {
+    using interface::interface;
+
+    std::string indent { "    " };
+
+    void begin_block(const std::string& name) const override { 
+        os << tab.back() << escape::cyan << escape::bold << name << " {" 
+           << escape::normal << std::endl;
+        tab.push_back(tab.back() + indent);
+    }
+
+    void end_block() const override {
+        tab.pop_back();
+        os << tab.back() << escape::cyan << escape::bold << "}" << escape::normal << std::endl;
+    }
+
+    void item(const std::string& name, const std::string& value, const std::string& type) const override {
+        os << tab.back() << escape::green << name << ": " << escape::normal 
+           << value << escape::normal;
+        if (!type.empty() && show_type)
+            os << escape::yellow << " (" << type << ")" << escape::normal;
+        os << std::endl;
+    }
+
+    void begin_ordered() const override { }
+
+    void end_ordered() const override { }
+
+    mutable std::vector<std::string> tab { "" };
+};
+
+struct markdown : interface {
+    using interface::interface;
+    std::string indent { "    " };
+    void begin_block(const std::string& name) const override { 
+        os << tab.back() << "* " << name << ":" << std::endl;
+        tab.push_back(tab.back() + indent);
+    }
+
+    void end_block() const override {
+        tab.pop_back();
+    }
+
+    void item(const std::string& name, const std::string& msg, const std::string& type) const override {
+        os << tab.back() << "* " << name << ": " << msg << std::endl;
+    }
+
+    mutable std::vector<std::string> tab { "" };
+
+    void begin_ordered() const override {
+    }
+
+    void end_ordered() const override {
+    }
+};
+
+
+} // namespace formatter
+} // namespace polysync::console
 

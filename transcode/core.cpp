@@ -20,7 +20,6 @@ std::map<std::string, std::type_index> namemap {
     { "float", typeid(float) },
     { "float32", typeid(float) },
     { "double", typeid(double) },
-    { "ps_guid", typeid(std::uint64_t) },
 };
 
 std::map<std::type_index, descriptor::terminal> typemap {
@@ -40,7 +39,7 @@ std::map<std::type_index, descriptor::terminal> typemap {
     { typeid(plog::log_header), { "log_header", size<plog::log_header>::value() } },
     { typeid(plog::sequence<std::uint32_t, plog::log_module>), 
         { "sequence<log_module>", size<plog::sequence<std::uint32_t, plog::log_module>>::value() } },
-    { typeid(plog::timestamp), { "ps_timestamp", size<plog::timestamp>::value() } },
+    // { typeid(plog::timestamp), { "ps_timestamp", size<plog::timestamp>::value() } },
     { typeid(plog::sequence<std::uint32_t, plog::type_support>), 
         { "sequence<type_support>", size<plog::sequence<std::uint32_t, plog::type_support>>::value() }}
 };
