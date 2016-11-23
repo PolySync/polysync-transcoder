@@ -17,14 +17,14 @@ namespace hana = boost::hana;
 
 struct pretty_printer {
 
-    void print(std::ostream& os, const std::string& name, tree top) const; 
+    void print(std::ostream& os, const node& n, tree top) const; 
     void print(std::ostream& os, tree top) const; 
 
     template <typename T>
-        void print(std::ostream& os, const std::string& name, const std::vector<T>& array) const {
+        void print(std::ostream& os, const node& n, const std::vector<T>& array) const {
             os << "vector1" << std::endl;
             return;
-            os << tab.back() << format.tpname << name << ": " << format.normal << wrap;
+            os << tab.back() << format.tpname << n.name << ": " << format.normal << wrap;
             std::for_each(array.begin(), array.end(), [&](const T& value) {
                     os << tab.back() << "{" << wrap;
                     tab.push_back(tab.back() + tabstop);
@@ -34,8 +34,8 @@ struct pretty_printer {
                     });
         }
 
-    void print(std::ostream& os, const std::string& name, const std::vector<tree>& array) const {
-        driver->begin_block(name);
+    void print(std::ostream& os, const node& n, const std::vector<tree>& array) const {
+        driver->begin_block(n.name);
         size_t rec = 0;
         driver->begin_ordered();
         std::for_each(array.begin(), array.end(), [&](const tree& value) { 
@@ -49,26 +49,26 @@ struct pretty_printer {
     // Pretty print terminal types
     template <typename Number>
         typename std::enable_if_t<!hana::Foldable<Number>::value>
-        print(std::ostream& os, const std::string& name, const Number& value) const {
+        print(std::ostream& os, const node& n, const Number& value) const {
             std::stringstream ss;
             ss << value;
             std::string type = descriptor::typemap.at(typeid(Number)).name;
-            driver->item(name, ss.str(), type);
+            driver->item(n.name, ss.str(), type);
         }
 
     // Print chars as integers
-    void print(std::ostream& os, const std::string& name, const std::uint8_t& value) const {
+    void print(std::ostream& os, const node& n, const std::uint8_t& value) const {
         std::stringstream ss;
         ss << static_cast<std::uint16_t>(value);
-        driver->item(name, ss.str(), "uint16");
+        driver->item(n.name, ss.str(), "uint16");
     }
 
     // Pretty print boost::hana (static) structures
     template <typename Struct, class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
-        void print(std::ostream& os, const std::string& name, const Struct& s) const {
+        void print(std::ostream& os, const node& n, const Struct& s) const {
             os << "hana" << std::endl;
             return;
-            os << tab.back() << format.tpname << format.bold << name << " {" << wrap << format.normal;
+            os << tab.back() << format.tpname << format.bold << n.name << " {" << wrap << format.normal;
             tab.push_back(tab.back() + "    ");
             hana::for_each(s, [&os, this](auto f) mutable { 
                     print(os, hana::to<char const*>(hana::first(f)), hana::second(f));
@@ -88,19 +88,22 @@ struct pretty_printer {
 
 };
 
-void pretty_printer::print( std::ostream& os, const std::string& name, tree top ) const {
-    driver->begin_block(name);
+void pretty_printer::print( std::ostream& os, const node& n, tree top ) const {
+    std::string meta;
+    if (driver->show_offset && n.offset.begin && n.offset.end)
+        meta = std::to_string(*n.offset.begin) + ":" + std::to_string(*n.offset.end);
+    driver->begin_block(n.name, meta);
     std::for_each(top->begin(), top->end(), [&](auto pair) { 
-            eggs::variants::apply([&](auto f) { print(os, pair.name, f); }, pair);
+            eggs::variants::apply([&](auto f) { print(os, pair, f); }, pair);
             });
     driver->end_block();
 }
 
-void pretty_printer::print(std::ostream& os, tree top) const {
+void pretty_printer::print( std::ostream& os, tree top ) const {
     driver->begin_block(top.type);
     std::for_each(top->begin(), top->end(), 
             [&](auto pair) { 
-            eggs::variants::apply([&](auto f) { print(os, pair.name, f); }, pair);
+            eggs::variants::apply([&](auto f) { print(os, pair, f); }, pair);
             });
     driver->end_block();
 }
@@ -108,7 +111,7 @@ void pretty_printer::print(std::ostream& os, tree top) const {
 
 // Specialize bytes so it does not print characters, which is useless behavior.
 template <>
-void pretty_printer::print(std::ostream& os, const std::string& name, const bytes& record) const {
+void pretty_printer::print(std::ostream& os, const node& n, const bytes& record) const {
     std::stringstream ss;
     const int psize = 12;
     ss << "[ " << std::hex;
@@ -122,7 +125,7 @@ void pretty_printer::print(std::ostream& os, const std::string& name, const byte
                 [&ss](auto field) mutable { ss << ((std::uint16_t)field & 0xFF) << " "; });
 
     ss << "]" << std::dec << " (" << record.size() << " elements)";
-    driver->item(name, ss.str(), "");
+    driver->item(n.name, ss.str(), "");
 }
 
 struct plugin : encode::plugin {
@@ -130,9 +133,10 @@ struct plugin : encode::plugin {
     po::options_description options() const {
         po::options_description opt("Dump Options");
         opt.add_options()
-            ("compact", "remove newlines from formatting")
-            ("markdown", "format as Markdown")
-            ("type", "show types along with values")
+            ("compact,c", "remove newlines from formatting")
+            ("markdown,m", "format as Markdown")
+            ("type,t", "show types along with values")
+            ("offset,o", "show offset range of each record")
             ;
         return opt;
     };
@@ -154,13 +158,16 @@ struct plugin : encode::plugin {
         else
             pretty.driver = std::shared_ptr<formatter::interface>(new formatter::console( std::cout ));
         pretty.driver->show_type = vm.count("type");
+        pretty.driver->show_offset = vm.count("offset");
 
         visit.record.connect([pretty](const plog::log_record& record) { 
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
                 node top = decode(record);
-                pretty.print(std::cout, top.name, *top.target<tree>());
+                // top.offset.begin = record.offset.begin;
+                // top.offset.end = record.offset.end; 
+                pretty.print(std::cout, top, *top.target<tree>());
                 });
     }
 };

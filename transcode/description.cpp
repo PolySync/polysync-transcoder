@@ -35,12 +35,15 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
         if (!dt->is_table_array())
             throw polysync::error("[description] must be a table array");
 
+        std::uint16_t skip_index = 1;
         for (std::shared_ptr<cpptoml::table> fp: *dt->as_table_array()) {
 
             // skip reserved bytes
             if (fp->contains("skip")) {
                 int size = *fp->get_as<int>("skip");
-                desc.emplace_back(field { "skip", skip { size } });
+                std::string name = "skip:" + std::to_string(skip_index);
+                desc.emplace_back(field { name, skip { skip_index, size } });
+                skip_index += 1;
                 continue;
             }
 
@@ -117,7 +120,7 @@ std::string lex::operator()(nested idx) const {
 }
 
 std::string lex::operator()(skip idx) const {
-    return "skip(" + std::to_string(idx.size) + ")";
+    return "skip-" + std::to_string(idx.order) + "(" + std::to_string(idx.size) + ")";
 }
 
 std::string lex::operator()(array idx) const {

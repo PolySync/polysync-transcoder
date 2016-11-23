@@ -65,8 +65,10 @@ static variant convert(const std::string value, const std::type_index& type) {
     return factory.at(type)(value);
 }
 
-// Load the global type detector dictionary detector::catalog with an entry from a TOML table.
-void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& catalog) {
+// Load the global type detector dictionary detector::catalog with an entry
+// from a TOML table.
+void load( const std::string& name, std::shared_ptr<cpptoml::table> table, 
+           catalog_type& catalog ) {
 
     logger log("detector");
 
@@ -78,7 +80,8 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     }
 
     if (!table->contains("detector")) {
-        BOOST_LOG_SEV(log, severity::debug1) << "no sequel types following \"" << name << "\"";
+        BOOST_LOG_SEV(log, severity::debug1) 
+            << "no sequel types following \"" << name << "\"";
         return;
     }
 
@@ -120,7 +123,6 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             if (pair.first == "name") // special field
                 continue;
 
-
             // Dig through the type description to get the type of the matching field
             auto it = std::find_if(desc.begin(), desc.end(), 
                     [pair](auto f) { return f.name == pair.first; });
@@ -150,6 +152,16 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             std::string value = pair.second->as<std::string>()->get();
             match.emplace(pair.first, convert(value, *idx));
         }
+
+        
+        auto it = std::find_if(detector::catalog.begin(), detector::catalog.end(), 
+                    [name, sequel](auto f) { return f.parent == name && f.child == *sequel; });
+        if (it != detector::catalog.end()) {
+            BOOST_LOG_SEV(log, severity::debug1) << "duplicate sequel \"" 
+                << name << "\" -> \"" << *sequel << "\" found but not installed";
+            return;
+        }
+
         detector::catalog.emplace_back(detector::type { name, match, *sequel });
 
         BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" 
@@ -187,7 +199,8 @@ std::string detect(const node& parent) {
                     return n.name == field.first; 
                     });
             if (it == tree->end()) {
-                BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" 
+                BOOST_LOG_SEV(log, severity::debug2) 
+                    << det.child << " not matched: parent \"" 
                     << det.parent << "\" missing field \"" << field.first << "\"";
                 break;
             }
@@ -197,23 +210,29 @@ std::string detect(const node& parent) {
         
         // Too many matches. Catalog is not orthogonal and needs tweaking.
         if (mismatch.empty() && !tpname.empty())
-            throw polysync::error("non-unique detectors: " + tpname + " and " + det.child);
+            throw polysync::error("non-unique detectors: " + tpname + " and " + det.child)
+                << exception::module("detector");
 
-        // Exactly one match. We have detected the sequel type.
+        // Exactly one match. We have detected the sequel type.f
         if (mismatch.empty()) {
             tpname = det.child;
             continue;
         }
 
-        //  The detector failed, print a fancy message to help developer fix catalog.
-        auto details = [&](const std::string& field) -> std::string {
+        // The detector failed, print a fancy message to help developer fix
+        // catalog.  Define the formatting function here statically so the following
+        // boost::log macro can manage it's invocation for performance reasons.
+        static auto details = [&](const std::string& field) -> std::string {
             std::stringstream os;
             os << field + ": ";
             auto it = std::find_if(tree->begin(), tree->end(), 
                     [field](auto f){ return field == f.name; });
             os << *it;
-            os << (*it == det.match.at(field) ? " == " : " != ");
-            eggs::variants::apply([&os](auto v) { os << v; }, det.match.at(field));
+            if (det.match.count(field)) {
+                os << (*it == det.match.at(field) ? " == " : " != ");
+                eggs::variants::apply([&os](auto v) { os << v; }, det.match.at(field));
+            } else
+                os << " missing from description";
             return os.str(); 
         };
 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <boost/optional.hpp>
 #include <boost/hana.hpp>
 
 // Dynamic parse trees are basically just vectors of "nodes".  A node knows
@@ -86,6 +87,12 @@ struct node : variant {
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
     static node from(const Struct& s, const std::string&);
+
+    // Metadata
+    struct {
+        boost::optional<std::streamoff> begin;
+        boost::optional<std::streamoff> end;
+    } offset;
 };
 
 inline bool operator==(const tree& lhs, const tree& rhs) { 
@@ -134,19 +141,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const std::vector<std::uint8_t>& record) {
-    const int psize = 16;
-    os << "[ " << std::hex;
-    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
-    if (record.size() > 2*psize)
-        os << "... ";
-    if (record.size() > psize)
-        std::for_each(record.end() - psize, record.end(), [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
-
-    os << "]" << std::dec << " (" << record.size() << " elements)";
-    return os;
-}
-
 inline std::ostream& operator<<(std::ostream&, const tree&); 
 
 inline std::ostream& operator<<(std::ostream& os, const node& n) {
@@ -171,4 +165,21 @@ inline std::ostream& operator<<(std::ostream& os, const tree& t) {
 
 } // namespace polysync
 
+namespace std {
 
+inline std::ostream& operator<<(std::ostream& os, const polysync::bytes& record) {
+    const int psize = 16;
+    os << "[ " << std::hex;
+    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
+            [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
+    if (record.size() > 2*psize)
+        os << "... ";
+    if (record.size() > psize)
+        std::for_each(record.end() - psize, record.end(), 
+                [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
+
+    os << "]" << std::dec << " (" << record.size() << " elements)";
+    return os;
+}
+
+} // namespace std

@@ -82,7 +82,7 @@ namespace formatter {
 using polysync::console::escape;
 
 struct interface {
-    virtual void begin_block( const std::string& ) const = 0;
+    virtual void begin_block( const std::string& name, const std::string& meta = "" ) const = 0;
     virtual void end_block() const = 0;
     virtual void item( const std::string&, const std::string&, const std::string& = "" ) const = 0;
     virtual void begin_ordered() const = 0;
@@ -90,6 +90,7 @@ struct interface {
 
     std::ostream& os;
     bool show_type { true };
+    bool show_offset { false };
 
     interface(std::ostream& os) : os(os) { }
 };
@@ -99,9 +100,11 @@ struct console : interface {
 
     std::string indent { "    " };
 
-    void begin_block(const std::string& name) const override { 
-        os << tab.back() << escape::cyan << escape::bold << name << " {" 
-           << escape::normal << std::endl;
+    void begin_block(const std::string& name, const std::string& meta) const override { 
+        os << tab.back() << escape::cyan << escape::bold << name << escape::normal;
+        if (!meta.empty())
+            os << " [" << meta << "]"; 
+        os << escape::cyan << escape::bold << " {" << escape::normal << std::endl;
         tab.push_back(tab.back() + indent);
     }
 
@@ -128,7 +131,7 @@ struct console : interface {
 struct markdown : interface {
     using interface::interface;
     std::string indent { "    " };
-    void begin_block(const std::string& name) const override { 
+    void begin_block(const std::string& name, const std::string& meta) const override { 
         os << tab.back() << "* " << name << ":" << std::endl;
         tab.push_back(tab.back() + indent);
     }

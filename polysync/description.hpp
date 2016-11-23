@@ -29,6 +29,8 @@ struct nested {
 };
 
 struct skip {
+    // Keep the order of the skips, so they can go back in order
+    std::uint16_t order;
     // Remember how much extra space to skip or add back in, in bytes.
     std::streamoff size;
 };
@@ -124,7 +126,10 @@ struct describe {
     static descriptor::type type() {
         namespace hana = boost::hana;
         if (!typemap.count(typeid(Struct)))
-            throw polysync::error("unnamed type") << status::description_error;
+            throw polysync::error("unnamed type") 
+                << exception::type(typeid(Struct).name())
+                << exception::module("description")
+                << status::description_error;
 
         std::string tpname = descriptor::typemap.at(typeid(Struct)).name; 
 
@@ -132,7 +137,10 @@ struct describe {
                 std::string name = hana::to<char const*>(hana::first(pair));
 
                 if (typemap.count(typeid(hana::second(pair))) == 0)
-                    throw polysync::error("missing typemap") << exception::type(name);
+                    throw polysync::error("missing typemap") 
+                        << exception::module("description")
+                        << exception::type(name)
+                        << status::description_error;
 
                 terminal a = typemap.at(std::type_index(typeid(hana::second(pair))));
                 desc.emplace_back(field { name, typeid(hana::second(pair)) });
@@ -143,7 +151,11 @@ struct describe {
     // Generate self descriptions of types 
     static std::string string() {
         if (!descriptor::typemap.count(typeid(Struct)))
-            throw polysync::error("no typemap description");
+            throw polysync::error("no typemap description")
+                        << exception::module("description")
+                        << exception::type(typeid(Struct).name())
+                        << status::description_error;
+
         std::string tpname = descriptor::typemap.at(typeid(Struct)).name; 
         std::string result = tpname + " { ";
         hana::for_each(Struct(), [&result, tpname](auto pair) {
@@ -151,7 +163,11 @@ struct describe {
                 std::string fieldname = hana::to<char const*>(hana::first(pair));
                 if (descriptor::typemap.count(tp) == 0)
                     throw polysync::error("type not described") 
-                        << exception::type(tpname) << exception::field(fieldname);
+                        << exception::type(tpname) 
+                        << exception::field(fieldname)
+                        << exception::module("description")
+                        << status::description_error;
+
                 result += fieldname + ": " + descriptor::typemap.at(tp).name + "; ";
                 });
         return result + "}";

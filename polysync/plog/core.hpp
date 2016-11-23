@@ -16,8 +16,10 @@
 // Most of the PolySync message types are dynamically defined elsewhere, which
 // is why this file is deliberately small.
 
+#include <boost/hana.hpp>
+#include <boost/optional.hpp>
+
 #include <polysync/print_hana.hpp>
-#include <polysync/description.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -32,6 +34,7 @@ namespace polysync { namespace plog {
 constexpr size_t PSYNC_MODULE_VERIFY_HASH_LEN = 16;
 
 namespace multiprecision = boost::multiprecision;
+namespace hana = boost::hana;
 
 using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
     PSYNC_MODULE_VERIFY_HASH_LEN*8, 
@@ -64,6 +67,13 @@ using guid = std::uint64_t;
 using timestamp = std::uint64_t;
 using identifier = std::uint32_t;
 using sensor_kind = std::uint32_t;
+
+struct message {
+    struct {
+        boost::optional<std::streamoff> begin;
+        boost::optional<std::streamoff> end;
+    } offset;
+};
 
 struct log_module {
     std::uint8_t version_major;

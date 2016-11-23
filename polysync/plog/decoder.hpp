@@ -1,9 +1,10 @@
 #pragma once
 
+#include <polysync/tree.hpp>
+#include <polysync/description.hpp>
 #include <polysync/plog/core.hpp>
 #include <polysync/logging.hpp>
 #include <fstream>
-#include <boost/hana.hpp>
 
 namespace polysync { namespace plog {
 
@@ -49,7 +50,6 @@ public:
 
     iterator end() { return iterator { this, endpos, endpos }; }
 
-
 public:
     // Decode an entire record and return a parse tree.
     node operator()(const log_record&);
@@ -73,7 +73,8 @@ public:
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Record, class = typename std::enable_if_t<hana::Foldable<Record>::value>>
+    template <typename Record, 
+             class = typename std::enable_if_t<hana::Foldable<Record>::value>>
     void decode(Record& record) {
         hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
                 decode(hana::at_key(record, key));
@@ -144,7 +145,10 @@ public:
 };
 
 inline log_record iterator::operator*() { 
-    return stream->decode<log_record>(pos); 
+    log_record record = stream->decode<log_record>(pos); 
+    // record.offset.begin = pos;
+    // record.offset.end = pos + record.size + descriptor::size<log_record>::value();
+    return record;
 }
 
 inline iterator& iterator::operator++() {
@@ -159,7 +163,7 @@ inline iterator& iterator::operator++() {
 }
 
 inline log_record iterator::operator->() { 
-    return stream->decode<log_record>(pos); 
+    return operator*(); 
 }
 
 }} // namespace polysync::plog

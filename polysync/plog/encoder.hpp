@@ -1,11 +1,14 @@
 # pragma once
 
-#include <polysync/plog/core.hpp>
-#include <polysync/logging.hpp>
-#include <polysync/exception.hpp>
 #include <fstream>
+
 #include <boost/hana.hpp>
 #include <boost/endian/arithmetic.hpp>
+
+#include <polysync/plog/core.hpp>
+#include <polysync/description.hpp>
+#include <polysync/logging.hpp>
+#include <polysync/exception.hpp>
 
 namespace polysync { namespace plog {
 
@@ -39,7 +42,7 @@ public:
     // For flat objects like arithmetic types, just straight copy memory as
     // blob to file. In particular, most types that are not hana structures are these.
     template <typename Number>
-    typename std::enable_if_t<!hana::Foldable<Number>::value>
+    typename std::enable_if_t<std::is_arithmetic<Number>::value>
     encode(const Number& value) {
         stream.write((char *)(&value), sizeof(Number)); 
     }
@@ -74,7 +77,7 @@ public:
 
     // plog::hash_type is multiprecision; other very long ints may come along someday
     template <typename... Args>
-    void encode(const multiprecision::number<Args...>& value) {
+    void encode(const hash_type& value) { // const multiprecision::number<Args...>& value) {
         std::ostream_iterator<std::uint8_t> it(stream);
         multiprecision::export_bits(value, it, 8);
     }
@@ -88,11 +91,11 @@ public:
         stream.write((char *)(name.data()), len); 
     }
 
-    void encode(const polysync::tree& t, const descriptor::type& desc);
+    void encode( const polysync::tree&, const descriptor::type& );
 
 public:
 
-    void encode(const polysync::node& n) {
+    void encode( const polysync::node& n ) {
         BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
         eggs::variants::apply([this](auto value) { encode(value); }, n);
     }

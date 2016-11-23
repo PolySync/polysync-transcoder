@@ -63,7 +63,7 @@ decode("number", number_factory {}, [](auto& _) {
     _.test("encode", [](auto value) {
             using T = mettle::fixture_type_t<decltype(_)>;
             std::stringstream stream;
-            plog::encoder(stream).encode(value);
+            // plog::encoder(stream).encode(value);
 
             T result;
             stream.read((char *)&result, sizeof(T));
@@ -76,7 +76,7 @@ decode("number", number_factory {}, [](auto& _) {
             std::stringstream stream;
             plog::encoder encode(stream);
             plog::decoder decode(stream);
-            encode.encode(value);
+            // encode.encode(value);
             expect(decode.decode<T>(), equal_to(42));
             });
     });

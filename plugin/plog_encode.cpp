@@ -54,9 +54,10 @@ public:
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
                 polysync::node top = decode(record);
-                encode_->encode(top); 
+                const descriptor::type desc = descriptor::catalog.at("log_record");
+                encode_->encode(*top.target<tree>(), desc); 
                 });
-    }
+    } 
 };
 
 extern "C" BOOST_SYMBOL_EXPORT plog_encoder encoder;

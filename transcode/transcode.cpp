@@ -51,17 +51,24 @@ int catch_main(int ac, char* av[]) {
     // output driver (like CSV, HDF5, or SciDB).  Originally described by
     // http://stackoverflow.com/questions/15541498/how-to-implement-subcommands-using-boost-program-options
     
+    // compute reasonable guess about plugin and share locations.
+    char exebuf[1024];
+    readlink("/proc/self/exe", exebuf, 1024);
+    fs::path exe(exebuf);
+
     po::options_description general_opt("General Options");
     general_opt.add_options()
         ("help,h", "print this help message")
         ("verbose,v", po::value<std::string>()->default_value("info"), "debug level")
         ("nocolor,c", "remove color from formatting")
         ("plugdir,P", po::value<std::vector<fs::path>>()
-                ->default_value(std::vector<fs::path>{"./plugin"})
+                ->default_value(std::vector<fs::path>{ 
+                    "./plugin", exe.parent_path() / "../plugin" })
                 ->composing(),
                 "plugin path last")
         ("descdir,D", po::value<std::vector<fs::path>>()
-                ->default_value(std::vector<fs::path>{"../share"})
+                ->default_value(std::vector<fs::path>{
+                    "../share", exe.parent_path() / "../../share" })
                 ->composing()
                 ->multitoken(),
                 "TOFL type description path list")
@@ -123,6 +130,13 @@ int catch_main(int ac, char* av[]) {
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
     for (fs::path plugdir: vm["plugdir"].as<std::vector<fs::path>>()) {
+
+        if (!fs::exists(plugdir)) {
+            BOOST_LOG_SEV(log, severity::debug1) << "skipping plugin path " << plugdir 
+                << " because it does not exist";
+            continue;
+        }
+
         BOOST_LOG_SEV(log, severity::debug1) << "searching " << plugdir << " for plugins";
         static std::regex is_plugin(R"(.*transcode\.(.+)\.so)");
         for (fs::directory_entry& lib: fs::directory_iterator(plugdir)) {
@@ -162,6 +176,13 @@ int catch_main(int ac, char* av[]) {
 
 
     for (fs::path descdir: vm["descdir"].as<std::vector<fs::path>>()) {
+
+        if (!fs::exists(descdir)) {
+            BOOST_LOG_SEV(log, severity::debug1) << "skipping description path " << descdir 
+                << " because it does not exist";
+            continue;
+        }
+
         BOOST_LOG_SEV(log, severity::debug1) << "searching " << descdir << " for type descriptions";
         static std::regex is_description(R"((.+)\.toml)");
         for (fs::directory_entry& tofl: fs::directory_iterator(descdir)) {
@@ -181,13 +202,16 @@ int catch_main(int ac, char* av[]) {
                         else if (type.second->is_value()) {
                             auto val = type.second->as<std::string>();
                             if (!ps::descriptor::namemap.count(val->get()))
-                                throw ps::error("unknown type alias") << ps::exception::type(type.first);
+                                throw ps::error("unknown type alias") 
+                                    << ps::exception::type(type.first);
                             std::type_index idx = ps::descriptor::namemap.at(val->get());
                             ps::descriptor::namemap.emplace(type.first, idx);
-                            BOOST_LOG_SEV(log, severity::debug2) << "loaded type alias " << type.first << " = " << val->get();
+                            BOOST_LOG_SEV(log, severity::debug2) 
+                                << "loaded type alias " << type.first << " = " << val->get();
                         }
                         else
-                            BOOST_LOG_SEV(log, severity::warn) << "unused description: " << type.first;
+                            BOOST_LOG_SEV(log, severity::warn) 
+                                << "unused description: " << type.first;
                     }
                     for (const auto& type: *descfile)
                         if (type.second->is_table())
@@ -207,6 +231,7 @@ int catch_main(int ac, char* av[]) {
 
     ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
     ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
+
     if (!vm.count("path")) 
         throw ps::error("no input files") << ps::status::bad_input;
 
@@ -262,12 +287,16 @@ int catch_main(int ac, char* av[]) {
     std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
     if (vm.count("first")) {
         size_t first = vm["first"].as<size_t>(); 
-        filter = [filter, first](plog::iterator it) { return filter(it) && ((*it).index >= first); }; 
+        filter = [filter, first](plog::iterator it) { 
+            std::cout << (*it).index << " " << first << std::endl;
+            return (*it).index == first; // t->ffilter(it) && ((*it).index >= first); 
+        }; 
     }
-    if (vm.count("last")) {
-        size_t last = vm["last"].as<size_t>(); 
-        filter = [filter, last](plog::iterator it) { return filter(it) && ((*it).index < last); }; 
-    }
+    // if (vm.count("last")) {
+    //     size_t last = vm["last"].as<size_t>(); 
+    //     filter = [filter, last](plog::iterator it) { 
+    //         return filter(it) && ((*it).index < last); }; 
+    // }
 
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
@@ -305,6 +334,7 @@ int main(int ac, char* av[]) {
     try {
         return catch_main(ac, av);
     } catch (const ps::error& e) {
+        // Print any context provided by the exception.
         std::cerr << format.error << format.bold << "Transcoder abort: " << format.normal 
             << e.what() << std::endl;
         if (const std::string* module = boost::get_error_info<ps::exception::module>(e))
@@ -320,7 +350,6 @@ int main(int ac, char* av[]) {
         if (const polysync::tree* tree = boost::get_error_info<ps::exception::tree>(e))
             std::cerr << "\tPartial Decode: " << **tree << std::endl;
         if (const ps::status* stat = boost::get_error_info<ps::exception::status>(e)) {
-            std::cout << "retval " << *stat << std::endl;
             exit(*stat);
         }
     }
