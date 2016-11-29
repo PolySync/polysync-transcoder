@@ -6,10 +6,6 @@
 
 #include <regex>
 
-// Instantiate the static console format; this is used inside of mettle to
-// print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { style format = color(); }}
-
 namespace polysync { 
 
 using polysync::logging::logger;
@@ -60,6 +56,7 @@ static variant convert(const std::string value, const std::type_index& type) {
     if (!factory.count(type))
         throw polysync::error("no string converter defined") 
             << exception::type(descriptor::typemap.at(type).name)
+            << exception::module("detector")
             << status::description_error;
 
     return factory.at(type)(value);
@@ -88,6 +85,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     if (!descriptor::catalog.count(name))
         throw polysync::error("no type description") 
             << exception::type(name)
+            << exception::module("detector")
             << status::description_error;
 
     auto det = table->get("detector");
@@ -95,6 +93,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     if (!det->is_table_array())
         throw polysync::error("detector list must be an array") 
             << exception::type(name)
+            << exception::module("detector")
             << status::description_error;
 
     for (const auto& branch: *det->as_table_array()) {
@@ -102,18 +101,21 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
         if (!branch->is_table())
             throw polysync::error("detector must be a table") 
                 << exception::type(name)
+                << exception::module("detector")
                 << status::description_error;
 
         auto table = branch->as_table();
         if (!table->contains("name"))
             throw polysync::error("detector requires a \"name\" field")
                 << exception::type(name)
+                << exception::module("detector")
                 << status::description_error;
 
         auto sequel = table->get_as<std::string>("name");
         if (!sequel)
             throw polysync::error("detector name must be a string")
                 << exception::type(name)
+                << exception::module("detector")
                 << status::description_error;
 
         decltype(std::declval<detector::type>().match) match;
@@ -133,6 +135,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
                     << exception::type(name)
                     << exception::detector(pair.first) 
                     << exception::field(it->name)
+                    << exception::module("detector")
                     << status::description_error;
 
             // Disallow branching on any non-native field type.  Branching on
@@ -144,6 +147,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
                     << exception::type(name)
                     << exception::detector(pair.first)
                     << exception::field(it->name)
+                    << exception::module("detector")
                     << status::description_error; 
 
             // For this purpose, TOML numbers must be strings because TOML is
@@ -177,7 +181,9 @@ std::string detect(const node& parent) {
 
     polysync::tree tree = *parent.target<polysync::tree>();
     if (tree->empty())
-        throw polysync::error("parent tree is empty");
+        throw polysync::error("parent tree is empty")
+            << exception::module("detector")
+            ;
 
     // Iterate each detector in the catalog and check for a match.  Store the
     // resulting type name in tpname.
@@ -226,11 +232,11 @@ std::string detect(const node& parent) {
             std::stringstream os;
             os << field + ": ";
             auto it = std::find_if(tree->begin(), tree->end(), 
-                    [field](auto f){ return field == f.name; });
+                    [field](auto& f){ return field == f.name; });
             os << *it;
             if (det.match.count(field)) {
                 os << (*it == det.match.at(field) ? " == " : " != ");
-                eggs::variants::apply([&os](auto v) { os << v; }, det.match.at(field));
+                eggs::variants::apply([&os](auto& v) { os << v; }, det.match.at(field));
             } else
                 os << " missing from description";
             return os.str(); 
@@ -238,7 +244,7 @@ std::string detect(const node& parent) {
 
         BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched { " 
             << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
-                    [&](const std::string& str, auto field) { return str + details(field); }) 
+                    [&](const std::string& str, auto& field) { return str + details(field); }) 
             << " }";
     }
 

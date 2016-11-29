@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <iostream>
 
 namespace polysync { namespace console {
@@ -26,55 +27,6 @@ struct escape {
     static constexpr const char *white = "\x1B[37m";
 };
 
-// Styling aliases used through the transcoder
-struct style {
-    const char *normal {};
-    const char *bold {};
-    const char *tpname {}; // type name
-    const char *fieldname {};
-    const char *value {};
-    const char *channel {};
-    const char *note {};
-
-    const char *error {};
-    const char *warn {};
-    const char *info {};
-    const char *verbose {};
-    const char *debug1 {};
-    const char *debug2 {};
-};
-
-// Default colorful style
-struct color : style {
-    color() : style { 
-        // Explicit terms
-        escape::normal, escape::bold, 
-            
-        // Messages
-        escape::green, escape::cyan, escape::blue, escape::green, escape::white,
-
-        // Logging severity levels
-        escape::red, escape::magenta, escape::yellow, escape::green, escape::white, escape::white 
-        }
-    {}
-};
-
-struct markdown : style {
-    markdown() : style {
-        // Explicit terms
-        "", "",
-        // Messages
-        "", "", "", "", "",
-        // Logging severity levels
-        "", "", "", "", "", ""
-    } {}
-};
-
-// Default non-colorful style
-struct nocolor : style {};
-
-extern style format;
-
 } // namespace console
 
 namespace formatter {
@@ -82,78 +34,154 @@ namespace formatter {
 using polysync::console::escape;
 
 struct interface {
-    virtual void begin_block( const std::string& name, const std::string& meta = "" ) const = 0;
-    virtual void end_block() const = 0;
-    virtual void item( const std::string&, const std::string&, const std::string& = "" ) const = 0;
-    virtual void begin_ordered() const = 0;
-    virtual void end_ordered() const = 0;
+    virtual std::string header(const std::string& msg) const { return msg; };
 
-    std::ostream& os;
-    bool show_type { true };
-    bool show_offset { false };
+    // Logging severity levels
+    virtual std::string error(const std::string& msg) const { return msg; };
+    virtual std::string warn(const std::string& msg) const { return msg; };
+    virtual std::string info(const std::string& msg) const { return msg; };
+    virtual std::string verbose(const std::string& msg) const { return msg; };
+    virtual std::string debug(const std::string& msg) const { return msg; };
+    virtual std::string channel(const std::string& msg) const { return msg; };
 
-    interface(std::ostream& os) : os(os) { }
+    // Datatypes
+    virtual std::string fieldname(const std::string& msg) const { return msg; };
+    virtual std::string type(const std::string& msg) const { return msg; };
+    virtual std::string value(const std::string& msg) const { return msg; };
+
+    // Document structure (like Markdown stuff)
+    virtual std::string begin_block( const std::string& name, const std::string& meta = "" ) const = 0;
+    virtual std::string end_block(const std::string& meta = "") const = 0;
+    virtual std::string item( const std::string&, const std::string&, const std::string& = "" ) const = 0;
+    virtual std::string begin_ordered(size_t idx, const std::string& name) const { 
+        return std::to_string(idx) + ": " + name + " {"; 
+    }
+    virtual std::string end_ordered() const { return std::string(); }
 };
 
-struct console : interface {
+struct fancy : interface {
+
+    std::string indent { "    " };
+
+    std::string header(const std::string& msg) const override { 
+        return std::string(escape::bold) + escape::green + msg + escape::normal;  
+    };
+
+    std::string channel(const std::string& msg) const override { 
+        return escape::green + msg + escape::normal; 
+    };
+
+    std::string fieldname(const std::string& msg) const override { 
+        return escape::green + msg + escape::normal; 
+    };
+
+    std::string type(const std::string& msg) const override { 
+        return escape::cyan + msg + escape::normal; 
+    };
+
+    std::string begin_block(const std::string& name, const std::string& meta) const override { 
+        std::string result = tab.back() + escape::cyan + escape::bold + name + escape::normal;
+        if (!meta.empty())
+            result += " [" + meta + "]"; 
+        result += std::string(escape::cyan) + escape::bold + " {\n" + escape::normal;
+        tab.push_back(tab.back() + indent);
+        return result;
+    }
+
+    std::string end_block(const std::string& meta) const override {
+        tab.pop_back();
+        return tab.back() + escape::cyan + escape::bold + "} " + meta + "\n" + escape::normal;
+    }
+
+    std::string item(const std::string& name, const std::string& value, const std::string& type) const override {
+        std::string result = tab.back() + escape::green + name + ": " + escape::normal 
+            + value + escape::normal;
+        return result + "\n";
+    }
+
+    std::string begin_ordered(size_t rec, const std::string& name) const override {
+        std::string result = tab.back() + std::to_string(rec) + ": " + name + " {\n";
+        tab.push_back(tab.back() + indent);
+        return result;
+    }
+
+    std::string end_ordered() const override {
+        tab.pop_back();
+        return tab.back() + "}\n";
+    }
+
+    std::string error(const std::string& msg) const override { return escape::red + msg + escape::normal; }
+    std::string warn(const std::string& msg) const override { return escape::magenta + msg + escape::normal; }
+    std::string info(const std::string& msg) const override { return escape::green + msg + escape::normal; }
+    std::string verbose(const std::string& msg) const override { return escape::green + msg + escape::normal; }
+    std::string debug(const std::string& msg) const override { return escape::white + msg + escape::normal; }
+
+    mutable std::vector<std::string> tab { "" };
+};
+
+struct plain : interface {
     using interface::interface;
 
     std::string indent { "    " };
 
-    void begin_block(const std::string& name, const std::string& meta) const override { 
-        os << tab.back() << escape::cyan << escape::bold << name << escape::normal;
+    std::string begin_block(const std::string& name, const std::string& meta) const override { 
+        std::string result = tab.back() + name;
         if (!meta.empty())
-            os << " [" << meta << "]"; 
-        os << escape::cyan << escape::bold << " {" << escape::normal << std::endl;
+            result +=  " [" + meta + "]"; 
+        result += " {\n";
         tab.push_back(tab.back() + indent);
+        return result;
     }
 
-    void end_block() const override {
+    std::string end_block(const std::string& meta) const override {
         tab.pop_back();
-        os << tab.back() << escape::cyan << escape::bold << "}" << escape::normal << std::endl;
+        return tab.back() + "} " + meta + "\n";
     }
 
-    void item(const std::string& name, const std::string& value, const std::string& type) const override {
-        os << tab.back() << escape::green << name << ": " << escape::normal 
-           << value << escape::normal;
-        if (!type.empty() && show_type)
-            os << escape::yellow << " (" << type << ")" << escape::normal;
-        os << std::endl;
+    std::string item(const std::string& name, const std::string& value, const std::string& type) const override {
+        std::string result = tab.back() + name + ": " + value;
+        return result + "\n";
     }
 
-    void begin_ordered() const override { }
+    std::string begin_ordered(size_t rec, const std::string& name) const override {
+        std::string result = tab.back() + std::to_string(rec) + ": " + name + " {\n";
+        tab.push_back(tab.back() + indent);
+        return result;
+    }
 
-    void end_ordered() const override { }
+    std::string end_ordered() const override {
+        tab.pop_back();
+        return tab.back() + "}\n";
+    }
 
     mutable std::vector<std::string> tab { "" };
 };
 
 struct markdown : interface {
-    using interface::interface;
     std::string indent { "    " };
-    void begin_block(const std::string& name, const std::string& meta) const override { 
-        os << tab.back() << "* " << name << ":" << std::endl;
+    std::string begin_block(const std::string& name, const std::string& meta) const override { 
+        std::string result = tab.back() + "* " + name + ":\n";
         tab.push_back(tab.back() + indent);
+        return result;
     }
 
-    void end_block() const override {
+    std::string end_block(const std::string& meta) const override {
         tab.pop_back();
+        return meta;
     }
 
-    void item(const std::string& name, const std::string& msg, const std::string& type) const override {
-        os << tab.back() << "* " << name << ": " << msg << std::endl;
+    std::string item(const std::string& name, const std::string& msg, const std::string& type) const override {
+        return tab.back() + "* " + name + ": " + msg + '\n';
     }
 
     mutable std::vector<std::string> tab { "" };
 
-    void begin_ordered() const override {
-    }
-
-    void end_ordered() const override {
-    }
 };
 
 
 } // namespace formatter
-} // namespace polysync::console
+
+extern std::shared_ptr<formatter::interface> format;
+
+} // namespace polysync
 

@@ -66,7 +66,7 @@ public:
     void encode(const sequence<LenType, T>& seq) {
         LenType len = seq.size();
         stream.write((char *)(&len), sizeof(len));
-        std::for_each(seq.begin(), seq.end(), [this](auto val) { encode(val); });
+        std::for_each(seq.begin(), seq.end(), [this](auto& val) { encode(val); });
     }
 
     // Fixed length arrays modeled by std::array<>.
@@ -76,10 +76,14 @@ public:
     }
 
     // plog::hash_type is multiprecision; other very long ints may come along someday
-    template <typename... Args>
-    void encode(const hash_type& value) { // const multiprecision::number<Args...>& value) {
-        std::ostream_iterator<std::uint8_t> it(stream);
-        multiprecision::export_bits(value, it, 8);
+    void encode(const hash_type& value) {
+        bytes buf(16);
+        multiprecision::export_bits(value, buf.begin(), 8);
+
+        // export_bits helpfully omits the zero high order bits.  This is not what I want.
+        while (buf.size() < PSYNC_MODULE_VERIFY_HASH_LEN) 
+            buf.insert(buf.begin(), 0);
+        stream.write((char *)buf.data(), buf.size());
     }
    
     // Specialize name_type because the underlying std::string type needs special
@@ -93,11 +97,18 @@ public:
 
     void encode( const polysync::tree&, const descriptor::type& );
 
+    template <typename T>
+    void encode( const std::vector<T>& vec ) {
+        std::for_each(vec.begin(), vec.end(), [this](const T& val) { encode(val); });
+    }
+
+    void encode( const polysync::tree& t ) { return encode(*t); }
+
 public:
 
-    void encode( const polysync::node& n ) {
-        BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
-        eggs::variants::apply([this](auto value) { encode(value); }, n);
+    void encode( const polysync::variant& n ) {
+        // BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
+        eggs::variants::apply([this](auto& value) { encode(value); }, n);
     }
 
 public:

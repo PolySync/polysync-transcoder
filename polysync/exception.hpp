@@ -11,7 +11,12 @@ struct error : virtual std::runtime_error, virtual boost::exception {
     using std::runtime_error::runtime_error;
 };
 
-// Define a set of return values for shell programs that check.
+std::ostream& operator<<(std::ostream&, const error&);
+
+// Mettle uses to_printable()
+std::string to_printable(const error&);
+
+// Define a sett of return values for shell programs that check.
 enum status : int {
     ok = 0, // No error
     bad_input = -2, // Error configuring the input dataset

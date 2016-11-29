@@ -108,7 +108,7 @@ WHEN("^decoding the type ([^\\s]+)$") {
     plog::decoder decode(context->blob);
     context->tree = *decode(desc).target<polysync::tree>();
     if (context->blob.tellg() < decode.endpos)
-        context->tree->emplace_back(decode.decode_desc("raw"));
+        context->tree->emplace_back("raw", decode.decode_desc("raw"));
 }
 
 THEN("^the result should be an? (.+)$") {

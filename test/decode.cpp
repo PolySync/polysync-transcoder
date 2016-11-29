@@ -22,12 +22,11 @@ polysync::tree decode_hex(const polysync::descriptor::type& desc, const std::str
     polysync::tree result = *decode(desc).target<polysync::tree>();
 
     if (stream.tellg() < decode.endpos)
-        result->emplace_back(decode.decode_desc("raw"));
+        result->emplace_back("bytes", decode.decode_desc("raw"));
     return result;
 }
 
 mettle::suite<> decode("plog::decode", [](auto& _) {
-        polysync::console::format = polysync::console::nocolor();
 
         _.teardown([]() {
                 polysync::descriptor::catalog.clear();
@@ -48,13 +47,14 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
         _.test("skip", []() {
                 std::string hex = 
                     "01000000" "02000000" "03" 
-                    "00000000" // 4 byte skip
+                    "DEADBEEF" // 4 byte skip
                     "04" "0500" "0600000000000000";
 
                 polysync::tree truth = polysync::tree::create("type", {
                         { "magic", std::uint32_t { 1 } },
                         { "prev_size", std::uint32_t { 2 } },
                         { "size", std::uint8_t { 3 } },
+                        { "skip:1", polysync::bytes { 0xDE, 0xAD, 0xBE, 0xEF } },
                         { "device_id", std::uint8_t { 4 } },
                         { "data_type", std::uint16_t { 5 } },
                         { "time", std::uint64_t { 6 } },

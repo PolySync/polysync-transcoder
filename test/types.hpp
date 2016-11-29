@@ -136,7 +136,7 @@ polysync::descriptor::type ibeo_header { "ibeo.header", {
     { "magic", typeid(std::uint32_t) },
     { "prev_size", typeid(std::uint32_t) },
     { "size", typeid(std::uint8_t) },
-    { "skip", polysync::descriptor::skip { 4 } },
+    { "skip:1", polysync::descriptor::skip { 1, 4 } },
     { "device_id", typeid(std::uint8_t) },
     { "data_type", typeid(std::uint16_t) },
     { "time", typeid(std::uint64_t) } }

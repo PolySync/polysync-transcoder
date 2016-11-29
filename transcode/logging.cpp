@@ -15,26 +15,26 @@
 
 #include <iostream>
 
-namespace polysync { namespace logging {
+namespace polysync { 
+
+std::shared_ptr<formatter::interface> format { new formatter::fancy() };
+
+namespace logging {
 
 namespace expr = boost::log::expressions;
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity_attr, "Severity", logging::severity);
 
-static struct console::color console;
-
-std::ostream& operator<< (std::ostream& os, severity s)
+std::string to_string(severity s)
 {
-    static std::map<severity, std::string> pretty = {
-        { severity::error, console.error + std::string("err") + console.normal },
-        { severity::warn, console.warn + std::string("warn") + console.normal },
-        { severity::info, console.info + std::string("info") + console.normal },
-        { severity::verbose, console.verbose + std::string("verbose") + console.normal },
-        { severity::debug1, console.debug1 + std::string("debug1") + console.normal },
-        { severity::debug2, console.debug2 + std::string("debug2") + console.normal },
+    switch (s) {
+        case severity::error: return format->error("[err]");
+        case severity::warn: return format->warn("[warn]"); 
+        case severity::info: return format->info("[info]"); 
+        case severity::verbose: return format->verbose("[verbose]");
+        case severity::debug1: return format->debug("[debug1]"); 
+        case severity::debug2: return format->debug("[debug2]");
     };
-
-    return os << pretty.at(s);
 }
 
 std::map<std::string, severity> severity_map = {
@@ -66,12 +66,12 @@ struct init_logger {
         using sink_type = boost::log::sinks::synchronous_sink<backend_type>;
         boost::shared_ptr<sink_type> sink(new sink_type(backend));
 
-        sink->set_formatter (
-                 expr::stream
-                 << console.channel << console.bold << expr::attr<std::string>("Channel") << console.normal
-                 << "[" << severity_attr << "]"
-                 << ": " << expr::smessage
-                 );
+        sink->set_formatter ([](const boost::log::record_view& rec, boost::log::formatting_ostream& strm) {
+                 strm
+                 << format->channel(boost::log::extract<std::string>("Channel", rec).get<std::string>())
+                 << to_string(boost::log::extract<severity>("Severity", rec).get<severity>())
+                 << ": " << rec[expr::smessage];
+                 }); 
 
         auto core = boost::log::core::get();
         core->add_sink(sink);

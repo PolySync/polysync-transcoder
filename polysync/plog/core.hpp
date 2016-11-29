@@ -19,8 +19,6 @@
 #include <boost/hana.hpp>
 #include <boost/optional.hpp>
 
-#include <polysync/print_hana.hpp>
-
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -36,10 +34,14 @@ constexpr size_t PSYNC_MODULE_VERIFY_HASH_LEN = 16;
 namespace multiprecision = boost::multiprecision;
 namespace hana = boost::hana;
 
-using hash_type = multiprecision::number<multiprecision::cpp_int_backend<
-    PSYNC_MODULE_VERIFY_HASH_LEN*8, 
-    PSYNC_MODULE_VERIFY_HASH_LEN*8, 
-    multiprecision::unsigned_magnitude>>;
+using hash_type = multiprecision::cpp_int;
+// I think that export_bits() has a bug, breaking the fixed precision type,
+// which is why I am falling back to cpp_int because it seems to work better
+// then.  I have submitted Ticket #12627 to boost.org on this issue.
+    // multiprecision::number<multiprecision::cpp_int_backend<
+    // PSYNC_MODULE_VERIFY_HASH_LEN*8, 
+    // PSYNC_MODULE_VERIFY_HASH_LEN*8, 
+    // multiprecision::unsigned_magnitude>>;
 
 // a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
 template <typename LenType, typename T>
@@ -129,40 +131,43 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, time
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
 // Printing is required by the logger and unit testing.
+
+#include <polysync/print_hana.hpp>
+
 namespace polysync { namespace plog {
 
 inline std::ostream& operator<<(std::ostream& os, const log_module& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
+        return os << field << " "; };
     return hana::fold(record, os, f);
 }
 
 inline std::ostream& operator<<(std::ostream& os, const type_support& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
+        return os << field << " "; };
     return hana::fold(record, os, f);
 }
 
 inline std::ostream& operator<<(std::ostream& os, const log_header& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << " "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
+        return os << field << " "; };
     return hana::fold(record, os, f);
 }
 
 inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
     os << "{ ";
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
+        return os << field << ", "; };
     hana::fold(record, os, f);
     return os << " }";
 }
 
 inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { return os << field << ", "; };
+    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
+        return os << field << ", "; };
     os << "log_record { ";
     hana::fold(record, os, f);
     return os << "payload: " << record.blob.size() << " bytes }";
-}
-
-template <typename LenType, typename T>
-std::ostream& operator<<(std::ostream& os, const sequence<LenType, T>& record) {
-    return os << static_cast<std::vector<T>>(record);
 }
 
 inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
@@ -171,5 +176,10 @@ inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
 
 
 }} // namespace polysync::plog
+
+namespace std {
+
+} // namespace std
+
 
 

@@ -27,7 +27,6 @@ namespace ps = polysync;
 
 using ps::logging::severity;
 using ps::logging::logger;
-using ps::console::format;
 
 namespace std {
 
@@ -46,6 +45,11 @@ int catch_main(int ac, char* av[]) {
 
     logger log("transcode");
 
+    using polysync::format;
+
+    // By default, use a fancy formatter.  This can change below.
+    format = std::make_shared<polysync::formatter::fancy>();
+
     // Define a rather sophisticated command line parse that supports
     // subcommands (rather like git) where each subcommand is a supported
     // output driver (like CSV, HDF5, or SciDB).  Originally described by
@@ -53,14 +57,14 @@ int catch_main(int ac, char* av[]) {
     
     // compute reasonable guess about plugin and share locations.
     char exebuf[1024];
-    readlink("/proc/self/exe", exebuf, 1024);
-    fs::path exe(exebuf);
+    size_t exelen = readlink("/proc/self/exe", exebuf, 1024); // This is my own path, compliments of /proc.
+    fs::path exe(std::string(exebuf, exelen));
 
     po::options_description general_opt("General Options");
     general_opt.add_options()
         ("help,h", "print this help message")
         ("verbose,v", po::value<std::string>()->default_value("info"), "debug level")
-        ("nocolor,c", "remove color from formatting")
+        ("plain,p", "remove color from formatting")
         ("plugdir,P", po::value<std::vector<fs::path>>()
                 ->default_value(std::vector<fs::path>{ 
                     "./plugin", exe.parent_path() / "../plugin" })
@@ -84,7 +88,7 @@ int catch_main(int ac, char* av[]) {
     po::options_description positional_opt;
     positional_opt.add_options()
         ("path", po::value<std::vector<fs::path>>(), "plog input files")
-        ("output", po::value<std::string>(), "Output formatter")
+        ("output", po::value<std::string>()->default_value("datamodel"), "Output formatter")
         ("subargs", po::value<std::vector<std::string>>(), "Arguments for output formatter")
         ;
 
@@ -106,12 +110,11 @@ int catch_main(int ac, char* av[]) {
     po::store(parse, vm);
     po::notify(vm);
 
-
-    // Set the debug option right away
+    // Set the debug and console format options right away
     ps::logging::set_level(vm["verbose"].as<std::string>());
 
-    if (vm.count("nocolor"))
-        ps::console::format = ps::console::nocolor();
+    if (vm.count("plain"))
+        format = std::make_shared<polysync::formatter::plain>();
 
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
@@ -132,8 +135,7 @@ int catch_main(int ac, char* av[]) {
     for (fs::path plugdir: vm["plugdir"].as<std::vector<fs::path>>()) {
 
         if (!fs::exists(plugdir)) {
-            BOOST_LOG_SEV(log, severity::debug1) << "skipping plugin path " << plugdir 
-                << " because it does not exist";
+            BOOST_LOG_SEV(log, severity::debug1) << "skipping non-existing plugin path " << plugdir;
             continue;
         }
 
@@ -165,8 +167,7 @@ int catch_main(int ac, char* av[]) {
     }
 
     if (vm.count("help")) {
-        std::cout << format.bold << format.verbose << "PolySync Transcoder" 
-                  << format.normal << std::endl << std::endl;
+        std::cout << format->header("PolySync Transcoder") << std::endl << std::endl;
         std::cout << "Usage:" << std::endl;
         std::cout << "\ttranscode [general-options] <input-file> <output-plugin> [output-options]" 
                   << std::endl;
@@ -229,38 +230,30 @@ int catch_main(int ac, char* av[]) {
         }
     }
 
-    ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
-    ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
-
     if (!vm.count("path")) 
         throw ps::error("no input files") << ps::status::bad_input;
 
-    std::string output;
-
-    if (vm.count("output"))
-        output = vm["output"].as<std::string>();
-    else {
-        std::cerr << "error: no output plugin requested!" << std::endl;
-        exit(ps::status::no_plugin);
-    }
-
-
+    std::string output = vm["output"].as<std::string>();
     if (!plugin_map.count(output)) {
         std::cerr << "error: unknown output \"" << output << "\"" << std::endl;
         exit(ps::status::no_plugin);
     }
 
-    BOOST_LOG_SEV(log, severity::verbose) << "configuring plugin " << output;
-
-    po::options_description output_opt = plugin_map.at(output)->options();
-
     std::vector<std::string> opts = po::collect_unrecognized(parse.options, po::include_positional);
     if (!opts.empty()) {
         opts.erase(opts.begin());
 
+        po::options_description output_opt = plugin_map.at(output)->options();
+
         // Parse again, with now with output options
         po::store(po::command_line_parser(opts).options(output_opt).run(), vm);
+        po::notify(vm);
     }
+
+    ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
+    ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
+
+    BOOST_LOG_SEV(log, severity::verbose) << "configuring plugin " << output;
 
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
@@ -292,11 +285,11 @@ int catch_main(int ac, char* av[]) {
             return (*it).index == first; // t->ffilter(it) && ((*it).index >= first); 
         }; 
     }
-    // if (vm.count("last")) {
-    //     size_t last = vm["last"].as<size_t>(); 
-    //     filter = [filter, last](plog::iterator it) { 
-    //         return filter(it) && ((*it).index < last); }; 
-    // }
+    if (vm.count("last")) {
+        size_t last = vm["last"].as<size_t>(); 
+        filter = [filter, last](plog::iterator it) { 
+            return filter(it) && ((*it).index < last); }; 
+    }
 
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
@@ -310,7 +303,7 @@ int catch_main(int ac, char* av[]) {
             // Construct the next reader in the file list
             plog::decoder decoder(st);
 
-            visit.decoder(decoder);
+            visit.open(decoder);
 
             plog::log_header head;
 
@@ -319,6 +312,7 @@ int catch_main(int ac, char* av[]) {
             std::for_each(head.type_supports.begin(), head.type_supports.end(), 
                           std::ref(visit.type_support));
             std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
+            visit.cleanup(decoder);
         } catch (polysync::error& e) {
             e << ps::exception::path(path.c_str());
             e << polysync::status::bad_input;
@@ -335,20 +329,7 @@ int main(int ac, char* av[]) {
         return catch_main(ac, av);
     } catch (const ps::error& e) {
         // Print any context provided by the exception.
-        std::cerr << format.error << format.bold << "Transcoder abort: " << format.normal 
-            << e.what() << std::endl;
-        if (const std::string* module = boost::get_error_info<ps::exception::module>(e))
-            std::cerr << "\tModule: " << format.fieldname << *module << format.normal << std::endl;
-        if (const std::string* tpname = boost::get_error_info<ps::exception::type>(e))
-            std::cerr << "\tType: " << format.fieldname << *tpname << format.normal << std::endl;
-        if (const std::string* fieldname = boost::get_error_info<ps::exception::field>(e))
-            std::cerr << "\tField: " << format.fieldname << *fieldname << format.normal << std::endl;
-        if (const std::string* path = boost::get_error_info<ps::exception::path>(e))
-            std::cerr << "\tPath: " << format.fieldname << *path << format.normal << std::endl;
-        if (const std::string* detector = boost::get_error_info<ps::exception::detector>(e))
-            std::cerr << "\tDetector: " << format.fieldname << *detector << format.normal << std::endl;
-        if (const polysync::tree* tree = boost::get_error_info<ps::exception::tree>(e))
-            std::cerr << "\tPartial Decode: " << **tree << std::endl;
+        std::cerr << polysync::format->error("Transcoder abort: ") << e;
         if (const ps::status* stat = boost::get_error_info<ps::exception::status>(e)) {
             exit(*stat);
         }

@@ -7,10 +7,6 @@
 using namespace mettle;
 namespace plog = polysync::plog;
 
-// Instantiate the static console format; this is used inside of mettle to
-// print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { style format = color(); }}
-
 // Define a fixture to parse a TOML string
 struct fixture {
     std::istringstream stream;

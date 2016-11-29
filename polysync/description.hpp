@@ -57,7 +57,7 @@ inline bool operator==(const nested& lhs, const nested& rhs) {
 }
 
 inline bool operator==(const skip& lhs, const skip& rhs) {
-    return lhs.size == rhs.size;
+    return lhs.order == rhs.order && lhs.size == rhs.size;
 }
 
 inline bool operator==(const array& lhs, const array& rhs) {

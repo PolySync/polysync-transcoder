@@ -46,6 +46,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                         { "magic", std::uint32_t { 1 } },
                         { "prev_size", std::uint32_t { 2 } },
                         { "size", std::uint8_t { 3 } },
+                        { "skip:1", polysync::bytes { 0, 0, 0, 0 } },
                         { "device_id", std::uint8_t { 4 } },
                         { "data_type", std::uint16_t { 5 } },
                         { "time", std::uint64_t { 6 } },
@@ -60,7 +61,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                 polysync::descriptor::type desc { "incomplete_type", { 
                     { "dest_guid", typeid(plog::guid) },
                     { "data_type", typeid(std::uint32_t) },
-                    { "payload", typeid(void) } }
+                    { "payload", typeid(void) } } // void is the unknown type
                 };
 
                 polysync::tree simple = polysync::tree::create("type", {
@@ -71,7 +72,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
 
                 // This line tickles a gdb bug.
                 expect([=]() { encode_tree(simple, desc); }, 
-                        thrown<polysync::error>("unknown type for field \"payload\""));
+                        thrown<polysync::error>("no typemap"));
                 });
 
         _.subsuite("nested_type", [](auto&_) {
@@ -323,6 +324,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 { "magic", std::uint32_t { 1 }, },
                                 { "prev_size", std::uint32_t { 2 } },
                                 { "size", std::uint8_t { 3 } },
+                                { "skip:1", polysync::bytes { 0, 0, 0, 0 } },
                                 { "device_id", std::uint8_t { 4 } },
                                 { "data_type", std::uint16_t { 5 } },
                                 { "time", std::uint64_t { 6 } },
@@ -345,6 +347,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 { "data_type", std::uint16_t { 5 } },
                                 { "prev_size", std::uint32_t { 2 } },
                                 { "size", std::uint8_t { 3 } },
+                                { "skip:1", polysync::bytes { 0, 0, 0, 0 } },
                                 { "device_id", std::uint8_t { 4 } },
                                 { "time", std::uint64_t { 6 } },
                                 });

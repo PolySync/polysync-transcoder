@@ -37,7 +37,7 @@ public:
         // Open a new output file for each new decoder opened. Right now, this
         // only works for the first file because there is not yet a scheme to
         // generate unique filenames (FIXME).
-        visit.decoder.connect([path](plog::decoder& r) { 
+        visit.open.connect([path](plog::decoder& r) { 
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
                 encode_.reset(new polysync::plog::encoder(out));
@@ -53,7 +53,7 @@ public:
                 BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
-                polysync::node top = decode(record);
+                polysync::node top("log_record", decode(record));
                 const descriptor::type desc = descriptor::catalog.at("log_record");
                 encode_->encode(*top.target<tree>(), desc); 
                 });

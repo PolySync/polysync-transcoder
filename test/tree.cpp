@@ -101,35 +101,27 @@ mettle::suite<> tree("tree", [](auto& _) {
 
         _.test("equal", []() {
                 polysync::tree equal = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                                })
-                        });
+                                });
 
                 polysync::tree truth = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                                })
-                        });
+                                });
 
                 expect(equal, equal_to(truth));
                 });
 
         _.test("notequal", []() {
                 polysync::tree notequal = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                                })
                         });
 
                 expect(notequal, not_equal_to(truth));
@@ -137,16 +129,12 @@ mettle::suite<> tree("tree", [](auto& _) {
 
         _.test("tooshort", []() {
                 polysync::tree tooshort = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                                })
                         });
 
                 expect(tooshort, not_equal_to(truth));
@@ -154,18 +142,14 @@ mettle::suite<> tree("tree", [](auto& _) {
 
         _.test("toolong", []() {
                 polysync::tree toolong = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } },
                                 { "stop_time", std::uint16_t { 3 } },
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                                })
                         });
 
                 expect(toolong, not_equal_to(truth));
@@ -177,18 +161,14 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
         _.test("equal", []() {
                 polysync::tree equal = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 expect(equal, equal_to(truth));
@@ -197,18 +177,14 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
         _.test("notequal", []() {
                 polysync::tree notequal = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 4 } }
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 expect(notequal, not_equal_to(truth));
@@ -217,17 +193,13 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
         _.test("tooshort", []() {
                 polysync::tree tooshort = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 expect(tooshort, not_equal_to(truth));
@@ -236,19 +208,15 @@ mettle::suite<> nested_tree("nested_tree", [](auto& _) {
         _.test("toolong", []() {
                 polysync::tree toolong = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } },
                                 { "stop_time", std::uint16_t { 4 } },
-                                })
                         });
 
                 polysync::tree truth = polysync::tree::create("type", {
                         { "header", std::uint16_t { 1 } },
-                        polysync::tree::create("type", {
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
-                                })
                         });
 
                 expect(toolong, not_equal_to(truth));

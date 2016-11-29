@@ -9,10 +9,10 @@
 using namespace mettle;
 namespace plog = polysync::plog;
 namespace hana = boost::hana;
+namespace mp = boost::multiprecision;
 
 // Instantiate the static console format; this is used inside of mettle to
 // print failure messages through operator<<'s defined in io.hpp.
-namespace polysync { namespace console { style format = color(); }}
 
 struct number_factory {
     template <typename T>
@@ -63,7 +63,7 @@ decode("number", number_factory {}, [](auto& _) {
     _.test("encode", [](auto value) {
             using T = mettle::fixture_type_t<decltype(_)>;
             std::stringstream stream;
-            // plog::encoder(stream).encode(value);
+            plog::encoder(stream).encode(value);
 
             T result;
             stream.read((char *)&result, sizeof(T));
@@ -76,7 +76,7 @@ decode("number", number_factory {}, [](auto& _) {
             std::stringstream stream;
             plog::encoder encode(stream);
             plog::decoder decode(stream);
-            // encode.encode(value);
+            encode.encode(value);
             expect(decode.decode<T>(), equal_to(42));
             });
     });
@@ -96,4 +96,51 @@ structures("structures", hana_factory {}, [](auto& _) {
 
                 });
 
+        });
+
+mettle::suite<> structures2("structures2", [](auto& _) {
+        _.subsuite("log_module", [](auto&_) {
+                _.test("encode", []() {
+                        plog::log_module record { 1, 2, 3, 4, 0, "name" };
+                        record.build_hash = 0xFEDCBA9876543210;
+                        record.build_hash <<= 64;
+                        record.build_hash |= 0xF1E2D3C4B5A69788,
+                        std::cout << std::hex << record.build_hash << std::endl;
+                        std::stringstream stream;
+                        plog::encoder write(stream);
+                        write(record);
+
+                        std::string truth = "01" "02" "0300" "04000000" 
+                        "FEDCBA9876543210F1E2D3C4B5A69788"
+                        "0400" "6E616D65"; 
+
+                        mp::cpp_int blob;
+                        std::string bin = stream.str();
+                        mp::import_bits(blob, bin.begin(), bin.end(), 8);
+
+                        std::stringstream hex;
+                        hex << std::setfill('0') << std::setw(2*bin.size()) << std::hex << blob;
+                        expect(hex.str(), equal_to(truth));
+                        });
+
+                _.test("decode", []() {
+                        plog::log_module truth { 1, 2, 3, 4, 5, "name" };
+
+                        std::string hex = "01" "02" "0300" "04000000" 
+                        "00000000000000000000000000000005" 
+                        "04006E616D65" // name_type is uint16 + 4 bytes "name"
+                        ; 
+
+                        // Create a binary blob from the hex description
+                        std::string blob;
+                        mp::export_bits(mp::cpp_int("0x" + hex), std::back_inserter(blob), 8);
+
+                        std::stringstream stream(blob);
+                        plog::decoder decode(stream);
+                        plog::log_module record;
+                        decode.decode(record);
+
+                        expect(record, hana_equal(truth));
+                        });
+                });
         });

@@ -132,18 +132,13 @@ std::string lex::operator()(std::string s) const { return s; }
 std::string lex::operator()(size_t s) const { return std::to_string(s); }
 
 std::ostream& operator<<(std::ostream& os, const field& f) {
-    using console::format;
-
-    return os << format.fieldname << f.name << ": " 
-              << format.value << lex(f.type) << format.normal;
+    return os << format->fieldname(f.name + ": ") << format->value(lex(f.type));
 }
 
 std::ostream& operator<<(std::ostream& os, const type& desc) {
-    using console::format;
-
-    os << format.tpname << desc.name << ": { " << format.normal;
+    os << format->type(desc.name + ": { "); 
     std::for_each(desc.begin(), desc.end(), [&os](auto f) { os << f << ", "; });
-    return os << format.tpname << desc.name << "}" << format.normal;
+    return os << format->type("}");
 }
 
 

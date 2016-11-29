@@ -9,6 +9,7 @@
 namespace polysync { namespace plog {
 
 namespace hana = boost::hana;
+using logging::severity;
 
 // Indirecting and incrementing an iterator requires reading the plog file
 // itself, because the offsets between records are always different, which we
@@ -52,9 +53,9 @@ public:
 
 public:
     // Decode an entire record and return a parse tree.
-    node operator()(const log_record&);
-    node operator()(const descriptor::type& type) { return decode(type); }
-
+    variant operator()(const log_record&);
+    variant operator()(const descriptor::type& type) { return decode(type); }
+    
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
     // match every possible struct, sequence, or terminal type, nested or not,
@@ -67,15 +68,22 @@ public:
     decode(Number& value) {
         stream.read((char *)(&value), sizeof(Number)); 
     }
-    
+
+
+    void decode(hash_type& value) {
+        bytes buf(16); // 16 should be a template param, but I cannot get it to match.
+        stream.read((char *)buf.data(), buf.size());
+        multiprecision::import_bits(value, buf.begin(), buf.end(), 8);
+    }
+     
     // Specialize decode() for hana wrapped structures.  This works out padding
     // in the structure definition where a straight memcpy would fail, and also
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Record, 
-             class = typename std::enable_if_t<hana::Foldable<Record>::value>>
-    void decode(Record& record) {
+    template <typename Struct, 
+             class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
+    void decode(Struct& record) {
         hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
                 decode(hana::at_key(record, key));
                 }); 
@@ -112,13 +120,13 @@ public:
 
     // Decode a dynamic type using the description name.  This name will become
     // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
-    node decode_desc(const std::string& type, bool endian = false);
+    variant decode_desc(const std::string& type, bool endian = false);
 
-    node decode(const descriptor::type&);
+    variant decode(const descriptor::type&);
 
     // Define a set of factory functions that know how to decode specific binary
     // types.  They keys are strings from the "type" field of the TOML descriptions.
-    using parser = std::function<node (decoder&)>;
+    using parser = std::function<variant (decoder&)>;
     static std::map<std::string, parser> parse_map;
 
     // Factory function of any supported type, for convenience
@@ -132,9 +140,13 @@ public:
     // Deserialize a structure from a known offset in the file
     template <typename T>
     T decode(std::streamoff pos) {
-        stream.seekg(pos);
+      stream.seekg(pos);
         return decode<T>();
     }
+
+    // Expose the decode() members as operator(), for convenience.
+    template <typename... Args>
+    void operator()(Args... args) { decode(std::forward<Args>(args)...); }
 
     logging::logger log { "decoder" };
 

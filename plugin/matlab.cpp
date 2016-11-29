@@ -11,7 +11,6 @@ namespace fs = boost::filesystem;
 
 static logging::logger log { "matlab" };
 using logging::severity;
-using console::format; 
 
 namespace matlab {
 
@@ -62,7 +61,7 @@ struct matlab_encoder : polysync::encode::plugin {
                 << exception::module("matlab");
 
         fs::path path = vm["name"].as<fs::path>();
-        visit.decoder.connect([path](const plog::decoder& decoder) {
+        visit.open.connect([path](const plog::decoder& decoder) {
                 mat = std::make_shared<matlab::writer>(path);
                 });
 

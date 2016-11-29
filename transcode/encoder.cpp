@@ -55,7 +55,7 @@ struct branch {
 
         BOOST_LOG_SEV(enc->log, severity::debug2) << node.name << " = " << node 
             << " (" << descriptor::typemap.at(idx).name << ")";
-        eggs::variants::apply([this](auto val) { 
+        eggs::variants::apply([this](auto& val) { 
                 if (field.bigendian)
                     enc->encode(byteswap(val));
                 else
@@ -142,7 +142,7 @@ struct branch {
             if (arr == nullptr)
                 throw polysync::error("mismatched type") << exception::field(node.name);
 
-            std::for_each(arr->begin(), arr->end(), [this, nest](auto elem) {
+            std::for_each(arr->begin(), arr->end(), [this, nest](auto& elem) {
                     enc->encode(elem, nest);
                     });
         } else {

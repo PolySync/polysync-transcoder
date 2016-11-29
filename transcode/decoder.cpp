@@ -12,10 +12,10 @@ using logging::severity;
 
 // Kick off a decode with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
-node decoder::operator()(const log_record& record) {
+variant decoder::operator()(const log_record& record) {
 
-    node result = node::from(record, "log_record");
-    polysync::tree tree = *result.target<polysync::tree>();
+    variant result = node::from(record, "log_record");
+    const polysync::tree& tree = *result.target<polysync::tree>();
 
     // There is no simple way to detect and enforce that a blob starts with a
     // msg_header.  Hence, we must just assume that every message is well
@@ -26,77 +26,77 @@ node decoder::operator()(const log_record& record) {
     // Burn through the rest of the log record, decoding a sequence of types.
     while (endpos - stream.tellg() > 0) {
         std::string type = detect(tree->back());
-        tree->emplace_back(decode_desc(type));
+        tree->emplace_back(type, decode_desc(type));
     }
-    return result;
+    return std::move(result);
 }
 
 // Define a set of factory functions that know how to decode specific binary
 // types.  They keys are strings from the "type" field of the TOML descriptions.
 
 std::map<std::string, decoder::parser> decoder::parse_map = {
-    // Native integers
-    { "uint8", [](decoder& r) { return r.decode<std::uint8_t>(); } },
-    { "uint16", [](decoder& r) { return r.decode<std::uint16_t>(); } },
-    { "uint32", [](decoder& r) { return r.decode<std::uint32_t>(); } },
-    { "uint64", [](decoder& r) { return r.decode<std::uint64_t>(); } },
-    { "int8", [](decoder& r) { return r.decode<std::int8_t>(); } },
-    { "int16", [](decoder& r) { return r.decode<std::int16_t>(); } },
-    { "int32", [](decoder& r) { return r.decode<std::int32_t>(); } },
-    { "int64", [](decoder& r) { return r.decode<std::int64_t>(); } },
-    
-    // Bigendian integers
-    { "uint16.be", [](decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
-    { "uint32.be", [](decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
-    { "uint64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
-    { "int16.be", [](decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
-    { "int32.be", [](decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
-    { "int64.be", [](decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
+   // Native integers
+   { "uint8", [](decoder& r) { return r.decode<std::uint8_t>(); } },
+   { "uint16", [](decoder& r) { return r.decode<std::uint16_t>(); } },
+   { "uint32", [](decoder& r) { return r.decode<std::uint32_t>(); } },
+   { "uint64", [](decoder& r) { return r.decode<std::uint64_t>(); } },
+   { "int8", [](decoder& r) { return r.decode<std::int8_t>(); } },
+   { "int16", [](decoder& r) { return r.decode<std::int16_t>(); } },
+   { "int32", [](decoder& r) { return r.decode<std::int32_t>(); } },
+   { "int64", [](decoder& r) { return r.decode<std::int64_t>(); } },
+   
+   // Bigendian integers
+   { "uint16.be", [](decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
+   { "uint32.be", [](decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
+   { "uint64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
+   { "int16.be", [](decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
+   { "int32.be", [](decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
+   { "int64.be", [](decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
 
-    // Floating point types and aliases
-    { "float", [](decoder& r) { return r.decode<float>(); } },
-    { "float32", [](decoder& r) { return r.decode<float>(); } },
-    { "double", [](decoder& r) { return r.decode<double>(); } },
-    { "float64", [](decoder& r) { return r.decode<double>(); } },
-    
-    // Bigendian floats: first byteswap as uint, then emplacement new to float.
-    { "float.be", [](decoder& r) {
-            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
-    { "float32.be", [](decoder& r) {
-            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
-    { "double.be", [](decoder& r) {
-            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
-    { "float64.be", [](decoder& r) {
-            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
-            return *(new ((void *)&swap) float);
-        } },
+   // Floating point types and aliases
+   { "float", [](decoder& r) { return r.decode<float>(); } },
+   { "float32", [](decoder& r) { return r.decode<float>(); } },
+   { "double", [](decoder& r) { return r.decode<double>(); } },
+   { "float64", [](decoder& r) { return r.decode<double>(); } },
+   
+   // Bigendian floats: first byteswap as uint, then emplacement new to float.
+   { "float.be", [](decoder& r) {
+           std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
+           return *(new ((void *)&swap) float);
+       } },
+   { "float32.be", [](decoder& r) {
+           std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
+           return *(new ((void *)&swap) float);
+       } },
+   { "double.be", [](decoder& r) {
+           std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
+           return *(new ((void *)&swap) float);
+       } },
+   { "float64.be", [](decoder& r) {
+           std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
+           return *(new ((void *)&swap) float);
+       } },
 
-    // Fallback bytes buffer
-    { "raw", [](decoder& r) 
-        { 
-            polysync::bytes raw;
-            std::streampos rem = r.endpos - r.stream.tellg();
-            raw.resize(rem);
-            r.stream.read((char *)raw.data(), rem);
-            return node("raw", raw);
-        }},
+   // Fallback bytes buffer
+   { "raw", [](decoder& r) 
+       { 
+           polysync::bytes raw;
+           std::streampos rem = r.endpos - r.stream.tellg();
+           raw.resize(rem);
+           r.stream.read((char *)raw.data(), rem);
+           return node("raw", raw);
+       }},
 
-    // PLog aliases
-    { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
-    { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
-    { "NTP64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
+   // PLog aliases
+   { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
+   { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
+   { "NTP64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
 };
 
 // Read a field, described by looking up thef type by string.  The type strings can
 // be compound types described in the TOML description, primitive types known
 // by parse_map, or strings generated by boost::hana from compile time structs.
-node decoder::decode_desc(const std::string& type, bool bigendian) {
+variant decoder::decode_desc(const std::string& type, bool bigendian) {
 
     std::string tname = type + (bigendian ? ".be" : "");
     
@@ -125,10 +125,10 @@ struct branch_builder {
         if (!descriptor::typemap.count(idx))
             throw polysync::error("no typemap") << exception::field(field.name);
         const descriptor::terminal& term = descriptor::typemap.at(idx);
-        node a = d->decode_desc(term.name, field.bigendian);
+        variant a = d->decode_desc(term.name, field.bigendian);
         branch->emplace_back(field.name, a);
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " 
-            << field.format(a) << " (" << term.name 
+            << field.format(branch->back()) << " (" << term.name 
             << (field.bigendian ? ", bigendian" : "")
             << ")";
     }
@@ -145,7 +145,7 @@ struct branch_builder {
         if (!descriptor::catalog.count(nest.name))
             throw polysync::error("no nested descriptor for \"" + nest.name + "\"");
         const descriptor::type& desc = descriptor::catalog.at(nest.name);
-        node a = d->decode(desc);
+        node a(field.name, d->decode(desc));
         branch->emplace_back(field.name, a);
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << a 
             << " (nested \"" << nest.name << "\")";
@@ -220,7 +220,7 @@ struct branch_builder {
 
 };
 
-polysync::node decoder::decode(const descriptor::type& desc) {
+polysync::variant decoder::decode(const descriptor::type& desc) {
 
     polysync::tree child = polysync::tree::create(desc.name);
 
@@ -235,7 +235,7 @@ polysync::node decoder::decode(const descriptor::type& desc) {
         throw;
     }
 
-    return node(desc.name, child);
+    return std::move(node(desc.name, child));
 }
 
 

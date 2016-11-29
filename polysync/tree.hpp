@@ -1,7 +1,6 @@
 #pragma once
 
 #include <polysync/exception.hpp>
-#include <polysync/print_hana.hpp>
 
 #include <eggs/variant.hpp>
 #include <vector>
@@ -27,19 +26,22 @@ struct node;
 
 struct tree : std::shared_ptr<std::vector<node>> {
     std::string type;
-    using std::shared_ptr<element_type>::shared_ptr;
 
     static tree create(const std::string& type) { 
-        auto res = tree(std::make_shared<element_type>()); 
-        res.type = type;
+        tree res(type);
+        // res.type = type;
         return res;
     }
 
     static tree create(const std::string& type, std::initializer_list<node> init) {
-        auto res = tree(std::make_shared<element_type>(init));
-        res.type = type;
-        return res;
+        tree res(type, init);
+        // res.type = type;
+        return std::move(res);
     }
+
+    tree() : std::shared_ptr<std::vector<node>>(new std::vector<node>()) {}
+    tree(const std::string& type) : std::shared_ptr<std::vector<node>>(new std::vector<node>()), type(type) {}
+    tree(const std::string& type, std::initializer_list<node> init) : std::shared_ptr<std::vector<node>>(new std::vector<node>(init)), type(type) {}
 };
 
 // Add some context to exceptions
@@ -77,22 +79,14 @@ using variant = eggs::variant<
 // is strongly typed as one of the variant component types.  A node is just a
 // variant with a name.
 struct node : variant {
-    using variant::variant;
 
     template <typename T>
     node(const std::string& n, const T& value) : variant(value), name(n) { }
-
     const std::string name;
 
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
     static node from(const Struct& s, const std::string&);
-
-    // Metadata
-    struct {
-        boost::optional<std::streamoff> begin;
-        boost::optional<std::streamoff> end;
-    } offset;
 };
 
 inline bool operator==(const tree& lhs, const tree& rhs) { 
@@ -126,22 +120,13 @@ inline node node::from(const Struct& s, const std::string& type) {
     return node(type, tr);
 }
 
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
-    const int psize = 12;
-    os << "[ " << std::hex;
-    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
-            [&os](auto field) mutable { os << field << " "; });
-    if (record.size() > 2*psize)
-        os << "... ";
-    if (record.size() > psize)
-        std::for_each(record.end() - psize, record.end(), [&os](auto field) mutable { os << field << " "; });
-
-    os << "]" << std::dec << " (" << record.size() << " elements)";
-    return os;
-}
-
 inline std::ostream& operator<<(std::ostream&, const tree&); 
+
+} // namespace polysync
+
+#include <polysync/print.hpp>
+
+namespace polysync {
 
 inline std::ostream& operator<<(std::ostream& os, const node& n) {
     if (n.target_type() == typeid(std::uint8_t))
@@ -151,35 +136,11 @@ inline std::ostream& operator<<(std::ostream& os, const node& n) {
     return os << "unset";
 }
 
-inline std::ostream& operator<<(std::ostream& os, const std::vector<node>& array) {
-    os << "{ ";
-    std::for_each(array.begin(), array.end(), 
-            [&os](const node& t) { os << t.name << ": " << t << ", "; });
-    os << "}";
-    return os;
-}
 
 inline std::ostream& operator<<(std::ostream& os, const tree& t) {
     return os << *t;
 }
 
-} // namespace polysync
+} // polysync
 
-namespace std {
 
-inline std::ostream& operator<<(std::ostream& os, const polysync::bytes& record) {
-    const int psize = 16;
-    os << "[ " << std::hex;
-    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
-            [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
-    if (record.size() > 2*psize)
-        os << "... ";
-    if (record.size() > psize)
-        std::for_each(record.end() - psize, record.end(), 
-                [&os](auto field) mutable { os << ((std::uint16_t)field & 0xFF) << " "; });
-
-    os << "]" << std::dec << " (" << record.size() << " elements)";
-    return os;
-}
-
-} // namespace std
