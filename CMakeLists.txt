@@ -8,7 +8,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif()
 
 find_package(Threads)
-find_package(Boost COMPONENTS log log_setup system filesystem program_options thread regex)
+find_package(Boost "1.61" COMPONENTS log log_setup system filesystem program_options thread regex)
 find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
