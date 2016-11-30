@@ -19,6 +19,7 @@ std::string to_printable(const error&);
 // Define a sett of return values for shell programs that check.
 enum status : int {
     ok = 0, // No error
+    bad_argument = -1, // Malformed command line input
     bad_input = -2, // Error configuring the input dataset
     no_plugin = -3, // Error configuring the output plugin 
     description_error = -4, // Problem with a TOML file

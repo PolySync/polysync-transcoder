@@ -16,7 +16,7 @@ PYBIND11_PLUGIN(polysync) {
         // .def("__exit__", [](plog::reader&& s){ return std::move(s); })
         .def("__iter__", [](plog::decoder& s) { 
                 std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
-                    return py::make_iterator(s.begin(filter), s.end()); 
+                    return py::make_iterator(s.begin(), s.end()); 
                 },
                 py::keep_alive<0, 1>() // keeps object alive while iterator exists!
                 )

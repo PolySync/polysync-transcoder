@@ -23,3 +23,5 @@ Feature: Invalid parameters are handled gracefully
         And stdout is empty
         And stderr contains: cannot open file
 
+Feature: Datamodel queries
+    Scenario: 

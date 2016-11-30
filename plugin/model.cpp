@@ -1,13 +1,13 @@
 #include <polysync/plugin.hpp>
 #include <boost/make_shared.hpp>
 
-// The datamodel plugin dumps the dataypes and the record counts for each type found in a plog.
+// The model plugin dumps the dataypes and the record counts for each type found in a plog.
 
 namespace po = boost::program_options;
 
 namespace polysync { namespace plugin {
 
-static polysync::logging::logger log { "datamodel" };
+static polysync::logging::logger log { "model" };
 using polysync::logging::severity;
 
 // model_printer is a visitor on polysync::node; primary useful for recursing polysync::tree.
@@ -42,12 +42,12 @@ struct model_printer {
     }
 };
 
-struct datamodel : encode::plugin {
+struct model : encode::plugin {
 
     po::options_description options() const {
         po::options_description opt("Datamodel Options");
         opt.add_options()
-            ("compact", "print type names only")
+            ("detail", po::value<std::uint8_t>()->implicit_value(-1), "print nested types")
             ;
         return opt;
     };
@@ -56,11 +56,12 @@ struct datamodel : encode::plugin {
 
     void connect(const po::variables_map& vm, encode::visitor& visit) const {
 
-        bool compact = vm.count("compact");
+        std::uint8_t detail = 0;
+        if (vm.count("detail"))
+            detail = vm["detail"].as<std::uint8_t>();
 
         // As each record is visited, we only count them.  Print the result later.
         visit.record.connect([this](const plog::log_record& record) { 
-                BOOST_LOG_SEV(log, severity::verbose) << record;
                 std::istringstream iss(record.blob);
                 plog::decoder decode(iss);
                 polysync::node top("log_record", decode(record));
@@ -68,13 +69,13 @@ struct datamodel : encode::plugin {
                 });
 
         // At cleanup, we finally print, because now we know how many instances we saw.
-        visit.cleanup.connect([this, compact](const plog::decoder& decode) {
+        visit.cleanup.connect([this, detail](const plog::decoder& decode) {
 
                 // Iterate all the found types and print them.
                 for (auto pair: print.types) {
                     std::string count = "x" + std::to_string(print.types.at(pair.first));
 
-                    if (compact)
+                    if (detail == 0)
                         std::cout << pair.first << " " << count << std::endl;
                     else {
                         std::cout << format->begin_block(pair.first);
@@ -98,11 +99,11 @@ struct datamodel : encode::plugin {
     }
 };
 
-boost::shared_ptr<encode::plugin> create_datamodel() {
-    return boost::make_shared<datamodel>();
+boost::shared_ptr<encode::plugin> create_model() {
+    return boost::make_shared<model>();
 }
 
 }} // namespace polysync::plugin
 
-BOOST_DLL_ALIAS(polysync::plugin::create_datamodel, datamodel_plugin)
+BOOST_DLL_ALIAS(polysync::plugin::create_model, model_plugin)
 

@@ -23,14 +23,11 @@ struct iterator {
 
     decoder* stream;
     std::streamoff pos; // file offset from std::ios_base::beg, pointing to next record
-    std::streamoff end; // filters need to know where the end is
-    std::function<bool (iterator)> filter;
 
-    bool operator!=(const iterator& other) const { return pos != other.pos; }
+    bool operator!=(const iterator& other) const { return pos < other.pos; }
     bool operator==(const iterator& other) const { return pos == other.pos; }
 
     log_record operator*(); // read and return the payload
-    log_record operator->(); // read and return the payload
     iterator& operator++(); // skip to the next record
 };
 
@@ -44,12 +41,8 @@ public:
     }
 
     // Factory methods for STL compatible iterators
-
-    iterator begin(std::function<bool (iterator)> filt) { 
-        return iterator { this, stream.tellg(), endpos, filt }; 
-    }
-
-    iterator end() { return iterator { this, endpos, endpos }; }
+    iterator begin() { return iterator { this, stream.tellg() }; }
+    iterator end() { return iterator { this, endpos }; }
 
 public:
     // Decode an entire record and return a parse tree.
@@ -157,25 +150,14 @@ public:
 };
 
 inline log_record iterator::operator*() { 
-    log_record record = stream->decode<log_record>(pos); 
-    // record.offset.begin = pos;
-    // record.offset.end = pos + record.size + descriptor::size<log_record>::value();
-    return record;
+    return stream->decode<log_record>(pos); 
 }
 
 inline iterator& iterator::operator++() {
     
     // Advance the iterator's position to the beginning of the next record.
-    // Keep going as long as the filter returns false.
-    do {
-        pos += descriptor::size<log_record>::value() + stream->decode<log_record>(pos).size;
-    } while (pos < end && !filter(*this));
-
+    pos += descriptor::size<log_record>::value() + stream->decode<log_record>(pos).size;
     return *this;
-}
-
-inline log_record iterator::operator->() { 
-    return operator*(); 
 }
 
 }} // namespace polysync::plog

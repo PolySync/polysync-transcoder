@@ -81,14 +81,15 @@ int catch_main(int ac, char* av[]) {
     // These will move to a filters plugin.
     po::options_description filter_opt("Filter Options");
     filter_opt.add_options()
-        ("first", po::value<size_t>(), "first record index to process (not yet implemented)")
-        ("last", po::value<size_t>(), "last record index to process (not yet implemented)")
+        // ("first", po::value<size_t>(), "first record index to process (not yet implemented)")
+        // ("last", po::value<size_t>(), "last record index to process (not yet implemented)")
+        ("slice", po::value<std::string>(), "<begin>:<end> formatted record range")
         ;
 
     po::options_description positional_opt;
     positional_opt.add_options()
         ("path", po::value<std::vector<fs::path>>(), "plog input files")
-        ("output", po::value<std::string>()->default_value("datamodel"), "Output formatter")
+        ("output", po::value<std::string>()->default_value("model"), "Output formatter")
         ("subargs", po::value<std::vector<std::string>>(), "Arguments for output formatter")
         ;
 
@@ -121,7 +122,7 @@ int catch_main(int ac, char* av[]) {
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self(dll::program_location());
-    for (std::string plugname: { "dump", "datamodel" } ) {
+    for (std::string plugname: { "dump", "model" } ) {
         auto plugin_factory = self.get_alias<boost::shared_ptr<ps::encode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
@@ -276,21 +277,36 @@ int catch_main(int ac, char* av[]) {
 
     plugin_map.at(output)->connect(vm, visit);
 
-    // These rudimentary filters will move to a filter plugin
-    std::function<bool (plog::iterator)> filter = [](plog::iterator it) { return true; };
-    if (vm.count("first")) {
-        size_t first = vm["first"].as<size_t>(); 
-        filter = [filter, first](plog::iterator it) { 
-            std::cout << (*it).index << " " << first << std::endl;
-            return (*it).index == first; // t->ffilter(it) && ((*it).index >= first); 
-        }; 
-    }
-    if (vm.count("last")) {
-        size_t last = vm["last"].as<size_t>(); 
-        filter = [filter, last](plog::iterator it) { 
-            return filter(it) && ((*it).index < last); }; 
-    }
+    visit.record.connect([&log](const plog::log_record& record) {
+            BOOST_LOG_SEV(log, severity::verbose) << "visit " << record;
+            });
 
+    // These rudimentary filters will move to a filter plugin
+    std::function<bool (const plog::log_record&)> filter = [](const plog::log_record&) { return true; };
+    if (vm.count("slice")) {
+        // Emulate the the excellent Python Numpy slicing syntax
+        static std::regex slice_re(R"((\d+)?(:)?(\d+)?(:)?(\d+)?)");
+        std::smatch slice;
+        if (std::regex_match(vm["slice"].as<std::string>(), slice, slice_re)) {
+            if (slice[4].matched && !slice[5].matched)
+                throw polysync::error("bad slice format") << polysync::status::bad_argument;
+
+            size_t begin = slice[1].matched ? std::stol(slice[1]) : 0;
+            size_t end = slice[2].matched ? -1 : begin + 1;
+            size_t stride = slice[4].matched ? std::stol(slice[3]) : 1;
+            end = slice[5].matched ? std::stol(slice[5]) : end;
+            end = (slice[3].matched && !slice[4].matched) ? std::stol(slice[3]) : end;
+
+            BOOST_LOG_SEV(log, severity::debug1) << "slice " << begin << ":" << stride << ":" << end;
+            filter = [filter, begin, end](const plog::log_record& rec) {
+                return filter(rec) && (rec.index >= begin) && (rec.index < end);
+            };
+        }
+        else
+            throw polysync::error("bad slice format") << polysync::status::bad_argument;
+        
+    }
+    
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
     for (fs::path path: vm["path"].as<std::vector<fs::path>>()) 
@@ -311,7 +327,10 @@ int catch_main(int ac, char* av[]) {
             visit.log_header(head);
             std::for_each(head.type_supports.begin(), head.type_supports.end(), 
                           std::ref(visit.type_support));
-            std::for_each(decoder.begin(filter), decoder.end(), std::ref(visit.record));
+            for (const plog::log_record& rec: decoder) {
+                if (filter(rec))
+                    visit.record(rec);
+            }
             visit.cleanup(decoder);
         } catch (polysync::error& e) {
             e << ps::exception::path(path.c_str());
@@ -330,9 +349,11 @@ int main(int ac, char* av[]) {
     } catch (const ps::error& e) {
         // Print any context provided by the exception.
         std::cerr << polysync::format->error("Transcoder abort: ") << e;
-        if (const ps::status* stat = boost::get_error_info<ps::exception::status>(e)) {
+        if (const ps::status* stat = boost::get_error_info<ps::exception::status>(e)) 
             exit(*stat);
-        }
+    } catch (const po::error& e) {
+        std::cerr << polysync::format->error("Transcoder abort: ") << e.what() << std::endl;
+        return polysync::status::bad_argument;
     }
 }
 
