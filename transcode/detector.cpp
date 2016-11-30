@@ -1,3 +1,4 @@
+#include <numeric>
 #include <polysync/description.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
@@ -6,14 +7,14 @@
 
 #include <regex>
 
-namespace polysync { 
+namespace polysync {
 
 using polysync::logging::logger;
 using polysync::logging::severity;
 
 namespace detector {
 
-catalog_type catalog; 
+catalog_type catalog;
 
 // Helper function to get an integer out of a hex string.  This would not be
 // necessary if TOML supported hex formatted integers natively, or if
@@ -31,30 +32,30 @@ inline T hex_stoul(const std::string& value) {
 // factory functions to look up a type by string name and convert to a strong type.
 static variant convert(const std::string value, const std::type_index& type) {
     static const std::map<std::type_index, std::function<variant (const std::string&)>> factory = {
-        { typeid(std::int8_t), 
+        { typeid(std::int8_t),
             [](const std::string& value) { return hex_stoul<std::int8_t>(value); } },
-        { typeid(std::int16_t), 
+        { typeid(std::int16_t),
             [](const std::string& value) { return hex_stoul<std::int16_t>(value); } },
-        { typeid(std::int32_t), 
+        { typeid(std::int32_t),
             [](const std::string& value) { return hex_stoul<std::int32_t>(value); } },
-        { typeid(std::int64_t), 
+        { typeid(std::int64_t),
             [](const std::string& value) { return hex_stoul<std::int64_t>(value); } },
-        { typeid(std::uint8_t), 
+        { typeid(std::uint8_t),
             [](const std::string& value) { return hex_stoul<std::uint8_t>(value); } },
-        { typeid(std::uint16_t), 
+        { typeid(std::uint16_t),
             [](const std::string& value) { return hex_stoul<std::uint16_t>(value); } },
-        { typeid(std::uint32_t), 
+        { typeid(std::uint32_t),
             [](const std::string& value) { return hex_stoul<std::uint32_t>(value); } },
-        { typeid(std::uint64_t), 
+        { typeid(std::uint64_t),
             [](const std::string& value) { return hex_stoul<std::uint64_t>(value); } },
-        { typeid(float), 
+        { typeid(float),
             [](const std::string& value) { return static_cast<float>(stof(value)); } },
-        { typeid(double), 
+        { typeid(double),
             [](const std::string& value) { return static_cast<double>(stod(value)); } },
     };
 
     if (!factory.count(type))
-        throw polysync::error("no string converter defined") 
+        throw polysync::error("no string converter defined")
             << exception::type(descriptor::typemap.at(type).name)
             << exception::module("detector")
             << status::description_error;
@@ -64,26 +65,26 @@ static variant convert(const std::string value, const std::type_index& type) {
 
 // Load the global type detector dictionary detector::catalog with an entry
 // from a TOML table.
-void load( const std::string& name, std::shared_ptr<cpptoml::table> table, 
+void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
            catalog_type& catalog ) {
 
     logger log("detector");
 
     // Recurse nested tables
     if (!table->contains("description")) {
-        for (const auto& tp: *table) 
+        for (const auto& tp: *table)
             load(name + "." + tp.first, tp.second->as_table(), catalog);
         return;
     }
 
     if (!table->contains("detector")) {
-        BOOST_LOG_SEV(log, severity::debug1) 
+        BOOST_LOG_SEV(log, severity::debug1)
             << "no sequel types following \"" << name << "\"";
         return;
     }
 
     if (!descriptor::catalog.count(name))
-        throw polysync::error("no type description") 
+        throw polysync::error("no type description")
             << exception::type(name)
             << exception::module("detector")
             << status::description_error;
@@ -91,7 +92,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     auto det = table->get("detector");
 
     if (!det->is_table_array())
-        throw polysync::error("detector list must be an array") 
+        throw polysync::error("detector list must be an array")
             << exception::type(name)
             << exception::module("detector")
             << status::description_error;
@@ -99,7 +100,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     for (const auto& branch: *det->as_table_array()) {
 
         if (!branch->is_table())
-            throw polysync::error("detector must be a table") 
+            throw polysync::error("detector must be a table")
                 << exception::type(name)
                 << exception::module("detector")
                 << status::description_error;
@@ -126,14 +127,14 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
                 continue;
 
             // Dig through the type description to get the type of the matching field
-            auto it = std::find_if(desc.begin(), desc.end(), 
+            auto it = std::find_if(desc.begin(), desc.end(),
                     [pair](auto f) { return f.name == pair.first; });
-            
+
             // The field name did not match at all; get out of here.
             if (it == desc.end())
-                throw polysync::error("unknown field") 
+                throw polysync::error("unknown field")
                     << exception::type(name)
-                    << exception::detector(pair.first) 
+                    << exception::detector(pair.first)
                     << exception::field(it->name)
                     << exception::module("detector")
                     << status::description_error;
@@ -148,7 +149,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
                     << exception::detector(pair.first)
                     << exception::field(it->name)
                     << exception::module("detector")
-                    << status::description_error; 
+                    << status::description_error;
 
             // For this purpose, TOML numbers must be strings because TOML is
             // not very type flexible (and does not know about hex notation).
@@ -157,19 +158,19 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
             match.emplace(pair.first, convert(value, *idx));
         }
 
-        
-        auto it = std::find_if(detector::catalog.begin(), detector::catalog.end(), 
+
+        auto it = std::find_if(detector::catalog.begin(), detector::catalog.end(),
                     [name, sequel](auto f) { return f.parent == name && f.child == *sequel; });
         if (it != detector::catalog.end()) {
-            BOOST_LOG_SEV(log, severity::debug1) << "duplicate sequel \"" 
+            BOOST_LOG_SEV(log, severity::debug1) << "duplicate sequel \""
                 << name << "\" -> \"" << *sequel << "\" found but not installed";
             return;
         }
 
         detector::catalog.emplace_back(detector::type { name, match, *sequel });
 
-        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \"" 
-            << detector::catalog.back().parent << "\" -> \"" 
+        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \""
+            << detector::catalog.back().parent << "\" -> \""
             << detector::catalog.back().child << "\"";
     }
 }
@@ -192,7 +193,7 @@ std::string detect(const node& parent) {
 
         // Parent is not even the right type, so short circuit and fail this test early.
         if (det.parent != parent.name) {
-            BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \"" 
+            BOOST_LOG_SEV(log, severity::debug2) << det.child << " not matched: parent \""
                 << parent.name << "\" != \"" << det.parent << "\"";
             continue;
         }
@@ -200,20 +201,20 @@ std::string detect(const node& parent) {
         // Iterate each field in the detector looking for mismatches.
         std::vector<std::string> mismatch;
         for (auto field: det.match) {
-            auto it = std::find_if(tree->begin(), tree->end(), 
-                    [field](const node& n) { 
-                    return n.name == field.first; 
+            auto it = std::find_if(tree->begin(), tree->end(),
+                    [field](const node& n) {
+                    return n.name == field.first;
                     });
             if (it == tree->end()) {
-                BOOST_LOG_SEV(log, severity::debug2) 
-                    << det.child << " not matched: parent \"" 
+                BOOST_LOG_SEV(log, severity::debug2)
+                    << det.child << " not matched: parent \""
                     << det.parent << "\" missing field \"" << field.first << "\"";
                 break;
             }
             if (*it != field.second)
                 mismatch.emplace_back(field.first);
         }
-        
+
         // Too many matches. Catalog is not orthogonal and needs tweaking.
         if (mismatch.empty() && !tpname.empty())
             throw polysync::error("non-unique detectors: " + tpname + " and " + det.child)
@@ -231,7 +232,7 @@ std::string detect(const node& parent) {
         static auto details = [&](const std::string& field) -> std::string {
             std::stringstream os;
             os << field + ": ";
-            auto it = std::find_if(tree->begin(), tree->end(), 
+            auto it = std::find_if(tree->begin(), tree->end(),
                     [field](auto& f){ return field == f.name; });
             os << *it;
             if (det.match.count(field)) {
@@ -239,12 +240,12 @@ std::string detect(const node& parent) {
                 eggs::variants::apply([&os](auto& v) { os << v; }, det.match.at(field));
             } else
                 os << " missing from description";
-            return os.str(); 
+            return os.str();
         };
 
-        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched { " 
-            << std::accumulate(mismatch.begin(), mismatch.end(), std::string(), 
-                    [&](const std::string& str, auto& field) { return str + details(field); }) 
+        BOOST_LOG_SEV(log, severity::debug2) << det.child << ": mismatched { "
+            << std::accumulate(mismatch.begin(), mismatch.end(), std::string(),
+                    [&](const std::string& str, auto& field) { return str + details(field); })
             << " }";
     }
 
