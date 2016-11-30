@@ -12,7 +12,7 @@ find_package(Boost "1.61" COMPONENTS log log_setup system filesystem program_opt
 find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
-include_directories( . )
+include_directories( . "deps/eggs/include" )
 add_subdirectory( transcode )
 add_subdirectory( plugin )
 add_subdirectory( binding )
