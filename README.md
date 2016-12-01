@@ -1,3 +1,22 @@
+# Polysync Transcoder
+
+The application `polysync-transcode` converts the binary PLog flat files created by
+Polysync ('.plog') to external formats used in industry standard data
+science and machine learning tools.  It can also query, slice and dice, and
+re-encode the PLog format.
+
+
+The Transcoder consists of several components:
+
+* Command line tool `polysync-transcode`, inspired by the industry standard
+HDF5 workflow including `h5ls` and `h5dump`.
+* Set of output plugins tailored to a specific external format (like HDF5)
+* Set of data model descriptions that describe the layout of arbitrary binary blobs
+* C++ library
+* Python extension (planned)
+
+# Command line Tool
+
 ## Identify the contents of a plog
 
 ### Count the instances of each datatype:
