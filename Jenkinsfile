@@ -7,11 +7,15 @@ node('clang') {
       extensions: scm.extensions + [[$class: 'CleanBeforeCheckout']],
       userRemoteConfigs: scm.userRemoteConfigs
     ])
+    try {
+      sh 'rm -rf build'
+    } finally {}
   }
   stage('Build') {
     echo 'Compiling'
-    sh 'CXX=clang++ cmake .'
-    sh 'make'
+    sh 'mkdir build'
+    sh 'CXX=clang++ cmake -Bbuild -H.'
+    sh 'cd build && make'
     echo 'Build Complete!'
   }
   stage('Test') {
