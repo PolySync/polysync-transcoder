@@ -81,15 +81,13 @@ int catch_main(int ac, char* av[]) {
     // These will move to a filters plugin.
     po::options_description filter_opt("Filter Options");
     filter_opt.add_options()
-        // ("first", po::value<size_t>(), "first record index to process (not yet implemented)")
-        // ("last", po::value<size_t>(), "last record index to process (not yet implemented)")
-        ("slice", po::value<std::string>(), "<begin>:<end> formatted record range")
+        ("slice", po::value<std::string>(), "<begin:stride:end> Numpy style record slice syntax")
         ;
 
     po::options_description positional_opt;
     positional_opt.add_options()
         ("path", po::value<std::vector<fs::path>>(), "plog input files")
-        ("output", po::value<std::string>()->default_value("model"), "Output formatter")
+        ("output", po::value<std::string>()->default_value("list"), "Output formatter")
         ("subargs", po::value<std::vector<std::string>>(), "Arguments for output formatter")
         ;
 
@@ -122,7 +120,7 @@ int catch_main(int ac, char* av[]) {
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self(dll::program_location());
-    for (std::string plugname: { "dump", "model" } ) {
+    for (std::string plugname: { "list", "dump" } ) {
         auto plugin_factory = self.get_alias<boost::shared_ptr<ps::encode::plugin>()>(plugname + "_plugin");
         auto plugin = plugin_factory();
         po::options_description opt = plugin->options();
@@ -148,6 +146,11 @@ int catch_main(int ac, char* av[]) {
             if (match.size()) {
                 std::string plugname = match[1];
 
+                if (plugin_map.count(plugname)) {
+                    BOOST_LOG_SEV(log, severity::debug2) << "encoder \"" << plugname << "\"already loaded";
+                    continue;
+                }
+
                 try {
                     boost::shared_ptr<ps::encode::plugin> plugin = 
                         dll::import<ps::encode::plugin>(lib.path(), "encoder");
@@ -157,11 +160,11 @@ int catch_main(int ac, char* av[]) {
                     cmdline.add(opt);
                     plugin_map.emplace(plugname, plugin);
                 } catch (std::runtime_error&) {
-                    BOOST_LOG_SEV(log, severity::debug1) 
+                    BOOST_LOG_SEV(log, severity::debug2) 
                         << lib.path() << " provides no encoder; symbols not found";
                 }
             } else {
-                BOOST_LOG_SEV(log, severity::debug1) 
+                BOOST_LOG_SEV(log, severity::debug2) 
                     << lib.path() << " provides no encoder; filename mismatch";
             }
         }
@@ -254,8 +257,6 @@ int catch_main(int ac, char* av[]) {
     ps::descriptor::catalog.emplace("log_record", ps::descriptor::describe<plog::log_record>::type());
     ps::descriptor::catalog.emplace("msg_header", ps::descriptor::describe<plog::msg_header>::type());
 
-    BOOST_LOG_SEV(log, severity::verbose) << "configuring plugin " << output;
-
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
@@ -277,9 +278,9 @@ int catch_main(int ac, char* av[]) {
 
     plugin_map.at(output)->connect(vm, visit);
 
-    visit.record.connect([&log](const plog::log_record& record) {
-            BOOST_LOG_SEV(log, severity::verbose) << "visit " << record;
-            });
+    // visit.record.connect([&log](const polysync::node& record) {
+    //         BOOST_LOG_SEV(log, severity::verbose) << record;
+    //         });
 
     // These rudimentary filters will move to a filter plugin
     std::function<bool (const plog::log_record&)> filter = [](const plog::log_record&) { return true; };
@@ -297,7 +298,7 @@ int catch_main(int ac, char* av[]) {
             end = slice[5].matched ? std::stol(slice[5]) : end;
             end = (slice[3].matched && !slice[4].matched) ? std::stol(slice[3]) : end;
 
-            BOOST_LOG_SEV(log, severity::debug1) << "slice " << begin << ":" << stride << ":" << end;
+            BOOST_LOG_SEV(log, severity::debug2) << "slice " << begin << ":" << stride << ":" << end;
             filter = [filter, begin, end](const plog::log_record& rec) {
                 return filter(rec) && (rec.index >= begin) && (rec.index < end);
             };
@@ -325,11 +326,14 @@ int catch_main(int ac, char* av[]) {
 
             decoder.decode(head);
             visit.log_header(head);
-            std::for_each(head.type_supports.begin(), head.type_supports.end(), 
-                          std::ref(visit.type_support));
+            for (const plog::type_support& type: head.type_supports)
+                visit.type_support(type);
             for (const plog::log_record& rec: decoder) {
-                if (filter(rec))
-                    visit.record(rec);
+                if (filter(rec)) {
+                    BOOST_LOG_SEV(log, severity::verbose) << rec;
+                    polysync::node top("log_record", decoder.deep(rec));
+                    visit.record(top);
+                }
             }
             visit.cleanup(decoder);
         } catch (polysync::error& e) {

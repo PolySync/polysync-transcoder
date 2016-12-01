@@ -17,8 +17,7 @@ using polysync::format;
 
 template <typename T, typename U>
 std::ostream& operator<<(std::ostream& os, const pair<T, U>& p) {
-    return os << format->fieldname(std::string(hana::to<char const*>(hana::first(p)))) << ": " << std::hex
-        << hana::second(p);
+    return os << format->fieldname(std::string(hana::to<char const*>(hana::first(p)))) << ": " << hana::second(p);
 }
 
 template <typename U>

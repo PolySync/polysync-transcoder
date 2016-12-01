@@ -40,10 +40,6 @@ std::map<std::type_index, descriptor::terminal> typemap {
     { typeid(plog::msg_header), { "msg_header", size<plog::msg_header>::value() } },
     { typeid(plog::log_record), { "log_record", size<plog::log_record>::value() } },
     { typeid(plog::log_header), { "log_header", size<plog::log_header>::value() } },
-    // { typeid(plog::sequence<std::uint32_t, plog::log_module>), 
-    //     { "sequence<log_module>", size<plog::sequence<std::uint32_t, plog::log_module>>::value() } },
-    // { typeid(plog::sequence<std::uint32_t, plog::type_support>), 
-    //     { "sequence<type_support>", size<plog::sequence<std::uint32_t, plog::type_support>>::value() }}
 };
 
 }} // namespace polysync::descriptor

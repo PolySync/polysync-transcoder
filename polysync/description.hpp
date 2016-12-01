@@ -76,11 +76,11 @@ struct field {
     // is optional.
     bool bigendian { false };
 
-    std::function<std::string (const node&)> format { 
+    std::function<std::string (const polysync::variant&)> format { 
         // The default implementation just finds the operator<< overload for the node.
-        [](const node& n) { 
+        [](const polysync::variant& n) { 
             std::stringstream os;
-            os << n;
+            eggs::variants::apply([&os](auto v) { os << v; }, n);
             return os.str(); 
         }};
 

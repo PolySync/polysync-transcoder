@@ -12,10 +12,12 @@ using logging::severity;
 
 // Kick off a decode with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
-variant decoder::operator()(const log_record& record) {
+variant decoder::deep(const log_record& record) {
 
     variant result = node::from(record, "log_record");
-    const polysync::tree& tree = *result.target<polysync::tree>();
+    polysync::tree& tree = *result.target<polysync::tree>();
+
+    record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size); 
 
     // There is no simple way to detect and enforce that a blob starts with a
     // msg_header.  Hence, we must just assume that every message is well
@@ -24,7 +26,7 @@ variant decoder::operator()(const log_record& record) {
     tree->emplace_back(node::from(decode<msg_header>(), "msg_header"));
 
     // Burn through the rest of the log record, decoding a sequence of types.
-    while (endpos - stream.tellg() > 0) {
+    while (stream.tellg() < record_endpos) {
         std::string type = detect(tree->back());
         tree->emplace_back(type, decode_desc(type));
     }
@@ -80,9 +82,8 @@ std::map<std::string, decoder::parser> decoder::parse_map = {
    // Fallback bytes buffer
    { "raw", [](decoder& r) 
        { 
-           polysync::bytes raw;
-           std::streampos rem = r.endpos - r.stream.tellg();
-           raw.resize(rem);
+           std::streampos rem = r.record_endpos - r.stream.tellg();
+           polysync::bytes raw(rem);
            r.stream.read((char *)raw.data(), rem);
            return node("raw", raw);
        }},
@@ -110,7 +111,7 @@ variant decoder::decode_desc(const std::string& type, bool bigendian) {
            << exception::module("plog::decoder")
            << status::description_error;
 
-    BOOST_LOG_SEV(log, severity::debug2) << "decoding \"" << type << "\"";
+    BOOST_LOG_SEV(log, severity::debug2) << "decoding \"" << type << "\" at offset " << stream.tellg();
     const descriptor::type& desc = descriptor::catalog.at(type);
     return decode(desc);
 }
@@ -127,6 +128,7 @@ struct branch_builder {
         const descriptor::terminal& term = descriptor::typemap.at(idx);
         variant a = d->decode_desc(term.name, field.bigendian);
         branch->emplace_back(field.name, a);
+        branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " 
             << field.format(branch->back()) << " (" << term.name 
             << (field.bigendian ? ", bigendian" : "")
@@ -155,7 +157,7 @@ struct branch_builder {
     void operator()(const descriptor::skip& skip) const {
         polysync::bytes raw(skip.size);
         d->stream.read((char *)raw.data(), skip.size);
-        std::string name = "skip:" + std::to_string(skip.order);
+        std::string name = "skip-" + std::to_string(skip.order);
         branch->emplace_back(name, raw);
         // d->stream.seekg(skip.size, std::ios_base::cur);
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
@@ -222,7 +224,7 @@ struct branch_builder {
 
 polysync::variant decoder::decode(const descriptor::type& desc) {
 
-    polysync::tree child = polysync::tree::create(desc.name);
+    polysync::tree child(desc.name);
 
     try {
         std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {

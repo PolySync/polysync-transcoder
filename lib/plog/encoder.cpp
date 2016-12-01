@@ -84,11 +84,6 @@ struct branch {
     void operator()(const descriptor::skip& skip) const {
         const bytes& raw = *node.target<bytes>();
         enc->stream.write((char *)raw.data(), raw.size());
-
-        // eggs::variants::apply([this](auto val) { enc->encode(val); }, node);
-
-        // std::string pad(skip.size, 0);
-        // enc->stream.write(pad.c_str(), skip.size);
         BOOST_LOG_SEV(enc->log, severity::debug2) << "padded " << raw;
     }
 
@@ -122,7 +117,6 @@ struct branch {
             try {
                 size = std::stoll(os.str());
             } catch (std::invalid_argument) {
-                std::cout << it->name << std::endl;
                 throw polysync::error("cannot parse size") << exception::type(it->name);
             }
         } else
@@ -195,7 +189,7 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
             });
 
     // What to do with fields not described in desc?  For now, the policy is to
-    // omit terminals, but encode any trees, in order.  This should work when
+    // omit terminals, but encode any trees or undecoded buffers, in order.  This should work when
     // the type description changes by removing a terminal field, but still
     // completes the encoding of a list of trees. 
     std::for_each(t->begin(), t->end(), [&](const node& n) {
@@ -207,7 +201,11 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
                 BOOST_LOG_SEV(log, severity::debug1) << "recursing subtree " << subtree.type;
                 return encode(subtree, subtype);
             } 
-            BOOST_LOG_SEV(log, severity::debug2) 
+            if (n.target_type() == typeid(bytes)) {
+                const bytes& raw = *n.target<bytes>();
+                return encode(raw.data(), raw.size());
+            }
+            BOOST_LOG_SEV(log, severity::warn) 
                 << "field \"" << n.name << "\" not serialized due to lack of description";
 
             });

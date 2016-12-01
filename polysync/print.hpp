@@ -7,13 +7,10 @@ namespace std {
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
-    std::cerr << "enter" << std::endl;
     const int psize = 12;
     os << "[ " << std::hex;
     std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
-            [&os](auto& field) mutable { 
-            std::cerr << "y" << std::endl;
-            os << field << " "; });
+            [&os](auto& field) mutable { os << field << " "; });
     if (record.size() > 2*psize)
         os << "... ";
     if (record.size() > psize)
