@@ -7,7 +7,7 @@
 
 #include <polysync/print_hana.hpp>
 
-namespace polysync {
+namespace polysync { namespace plugin {
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -16,21 +16,21 @@ namespace hana = boost::hana;
 using logging::severity;
 
 static std::ofstream out;
-static std::shared_ptr<plog::encoder> encode_;
-static logging::logger log { "plog-encode" };
+static std::shared_ptr<plog::encoder> writer;
+static logging::logger log { "plog" };
 
-class plog_encoder : public polysync::encode::plugin { 
+class plog_encode : public encode::plugin { 
 public:
 
     po::options_description options() const override {
-        po::options_description opt("PLog-Encoder Options");
+        po::options_description opt("plog: Encode a new PLog");
         opt.add_options()
             ("name,n", po::value<fs::path>(), "filename")
             ;
         return opt;
     }
 
-    void connect(const po::variables_map& vm, encode::visitor& visit) const override {
+    void connect(const po::variables_map& vm, encode::visitor& visit) override {
 
         std::string path = vm["name"].as<fs::path>().string();
 
@@ -40,29 +40,25 @@ public:
         visit.open.connect([path](plog::decoder& r) { 
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
-                encode_.reset(new polysync::plog::encoder(out));
+                writer.reset(new plog::encoder(out));
                 });
 
         // Serialize the global file header.
         visit.log_header.connect([](const plog::log_header& head) {
-                encode_->encode(head); 
+                writer->encode(head); 
             });
 
         // Serialize every record.
-        visit.record.connect([](const plog::log_record& record) { 
-                BOOST_LOG_SEV(log, severity::verbose) << record;
-                std::istringstream iss(record.blob);
-                plog::decoder decode(iss);
-                polysync::node top("log_record", decode(record));
-                const descriptor::type desc = descriptor::catalog.at("log_record");
-                encode_->encode(*top.target<tree>(), desc); 
+        descriptor::type desc = descriptor::catalog.at("log_record");
+        visit.record.connect([desc](const polysync::node& top) { 
+                writer->encode(*top.target<tree>(), desc); 
                 });
     } 
 };
 
-extern "C" BOOST_SYMBOL_EXPORT plog_encoder encoder;
-plog_encoder encoder;
+extern "C" BOOST_SYMBOL_EXPORT plog_encode encoder;
+plog_encode encoder;
 
-} // polysync
+}} // namespace polysync::plugin
 
 

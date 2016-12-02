@@ -27,18 +27,6 @@ struct node;
 struct tree : std::shared_ptr<std::vector<node>> {
     std::string type;
 
-    static tree create(const std::string& type) { 
-        tree res(type);
-        // res.type = type;
-        return res;
-    }
-
-    static tree create(const std::string& type, std::initializer_list<node> init) {
-        tree res(type, init);
-        // res.type = type;
-        return std::move(res);
-    }
-
     tree() : std::shared_ptr<std::vector<node>>(new std::vector<node>()) {}
     tree(const std::string& type) : std::shared_ptr<std::vector<node>>(new std::vector<node>()), type(type) {}
     tree(const std::string& type, std::initializer_list<node> init) : std::shared_ptr<std::vector<node>>(new std::vector<node>(init)), type(type) {}
@@ -82,7 +70,9 @@ struct node : variant {
 
     template <typename T>
     node(const std::string& n, const T& value) : variant(value), name(n) { }
+
     const std::string name;
+    std::function<std::string (const variant&)> format;
 
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
@@ -111,7 +101,7 @@ inline bool operator!=(const tree& lhs, const tree& rhs) { return !operator==(lh
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
 inline node node::from(const Struct& s, const std::string& type) {
-    tree tr = tree::create(type);
+    tree tr(type);
     hana::for_each(s, [tr](auto pair) { 
             std::string name = hana::to<char const*>(hana::first(pair));
             tr->emplace_back(name, hana::second(pair));
@@ -131,9 +121,15 @@ namespace polysync {
 inline std::ostream& operator<<(std::ostream& os, const node& n) {
     if (n.target_type() == typeid(std::uint8_t))
             return os << static_cast<std::uint16_t>(*n.target<std::uint8_t>());
-    if (n)
+    if (n && n.format)
+        return eggs::variants::apply([&os, &n](auto a) -> std::ostream& { return os << n.format(a); }, n);
+    if (n && !n.format)
         return eggs::variants::apply([&os](auto a) -> std::ostream& { return os << a; }, n);
     return os << "unset";
+}
+
+inline std::ostream& operator<<(std::ostream& os, const variant& n) {
+    return eggs::variants::apply([&os](auto a) -> std::ostream& { return os << a; }, n);
 }
 
 
@@ -141,6 +137,6 @@ inline std::ostream& operator<<(std::ostream& os, const tree& t) {
     return os << *t;
 }
 
-} // polysync
+} // namespace polysync
 
 

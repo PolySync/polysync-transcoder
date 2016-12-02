@@ -78,7 +78,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     }
 
     if (!table->contains("detector")) {
-        BOOST_LOG_SEV(log, severity::debug1)
+        BOOST_LOG_SEV(log, severity::debug2) 
             << "no sequel types following \"" << name << "\"";
         return;
     }
@@ -162,15 +162,15 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
         auto it = std::find_if(detector::catalog.begin(), detector::catalog.end(),
                     [name, sequel](auto f) { return f.parent == name && f.child == *sequel; });
         if (it != detector::catalog.end()) {
-            BOOST_LOG_SEV(log, severity::debug1) << "duplicate sequel \""
+            BOOST_LOG_SEV(log, severity::debug2) << "duplicate sequel \"" 
                 << name << "\" -> \"" << *sequel << "\" found but not installed";
             return;
         }
 
         detector::catalog.emplace_back(detector::type { name, match, *sequel });
 
-        BOOST_LOG_SEV(log, severity::debug1) <<  "installed sequel \""
-            << detector::catalog.back().parent << "\" -> \""
+        BOOST_LOG_SEV(log, severity::debug2) <<  "installed sequel \"" 
+            << detector::catalog.back().parent << "\" -> \"" 
             << detector::catalog.back().child << "\"";
     }
 }

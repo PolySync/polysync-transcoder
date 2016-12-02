@@ -1,5 +1,6 @@
 #pragma once
 
+#include <polysync/tree.hpp>
 #include <polysync/plog/decoder.hpp>
 
 #include <boost/config.hpp>  // for BOOST_SYMBOL_EXPORT
@@ -20,7 +21,7 @@ struct visitor {
 
     callback<plog::decoder&> open; // New plog file was opened.
     callback<plog::log_header&> log_header; // New plog file was opened and log_header read.
-    callback<const plog::log_record&> record; // Response to each log_record
+    callback<const node&> record; // Response to each log_record
     callback<const plog::decoder&> cleanup; // Decoder is destructed
     callback<const plog::type_support&> type_support; // Type support name/number association
 };
@@ -30,7 +31,7 @@ struct plugin {
     virtual po::options_description options() const = 0;
 
     // Every plugin must register the callbacks it needs.
-    virtual void connect(const po::variables_map&, visitor&) const = 0;
+    virtual void connect(const po::variables_map&, visitor&) = 0;
 };
 
 } // namespace encode
