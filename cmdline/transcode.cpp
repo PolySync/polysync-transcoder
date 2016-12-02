@@ -82,6 +82,9 @@ int catch_main(int ac, char* av[]) {
     po::options_description filter_opt("Filter Options");
     filter_opt.add_options()
         ("slice", po::value<std::string>(), "<begin:stride:end> Numpy style record slice syntax")
+        ("type", po::value<std::vector<std::string>>()
+            ->default_value(std::vector<std::string>())->composing()->multitoken(), 
+            "filter on type name")
         ;
 
     po::options_description positional_opt;
@@ -292,11 +295,11 @@ int catch_main(int ac, char* av[]) {
             if (slice[4].matched && !slice[5].matched)
                 throw polysync::error("bad slice format") << polysync::status::bad_argument;
 
-            size_t begin = slice[1].matched ? std::stol(slice[1]) : 0;
+            size_t begin = slice[1].matched ? std::stoll(slice[1]) : 0;
             size_t end = slice[2].matched ? -1 : begin + 1;
-            size_t stride = slice[4].matched ? std::stol(slice[3]) : 1;
-            end = slice[5].matched ? std::stol(slice[5]) : end;
-            end = (slice[3].matched && !slice[4].matched) ? std::stol(slice[3]) : end;
+            size_t stride = slice[4].matched ? std::stoll(slice[3]) : 1;
+            end = slice[5].matched ? std::stoll(slice[5]) : end;
+            end = (slice[3].matched && !slice[4].matched) ? std::stoll(slice[3]) : end;
 
             BOOST_LOG_SEV(log, severity::debug2) << "slice " << begin << ":" << stride << ":" << end;
             filter = [filter, begin, end](const plog::log_record& rec) {

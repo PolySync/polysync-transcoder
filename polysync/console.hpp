@@ -157,28 +157,6 @@ struct plain : interface {
     mutable std::vector<std::string> tab { "" };
 };
 
-struct markdown : interface {
-    std::string indent { "    " };
-    std::string begin_block(const std::string& name, const std::string& meta) const override { 
-        std::string result = tab.back() + "* " + name + ":\n";
-        tab.push_back(tab.back() + indent);
-        return result;
-    }
-
-    std::string end_block(const std::string& meta) const override {
-        tab.pop_back();
-        return meta;
-    }
-
-    std::string item(const std::string& name, const std::string& msg, const std::string& type) const override {
-        return tab.back() + "* " + name + ": " + msg + '\n';
-    }
-
-    mutable std::vector<std::string> tab { "" };
-
-};
-
-
 } // namespace formatter
 
 extern std::shared_ptr<formatter::interface> format;
