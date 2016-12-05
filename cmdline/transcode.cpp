@@ -278,10 +278,6 @@ int catch_main(int ac, char* av[]) {
 
     plugin_map.at(output)->connect(vm, visit);
 
-    // visit.record.connect([&log](const polysync::node& record) {
-    //         BOOST_LOG_SEV(log, severity::verbose) << record;
-    //         });
-
     // These rudimentary filters will move to a filter plugin
     std::function<bool (const plog::log_record&)> filter = [](const plog::log_record&) { return true; };
     if (vm.count("slice")) {
