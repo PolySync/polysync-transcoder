@@ -131,54 +131,6 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
 BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 
-// Printing is required by the logger and unit testing.
-
-#include <polysync/print_hana.hpp>
-
-namespace polysync { namespace plog {
-
-inline std::ostream& operator<<(std::ostream& os, const log_module& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
-        return os << field << " "; };
-    return hana::fold(record, os, f);
-}
-
-inline std::ostream& operator<<(std::ostream& os, const type_support& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
-        return os << field << " "; };
-    return hana::fold(record, os, f);
-}
-
-inline std::ostream& operator<<(std::ostream& os, const log_header& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
-        return os << field << " "; };
-    return hana::fold(record, os, f);
-}
-
-inline std::ostream& operator<<(std::ostream& os, const msg_header& record) {
-    os << "{ ";
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
-        return os << field << ", "; };
-    hana::fold(record, os, f);
-    return os << " }";
-}
-
-inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
-    auto f = [](std::ostream& os, auto field) mutable -> std::ostream& { 
-        return os << field << ", "; };
-    os << "log_record { ";
-    hana::fold(record, os, f);
-    return os << "}";
-    // return os << "payload: " << record.blob.size() << " bytes }";
-}
-
-inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
-    return os << static_cast<std::uint16_t>(value);
-}
-
-
-}} // namespace polysync::plog
-
 namespace polysync { namespace exception {
 
 using log_record = boost::error_info<struct tag_record, plog::log_record>;

@@ -1,11 +1,6 @@
-#include <polysync/plog/core.hpp>
-#include <polysync/plog/decoder.hpp>
-#include <polysync/detector.hpp>
-#include <polysync/plugin.hpp>
-#include <polysync/logging.hpp>
-#include <polysync/exception.hpp>
-#include <polysync/console.hpp>
-#include <polysync/print_hana.hpp>
+#include <iostream>
+#include <algorithm>
+#include <regex>
 
 // Use boost::dll and boost::filesystem to manage plugins.  Among other
 // benefits, it eases a Windows port.
@@ -15,9 +10,14 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#include <iostream>
-#include <algorithm>
-#include <regex>
+#include <polysync/plog/core.hpp>
+#include <polysync/plog/decoder.hpp>
+#include <polysync/detector.hpp>
+#include <polysync/plugin.hpp>
+#include <polysync/logging.hpp>
+#include <polysync/exception.hpp>
+#include <polysync/console.hpp>
+#include <polysync/print_hana.hpp>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

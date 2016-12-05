@@ -14,7 +14,8 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& record) {
     if (record.size() > 2*psize)
         os << "... ";
     if (record.size() > psize)
-        std::for_each(std::max(record.begin() + psize, record.end() - psize), record.end(), [&os](auto& field) mutable { os << field << " "; });
+        std::for_each(std::max(record.begin() + psize, record.end() - psize), record.end(), 
+                [&os](auto& field) mutable { os << field << " "; });
 
     os << "]" << std::dec << " (" << record.size() << " elements)";
     return os;
