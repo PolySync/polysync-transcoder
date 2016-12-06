@@ -45,7 +45,7 @@ plog::msg_header hana_factory::make<plog::msg_header>() {
 
 template <>
 plog::log_record hana_factory::make<plog::log_record>() {
-    return { 110, 120, 130, 250, "bigblob" };
+    return { 110, 120, 130, 250 };
 }
         
 

@@ -1,11 +1,11 @@
+#include <regex>
+
 #include <polysync/description.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/3rdparty/cpptoml.h>
-
-#include <regex>
+#include <deps/cpptoml.h>
 
 namespace polysync { 
 

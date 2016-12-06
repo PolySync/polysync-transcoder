@@ -21,8 +21,6 @@ polysync::tree decode_hex(const polysync::descriptor::type& desc, const std::str
     plog::decoder decode(stream);
     polysync::tree result = *decode(desc).target<polysync::tree>();
 
-    if (stream.tellg() < decode.endpos)
-        result->emplace_back("bytes", decode.decode_desc("raw"));
     return result;
 }
 

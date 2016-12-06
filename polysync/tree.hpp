@@ -27,14 +27,20 @@ struct node;
 struct tree : std::shared_ptr<std::vector<node>> {
     std::string type;
 
-    tree() : std::shared_ptr<std::vector<node>>(new std::vector<node>()) {}
-    tree(const std::string& type) : std::shared_ptr<std::vector<node>>(new std::vector<node>()), type(type) {}
-    tree(const std::string& type, std::initializer_list<node> init) : std::shared_ptr<std::vector<node>>(new std::vector<node>(init)), type(type) {}
+    tree() : std::shared_ptr<std::vector<node>>( new std::vector<node>() ) {}
+
+    tree( const std::string& type ) : 
+        std::shared_ptr< std::vector<node> >( new std::vector<node>() ), type(type) {}
+
+    tree( const std::string& type, std::initializer_list<node> init ) 
+        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ), type(type) {}
 };
 
 // Add some context to exceptions
 namespace exception {
+
 using tree = boost::error_info<struct tree_type, tree>;
+
 }
 
 // Fallback to a generic memory chunk when a description is unavailable.
@@ -42,6 +48,7 @@ using bytes = std::vector<std::uint8_t>;
 
 // Each leaf node in the tree may contain any of a limited set of types, defined here.
 using variant = eggs::variant<
+
     // Nested types and vectors of nested types
     tree, std::vector<tree>,
 
@@ -61,6 +68,7 @@ using variant = eggs::variant<
     std::uint16_t, std::vector<std::uint16_t>, 
     std::uint32_t, std::vector<std::uint32_t>, 
     std::uint64_t, std::vector<std::uint64_t>
+
     >;
 
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
@@ -69,22 +77,22 @@ using variant = eggs::variant<
 struct node : variant {
 
     template <typename T>
-    node(const std::string& n, const T& value) : variant(value), name(n) { }
+    node( const std::string& n, const T& value ) : variant( value ), name( n ) { }
 
     const std::string name;
-    std::function<std::string (const variant&)> format;
+    std::function<std::string ( const variant& )> format;
 
     // Convert a hana structure into a vector of dynamic nodes.
     template <typename Struct>
-    static node from(const Struct& s, const std::string&);
+    static node from( const Struct& s, const std::string& );
 };
 
-inline bool operator==(const tree& lhs, const tree& rhs) { 
-    if (lhs->size() != rhs->size())
+inline bool operator==( const tree& lhs, const tree& rhs ) { 
+    if ( lhs->size() != rhs->size() )
         return false;
 
-    return std::equal(lhs->begin(), lhs->end(), rhs->begin(), rhs->end(), 
-            [](const node& ln, const node& rn) {
+    return std::equal( lhs->begin(), lhs->end(), rhs->begin(), rhs->end(), 
+            []( const node& ln, const node& rn ) {
 
                 // If the two nodes are both trees, recurse.
                 const tree* ltree = ln.target<tree>();
@@ -96,21 +104,22 @@ inline bool operator==(const tree& lhs, const tree& rhs) {
                 return ln == rn;
             });
 }
-inline bool operator!=(const tree& lhs, const tree& rhs) { return !operator==(lhs, rhs); }
+
+inline bool operator!=( const tree& lhs, const tree& rhs ) { return !operator==( lhs, rhs ); }
 
 // Convert a hana structure into a vector of dynamic nodes.
 template <typename Struct>
-inline node node::from(const Struct& s, const std::string& type) {
+inline node node::from( const Struct& s, const std::string& type ) {
     tree tr(type);
-    hana::for_each(s, [tr](auto pair) { 
-            std::string name = hana::to<char const*>(hana::first(pair));
-            tr->emplace_back(name, hana::second(pair));
+    hana::for_each( s, [tr](auto pair) { 
+            std::string name = hana::to<char const*>( hana::first(pair) );
+            tr->emplace_back( name, hana::second(pair) );
             });
         
-    return node(type, tr);
+    return node( type, tr );
 }
 
-inline std::ostream& operator<<(std::ostream&, const tree&); 
+inline std::ostream& operator<<( std::ostream&, const tree& ); 
 
 } // namespace polysync
 
@@ -118,22 +127,22 @@ inline std::ostream& operator<<(std::ostream&, const tree&);
 
 namespace polysync {
 
-inline std::ostream& operator<<(std::ostream& os, const node& n) {
-    if (n.target_type() == typeid(std::uint8_t))
-            return os << static_cast<std::uint16_t>(*n.target<std::uint8_t>());
-    if (n && n.format)
-        return eggs::variants::apply([&os, &n](auto a) -> std::ostream& { return os << n.format(a); }, n);
-    if (n && !n.format)
-        return eggs::variants::apply([&os](auto a) -> std::ostream& { return os << a; }, n);
+inline std::ostream& operator<<( std::ostream& os, const node& n ) {
+    if ( n.target_type() == typeid(std::uint8_t) )
+            return os << static_cast<std::uint16_t>( *n.target<std::uint8_t>() );
+    if ( n && n.format )
+        return eggs::variants::apply([&os, &n]( auto a ) -> std::ostream& { return os << n.format(a); }, n);
+    if ( n && !n.format )
+        return eggs::variants::apply([&os]( auto a ) -> std::ostream& { return os << a; }, n);
     return os << "unset";
 }
 
-inline std::ostream& operator<<(std::ostream& os, const variant& n) {
-    return eggs::variants::apply([&os](auto a) -> std::ostream& { return os << a; }, n);
+inline std::ostream& operator<<( std::ostream& os, const variant& n ) {
+    return eggs::variants::apply([&os]( auto a ) -> std::ostream& { return os << a; }, n);
 }
 
 
-inline std::ostream& operator<<(std::ostream& os, const tree& t) {
+inline std::ostream& operator<<( std::ostream& os, const tree& t ) {
     return os << *t;
 }
 

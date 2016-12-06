@@ -16,7 +16,6 @@ include_directories( . "deps/eggs/include" )
 add_subdirectory( lib )
 add_subdirectory( cmdline )
 add_subdirectory( plugin )
-# add_subdirectory( binding )
 # add_subdirectory( test )
 # add_subdirectory( features )
 
