@@ -2,18 +2,13 @@
 #include <algorithm>
 #include <regex>
 
-// Use boost::dll and boost::filesystem to manage plugins.  Among other
-// benefits, it eases a Windows port.
-#include <boost/dll/import.hpp>
-#include <boost/dll/shared_library.hpp>
-#include <boost/dll/runtime_symbol_info.hpp> // for program_location()
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
-#include <polysync/detector.hpp>
 #include <polysync/plugin.hpp>
+#include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/console.hpp>
@@ -21,12 +16,18 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-namespace dll = boost::dll;
 namespace plog = polysync::plog;
 namespace ps = polysync;
 
 using ps::logging::severity;
 using ps::logging::logger;
+
+namespace polysync {
+
+namespace toml { extern po::options_description options( const fs::path& exe ); }
+namespace toml { extern void load(const po::variables_map&);  }
+
+} // namespace polysync
 
 namespace std {
 
@@ -39,7 +40,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
 
 } // namespace std
 
-std::map< std::string, boost::shared_ptr<ps::encode::plugin> > plugin_map;
 
 int catch_main( int ac, char* av[] ) {
 
@@ -64,42 +64,27 @@ int catch_main( int ac, char* av[] ) {
     general_opt.add_options()
         ( "help,h", "print this help message" )
         ( "verbose,v", po::value<std::string>()->default_value("info"), "debug level" )
-        ( "plain,p", "remove color from formatting" )
-        ( "plugdir,P", po::value<std::vector<fs::path>>()
-                ->default_value(std::vector<fs::path>{ 
-                    "./plugin", exe.parent_path() / "../plugin" } )
-                ->composing(),
-                "plugin path last" )
-        ( "descdir,D", po::value<std::vector<fs::path>>()
-                ->default_value( std::vector<fs::path>{
-                    "../share", exe.parent_path() / "../../share" } )
-                ->composing()
-                ->multitoken(),
-                "TOFL type description path list" )
-        ;
-
-    // These will move to a filters plugin.
-    po::options_description filter_opt( "Filter Options" );
-    filter_opt.add_options()
-        ( "slice", po::value<std::string>(), "<begin:stride:end> Numpy style record slice syntax" )
+        ( "plain,p", "remove color from console formatting" )
         ;
 
     po::options_description positional_opt;
     positional_opt.add_options()
         ( "path", po::value<std::vector<fs::path>>(), "plog input files" )
-        ( "output", po::value<std::string>()->default_value("list"), "Output formatter" )
-        ( "subargs", po::value<std::vector<std::string>>(), "Arguments for output formatter" )
+        ( "encoder", po::value<std::string>()->default_value("list"), "Output encoder" )
+        ( "subargs", po::value<std::vector<std::string>>(), "Encoder arguments" )
         ;
 
     po::positional_options_description posdesc;
-    posdesc.add( "path", 1 ).add( "output", 1 ).add( "subargs", -1 );
+    posdesc.add( "path", 1 ).add( "encoder", 1 ).add( "subargs", -1 );
 
     po::options_description cmdline, helpline;  // These are the same except for positional_opt.
-    cmdline.add( general_opt ).add( filter_opt ).add( positional_opt );
-    helpline.add( general_opt ).add( filter_opt );
+    po::options_description toml_opt = polysync::toml::options( exe );
+    po::options_description plugin_opt = polysync::plugin::options( exe );
+    cmdline.add( general_opt ).add( toml_opt ).add( plugin_opt ).add( positional_opt );
+    helpline.add( general_opt ).add( toml_opt ).add( plugin_opt );
 
     // Do the first of two parses.  This first one is required to discover the
-    // plugin path and the subcommand name.
+    // plugin path and the encoder name.
     po::variables_map vm;
     po::parsed_options parse = po::command_line_parser( ac, av )
         .options(cmdline)
@@ -115,130 +100,30 @@ int catch_main( int ac, char* av[] ) {
     if (vm.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();
 
-    // We have some hard linked plugins.  This makes important ones and that
-    // have no extra dependencies always available, even if the plugin path is
-    // misconfigured.  It also makes the query options appear first in the help
-    // screen, also useful.
-    dll::shared_library self( dll::program_location() );
-    for ( std::string plugname: { "list", "dump" } ) {
-        auto plugin_factory = 
-            self.get_alias<boost::shared_ptr<ps::encode::plugin>()>( plugname + "_plugin" );
-        auto plugin = plugin_factory();
-        po::options_description opt = plugin->options();
-        helpline.add( opt );
-        cmdline.add( opt );
-        plugin_map.emplace( plugname, plugin );
-    }
+    polysync::toml::load( vm );
 
-    // Iterate the plugin path, and for each path load every valid entry in
-    // that path.  Add options to parser.
-    for ( fs::path plugdir: vm["plugdir"].as<std::vector<fs::path>>() ) {
+    po::options_description filter_opts = polysync::filter::load( vm, exe );
+    cmdline.add( filter_opts );
+    helpline.add( filter_opts );
 
-        if ( !fs::exists( plugdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping non-existing plugin path " << plugdir;
-            continue;
-        }
-
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << plugdir << " for plugins";
-        static std::regex is_plugin( R"(.*transcode\.(.+)\.so)" );
-        for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
-            std::cmatch match;
-            std::regex_match( lib.path().string().c_str(), match, is_plugin );
-            if ( match.size() ) {
-                std::string plugname = match[1];
-
-                if ( plugin_map.count(plugname) ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) << "encoder \"" << plugname << "\"already loaded";
-                    continue;
-                }
-
-                try {
-                    boost::shared_ptr<ps::encode::plugin> plugin = 
-                        dll::import<ps::encode::plugin>( lib.path(), "encoder" );
-                    BOOST_LOG_SEV( log, severity::debug1 ) << "loaded encoder from " << lib.path();
-                    po::options_description opt = plugin->options();
-                    helpline.add( opt );
-                    cmdline.add( opt );
-                    plugin_map.emplace( plugname, plugin );
-                } catch ( std::runtime_error& ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) 
-                        << lib.path() << " provides no encoder; symbols not found";
-                }
-            } else {
-                BOOST_LOG_SEV( log, severity::debug2 ) 
-                    << lib.path() << " provides no encoder; filename mismatch";
-            }
-        }
-    }
+    po::options_description encode_opts = polysync::encode::load( vm, exe );
+    cmdline.add( encode_opts );
+    helpline.add( encode_opts );
 
     if ( vm.count("help") ) {
         std::cout << format->header( "PolySync Transcoder" ) << std::endl << std::endl;
         std::cout << "Usage:" << std::endl;
-        std::cout << "\ttranscode [general-options] <input-file> <output-plugin> [output-options]" 
-                  << std::endl;
+        std::cout << "\ttranscode [options] <input-file> <encoder> [encoder-options]" << std::endl;
         std::cout << helpline << std::endl << std::endl;
         return ps::status::ok;
-    }
-
-
-    for ( fs::path descdir: vm["descdir"].as<std::vector<fs::path>>() ) {
-
-        if ( !fs::exists( descdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping description path " << descdir 
-                << " because it does not exist";
-            continue;
-        }
-
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << descdir << " for type descriptions";
-        static std::regex is_description( R"((.+)\.toml)" );
-        for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) ) {
-            std::cmatch match;
-            std::regex_match( tofl.path().string().c_str(), match, is_description );
-            if (match.size()) {
-                BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << tofl;
-                try {
-                    std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file( tofl.path().string() );
-
-                    // Parse the file in two passes, so the detectors have
-                    // access to the descriptor's types
-                    for ( const auto& type: *descfile ) {
-                        if ( type.second->is_table() )
-                            ps::descriptor::load(
-                                    type.first, type.second->as_table(), ps::descriptor::catalog );
-                        else if ( type.second->is_value() ) {
-                            auto val = type.second->as<std::string>();
-                            if ( !ps::descriptor::namemap.count(val->get()) )
-                                throw ps::error( "unknown type alias" ) 
-                                    << ps::exception::type(type.first);
-                            std::type_index idx = ps::descriptor::namemap.at(val->get());
-                            ps::descriptor::namemap.emplace( type.first, idx );
-                            BOOST_LOG_SEV( log, severity::debug2 ) 
-                                << "loaded type alias " << type.first << " = " << val->get();
-                        } else
-                            BOOST_LOG_SEV( log, severity::warn ) << "unused description: " << type.first;
-                    }
-                    for ( const auto& type: *descfile )
-                        if ( type.second->is_table() )
-                            ps::detector::load(
-                                    type.first, type.second->as_table(), ps::detector::catalog );
-                } catch ( ps::error& e ) {
-                    e << ps::status::description_error;
-                    e << ps::exception::path( tofl.path().string() );
-                    throw;
-                } catch ( cpptoml::parse_exception& e ) {
-                    throw polysync::error( e.what() ) << ps::status::description_error
-                        << ps::exception::path( tofl.path().string() );
-                }
-            }
-        }
     }
 
     if ( !vm.count("path") ) 
         throw ps::error( "no input files" ) << ps::status::bad_input;
 
-    std::string output = vm["output"].as<std::string>();
-    if ( !plugin_map.count( output ) ) {
-        std::cerr << "error: unknown output \"" << output << "\"" << std::endl;
+    std::string encoder = vm["encoder"].as<std::string>();
+    if ( !ps::encode::map.count( encoder ) ) {
+        std::cerr << "error: unknown output \"" << encoder << "\"" << std::endl;
         exit( ps::status::no_plugin );
     }
 
@@ -246,12 +131,14 @@ int catch_main( int ac, char* av[] ) {
     if ( !opts.empty() ) {
         opts.erase( opts.begin() );
 
-        po::options_description output_opt = plugin_map.at( output )->options();
+        po::options_description encoder_opts = ps::encode::map.at( encoder )->options();
 
-        // Parse again, with now with output options
-        po::store( po::command_line_parser( opts ).options( output_opt ).run(), vm );
+        // Parse again, with now with encoder options
+        po::store( po::command_line_parser( opts ).options( encoder_opts ).run(), vm );
         po::notify(vm);
     }
+
+    std::function<bool ( const plog::log_record& )> filter = []( const plog::log_record& ) { return true; };
 
     ps::descriptor::catalog.emplace( "log_record", ps::descriptor::describe<plog::log_record>::type() );
     ps::descriptor::catalog.emplace( "msg_header", ps::descriptor::describe<plog::msg_header>::type() );
@@ -275,34 +162,9 @@ int catch_main( int ac, char* av[] ) {
             plog::type_support_map.emplace( t.type, t.name ); 
             } );
 
-    plugin_map.at( output )->connect( vm, visit );
+    ps::encode::map.at( encoder )->connect( vm, visit );
 
-    // These rudimentary filters will move to a filter plugin
-    std::function<bool ( const plog::log_record& )> filter = []( const plog::log_record& ) { return true; };
-    if ( vm.count("slice") ) {
-        // Emulate the the excellent Python Numpy slicing syntax
-        static std::regex slice_re( R"((\d+)?(:)?(\d+)?(:)?(\d+)?)" );
-        std::smatch slice;
-        if ( std::regex_match(vm["slice"].as<std::string>(), slice, slice_re) ) {
-            if ( slice[4].matched && !slice[5].matched )
-                throw polysync::error( "bad slice format" ) << polysync::status::bad_argument;
-
-            size_t begin = slice[1].matched ? std::stol( slice[1] ) : 0;
-            size_t end = slice[2].matched ? -1 : begin + 1;
-            size_t stride = slice[4].matched ? std::stol( slice[3] ) : 1;
-            end = slice[5].matched ? std::stol( slice[5] ) : end;
-            end = ( slice[3].matched && !slice[4].matched ) ? std::stol( slice[3] ) : end;
-
-            BOOST_LOG_SEV( log, severity::debug2 ) << "slice " << begin << ":" << stride << ":" << end;
-            filter = [filter, begin, end]( const plog::log_record& rec ) {
-                return filter( rec ) && ( rec.index >= begin ) && ( rec.index < end );
-            };
-        }
-        else
-            throw polysync::error( "bad slice format" ) << polysync::status::bad_argument;
-        
-    }
-    
+   
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
     for ( fs::path path: vm["path"].as<std::vector<fs::path>>() ) 

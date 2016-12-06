@@ -100,7 +100,7 @@ void pretty_printer::print( tree top ) const {
 struct dump : encode::plugin {
 
     po::options_description options() const override {
-        po::options_description opt("dump: Display PLog file contents");
+        po::options_description opt("dump: Display file contents");
         opt.add_options()
             ;
         return opt;
