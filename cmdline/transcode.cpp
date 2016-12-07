@@ -87,7 +87,8 @@ int catch_main( int ac, char* av[] ) {
     // Check that the environment is set up so the plugins do not have to.
     char* libdir = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
     if ( libdir == nullptr )
-        throw polysync::error("POLYSYNC_TRANSCODER_LIB unset; cannot find TOML or plugins");
+        throw polysync::error("POLYSYNC_TRANSCODER_LIB unset; cannot find TOML or plugins")
+            << polysync::status::bad_environment;
 
     // Find all the runtime resources and load them
     po::options_description toml_opts = ps::toml::load();

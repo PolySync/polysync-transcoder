@@ -23,6 +23,8 @@ node('clang') {
       //sh 'make test'
       echo 'Unit Tests Complete!'
     }, 'acceptance tests': {
+      sh 'behave bad-inputs.feature'
+      sh 'behave filter.slice.feature'
       echo 'Acceptance Tests Complete!'
     }
   }

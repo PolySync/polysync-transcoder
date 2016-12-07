@@ -24,6 +24,7 @@ enum status : int {
     bad_input = -2, // Error configuring the input dataset
     no_plugin = -3, // Error configuring the output plugin 
     description_error = -4, // Problem with a TOML file
+    bad_environment = -5, // Error configuring runtime environment
 };
 
 namespace exception {

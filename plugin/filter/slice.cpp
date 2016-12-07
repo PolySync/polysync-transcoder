@@ -29,26 +29,29 @@ struct slice : filter::plugin {
             // Emulate the the excellent Python Numpy slicing syntax
             static std::regex slice_re( R"((\d+)?(:)?(\d+)?(:)?(\d+)?)" );
             std::smatch slice;
-            if ( std::regex_match(cmdline_args["slice"].as<std::string>(), slice, slice_re) ) {
-                if ( slice[4].matched && !slice[5].matched )
-                    throw polysync::error( "bad slice format" ) << polysync::status::bad_argument;
-
+            std::string arg = cmdline_args["slice"].as<std::string>();
+            if ( std::regex_match(arg, slice, slice_re) ) {
                 size_t begin = slice[1].matched ? std::stol( slice[1] ) : 0;
-                size_t end = slice[2].matched ? -1 : begin + 1;
-                size_t stride = slice[4].matched ? std::stol( slice[3] ) : 1;
-                end = slice[5].matched ? std::stol( slice[5] ) : end;
-                end = ( slice[3].matched && !slice[4].matched ) ? std::stol( slice[3] ) : end;
-
+                size_t stride = slice[3].matched ? std::stol( slice[3] ) : 1;
+                size_t end = slice[5].matched ? std::stol( slice[5] ) : -1;
+                if ( slice[3].matched and !slice[4].matched) {
+                    end = std::stol( slice[3] );
+                    stride = 1;
+                }
+                if ( !slice[2].matched )
+                    end = begin + 1;
                 BOOST_LOG_SEV( log, severity::debug2 ) << "slice " << begin << ":" << stride << ":" << end;
 
-                return [begin, end]( const plog::log_record& rec ) {
-                    return ( rec.index >= begin ) && ( rec.index < end );
+                return [begin, stride, end]( const plog::log_record& rec ) {
+                    return ( rec.index >= begin ) and ( rec.index < end ) and
+                        ( (rec.index - begin) % stride == 0 );
                 };
             }
             else
-                throw polysync::error( "bad slice format" ) << polysync::status::bad_argument;
+                throw polysync::error( "bad slice format \"" + arg + "\"" ) << polysync::status::bad_argument;
         }
 
+        // Return empty filter; this will be thrown out in main()
         return filter::type();
     }
 

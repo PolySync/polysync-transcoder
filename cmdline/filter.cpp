@@ -34,7 +34,7 @@ po::options_description load() {
     for ( std::string plugname: { "slice" } ) {
         auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>( plugname + "_plugin" );
         filter::map.emplace( plugname, factory() );
-        BOOST_LOG_SEV( log, severity::debug1 ) << "\"" << plugname << "\" found: hard linked";
+        BOOST_LOG_SEV( log, severity::debug1 ) << "\"" << plugname << "\" plugin found: hard linked";
     }
 
 
