@@ -13,26 +13,28 @@ static logging::logger log { "dump" };
 using logging::severity;
 
 struct pretty_printer {
+    std::ostream& os;
 
-    void print(std::ostream& os, const node& n, tree top) const; 
-    void print(std::ostream& os, tree top) const; 
+    // Entry point from visitor callback
+    void operator()(const node& top) const { print (top, *top.target<tree>()); }
+
+    void print(const node& n, tree top) const; 
+    void print(tree top) const; 
 
     template <typename T>
-    void print(std::ostream& os, const node& n, const std::vector<T>& array) const {
+    void print(const node& n, const std::vector<T>& array) const {
         os << format->begin_block(n.name);
-        for (const T& value: array) {
-            os << value; // FIXME
-        }
+        std::for_each(array.begin(), array.end(), [this](const T& v) { os << v; });
         os << format->end_block();
     }
 
-    void print(std::ostream& os, const polysync::node& node, const std::vector<tree>& array) const {
+    void print(const polysync::node& node, const std::vector<tree>& array) const {
         os << format->begin_block(node.name);
         size_t rec = 0;
         for (const tree& value: array) {
             rec += 1;
             os << format->begin_ordered(rec, value.type);
-            print(os, value); 
+            print(value); 
             os << format->end_ordered();
         };
         os << format->end_block();
@@ -41,15 +43,18 @@ struct pretty_printer {
     // Pretty print terminal types
     template <typename Number>
     typename std::enable_if_t<std::is_arithmetic<Number>::value>
-    print(std::ostream& os, const node& n, const Number& value) const {
+    print(const node& n, const Number& value) const {
         std::stringstream ss;
-        ss << value;
+        if (n.format)
+            ss << n.format(n);
+        else
+            ss << value;
         std::string type = descriptor::typemap.at(typeid(Number)).name;
         os << format->item(n.name, ss.str(), type);
     }
 
-    // Print chars as integers
-    void print(std::ostream& os, const node& n, const std::uint8_t& value) const {
+    // Specialize chars so they print as integers
+    void print(const node& n, const std::uint8_t& value) const {
         std::stringstream ss;
         ss << static_cast<std::uint16_t>(value);
         os << format->item(n.name, ss.str(), "uint16");
@@ -58,7 +63,7 @@ struct pretty_printer {
 
 // Specialize bytes so it does not print characters, which is useless behavior.
 template <>
-void pretty_printer::print(std::ostream& os, const node& n, const bytes& record) const {
+void pretty_printer::print(const node& n, const bytes& record) const {
     std::stringstream ss;
     const int psize = 12;
     ss << "[ " << std::hex;
@@ -72,21 +77,21 @@ void pretty_printer::print(std::ostream& os, const node& n, const bytes& record)
                 [&ss](auto& field) mutable { ss << ((std::uint16_t)field & 0xFF) << " "; });
 
     ss << "]" << std::dec << " (" << record.size() << " elements)";
-    format->item(n.name, ss.str(), "");
+    os << format->item(n.name, ss.str(), "");
 }
 
-void pretty_printer::print( std::ostream& os, const node& n, tree top ) const {
+void pretty_printer::print( const node& n, tree top ) const {
     os << format->begin_block(n.name);
     for (const polysync::node& node: *top) 
-        eggs::variants::apply([&](auto& f) { print(os, node, f); }, node);
+        eggs::variants::apply([&](auto& f) { print( node, f); }, node);
     os << format->end_block();
 }
 
-void pretty_printer::print( std::ostream& os, tree top ) const {
+void pretty_printer::print( tree top ) const {
     format->begin_block(top.type);
     std::for_each(top->begin(), top->end(), 
             [&](auto& pair) { 
-            eggs::variants::apply([&](auto& f) { print(os, pair, f); }, pair);
+            eggs::variants::apply([&](auto& f) { print(pair, f); }, pair);
             });
     format->end_block();
 }
@@ -94,24 +99,15 @@ void pretty_printer::print( std::ostream& os, tree top ) const {
 
 struct dump : encode::plugin {
 
-    po::options_description options() const {
-        po::options_description opt("Dump Options");
+    po::options_description options() const override {
+        po::options_description opt("dump: Display file contents");
         opt.add_options()
             ;
         return opt;
     };
 
-    void connect(const po::variables_map& vm, encode::visitor& visit) const {
-
-        pretty_printer pretty;
-
-        visit.record.connect([pretty](const plog::log_record& record) { 
-                BOOST_LOG_SEV(log, severity::verbose) << record;
-                std::istringstream iss(record.blob);
-                plog::decoder decode(iss);
-                node top("log_record", decode(record));
-                pretty.print(std::cout, top, *top.target<tree>());
-                });
+    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
+        visit.record.connect(pretty_printer { std::cout } );
     }
 };
 

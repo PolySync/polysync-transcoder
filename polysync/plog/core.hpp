@@ -16,16 +16,18 @@
 // Most of the PolySync message types are dynamically defined elsewhere, which
 // is why this file is deliberately small.
 
-#include <boost/hana.hpp>
-#include <boost/optional.hpp>
-
 #include <cstdint>
 #include <vector>
 #include <map>
 #include <algorithm>
 
+#include <boost/hana.hpp>
+#include <boost/optional.hpp>
 // Pull in a multiprecision type to support the PolySync hash and any other CRC types.
 #include <boost/multiprecision/cpp_int.hpp>
+
+#include <polysync/exception.hpp>
+#include <polysync/tree.hpp>
 
 namespace polysync { namespace plog {
 
@@ -112,7 +114,6 @@ struct log_record {
     std::uint32_t size;
     std::uint32_t prev_size;
     plog::timestamp timestamp;
-    std::string blob;
 };
 
 extern std::map<plog::msg_type, std::string> type_support_map;
@@ -167,7 +168,8 @@ inline std::ostream& operator<<(std::ostream& os, const log_record& record) {
         return os << field << ", "; };
     os << "log_record { ";
     hana::fold(record, os, f);
-    return os << "payload: " << record.blob.size() << " bytes }";
+    return os << "}";
+    // return os << "payload: " << record.blob.size() << " bytes }";
 }
 
 inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
@@ -177,9 +179,9 @@ inline std::ostream& operator<<(std::ostream& os, std::uint8_t value) {
 
 }} // namespace polysync::plog
 
-namespace std {
+namespace polysync { namespace exception {
 
-} // namespace std
+using log_record = boost::error_info<struct tag_record, plog::log_record>;
 
-
+}}
 

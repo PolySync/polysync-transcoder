@@ -107,7 +107,6 @@ public:
 public:
 
     void encode( const polysync::variant& n ) {
-        // BOOST_LOG_SEV(log, severity::debug1) << "encoding " << n.name;
         eggs::variants::apply([this](auto& value) { encode(value); }, n);
     }
 

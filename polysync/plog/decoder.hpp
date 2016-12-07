@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/endian/arithmetic.hpp>
+
 #include <polysync/tree.hpp>
 #include <polysync/description.hpp>
 #include <polysync/plog/core.hpp>
@@ -21,8 +23,11 @@ struct decoder;
 // Define an STL compatible iterator to traverse plog files
 struct iterator {
 
+    iterator(decoder*, std::streamoff);
+
     decoder* stream;
     std::streamoff pos; // file offset from std::ios_base::beg, pointing to next record
+    log_record header;
 
     bool operator!=(const iterator& other) const { return pos < other.pos; }
     bool operator==(const iterator& other) const { return pos == other.pos; }
@@ -35,18 +40,21 @@ class decoder {
 public:
 
     decoder(std::istream& st) : stream(st) {
+        stream.exceptions(std::ifstream::failbit);
+
+        // Find the last byte of the file
         stream.seekg(0, std::ios_base::end);
         endpos = stream.tellg();
         stream.seekg(0, std::ios_base::beg);
     }
 
     // Factory methods for STL compatible iterators
-    iterator begin() { return iterator { this, stream.tellg() }; }
-    iterator end() { return iterator { this, endpos }; }
+    iterator begin() { return iterator (this, stream.tellg()); }
+    iterator end() { return iterator (nullptr, endpos); }
 
 public:
     // Decode an entire record and return a parse tree.
-    variant operator()(const log_record&);
+    variant deep(const log_record&);
     variant operator()(const descriptor::type& type) { return decode(type); }
     
 public:
@@ -57,11 +65,16 @@ public:
     // For flat objects like arithmetic types, just straight copy memory as
     // blob to file. In particular, most types that are not hana structures are these.
     template <typename Number>
-    typename std::enable_if_t<!hana::Foldable<Number>::value>
+    typename std::enable_if_t<std::is_arithmetic<Number>::value>
     decode(Number& value) {
         stream.read((char *)(&value), sizeof(Number)); 
     }
 
+    // Endian swapped types
+    template <typename T, size_t N>
+    void decode(boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value) {
+        stream.read((char *)value.data(), sizeof(T));
+    }
 
     void decode(hash_type& value) {
         bytes buf(16); // 16 should be a template param, but I cannot get it to match.
@@ -74,8 +87,7 @@ public:
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Struct, 
-             class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
+    template <typename Struct, class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
     void decode(Struct& record) {
         hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
                 decode(hana::at_key(record, key));
@@ -103,14 +115,6 @@ public:
         stream.read((char *)(name.data()), len); 
     }
 
-    // Specialize log_record because the binary blob needs special handling
-    void decode(log_record& record) {
-        decode<log_record>(record);
-        std::streamoff sz = record.size;
-        record.blob.resize(sz);
-        stream.read((char *)record.blob.data(), record.blob.size());
-    }
-
     // Decode a dynamic type using the description name.  This name will become
     // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
     variant decode_desc(const std::string& type, bool endian = false);
@@ -130,12 +134,21 @@ public:
         return std::move(value);
     }
 
-    // Deserialize a structure from a known offset in the file
+    // Deserialize a structure from a known offset in the file.  This is the
+    // method used when dereferencing the iterator, because the iterator knows
+    // the offset of a particular record.
     template <typename T>
     T decode(std::streamoff pos) {
-      stream.seekg(pos);
+        stream.seekg(pos);
         return decode<T>();
     }
+
+    template <typename T>
+    void decode(T& value, std::streamoff pos) {
+        stream.seekg(pos);
+        decode<T>(value);
+    }
+
 
     // Expose the decode() members as operator(), for convenience.
     template <typename... Args>
@@ -143,20 +156,32 @@ public:
 
     logging::logger log { "decoder" };
 
-// protected:
+protected:
+
+    friend struct branch_builder;
+    friend struct iterator;
 
     std::istream& stream;
-    std::streamoff endpos;
+
+    std::streamoff endpos; // the last byte of the file
+    std::streamoff record_endpos; // the last byte of the current record
 };
 
+inline iterator::iterator(decoder* s, std::streamoff pos) : stream(s), pos(pos) {
+    if (stream)
+        stream->decode(header, pos);
+} 
+
 inline log_record iterator::operator*() { 
-    return stream->decode<log_record>(pos); 
+    return header;
 }
 
 inline iterator& iterator::operator++() {
     
     // Advance the iterator's position to the beginning of the next record.
-    pos += descriptor::size<log_record>::value() + stream->decode<log_record>(pos).size;
+    pos += descriptor::size<log_record>::value() + header.size;
+    if (pos < stream->endpos)
+        stream->decode(header, pos);
     return *this;
 }
 

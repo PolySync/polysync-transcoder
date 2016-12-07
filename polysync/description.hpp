@@ -6,13 +6,14 @@
 // message types are found in every plog file, and are specially defined in
 // core.hpp, and not by the dynamic mechanism implemented here.
 
+#include <typeindex>
+
+#include <boost/hana.hpp>
+
 #include <polysync/console.hpp>
 #include <polysync/tree.hpp>
 #include <polysync/exception.hpp>
-#include <polysync/3rdparty/cpptoml.h>
-
-#include <boost/hana.hpp>
-#include <typeindex>
+#include <deps/cpptoml.h>
 
 namespace polysync { namespace descriptor {
 
@@ -48,19 +49,19 @@ struct array {
 
 
 // The unit tests require comparing these classes.
-inline bool operator==(const terminal& lhs, const terminal& rhs) {
+inline bool operator==( const terminal& lhs, const terminal& rhs ) {
     return lhs.name == rhs.name && lhs.size == rhs.size;
 }
 
-inline bool operator==(const nested& lhs, const nested& rhs) {
+inline bool operator==( const nested& lhs, const nested& rhs ) {
     return lhs.name == rhs.name;
 }
 
-inline bool operator==(const skip& lhs, const skip& rhs) {
+inline bool operator==( const skip& lhs, const skip& rhs ) {
     return lhs.order == rhs.order && lhs.size == rhs.size;
 }
 
-inline bool operator==(const array& lhs, const array& rhs) {
+inline bool operator==( const array& lhs, const array& rhs ) {
     return lhs.size == rhs.size && lhs.type == rhs.type;
 }
 
@@ -76,17 +77,17 @@ struct field {
     // is optional.
     bool bigendian { false };
 
-    std::function<std::string (const node&)> format { 
+    std::function<std::string ( const polysync::variant& )> format { 
         // The default implementation just finds the operator<< overload for the node.
-        [](const node& n) { 
+        [](const polysync::variant& n) { 
             std::stringstream os;
-            os << n;
+            eggs::variants::apply([&os]( auto v ) { os << v; }, n);
             return os.str(); 
         }};
 
 };
 
-inline bool operator==(const field& lhs, const field& rhs) {
+inline bool operator==( const field& lhs, const field& rhs ) {
     return lhs.name == rhs.name && lhs.type == rhs.type;
 }
 
@@ -104,7 +105,7 @@ struct type : std::vector<field> {
     const std::string name;
 };
 
-inline bool operator==(const type& lhs, const type& rhs) {
+inline bool operator==( const type& lhs, const type& rhs ) {
     return (lhs.name == rhs.name);
 }
 
@@ -116,7 +117,7 @@ extern std::map<std::type_index, terminal> typemap;
 extern std::map<std::string, std::type_index> namemap; 
 
 // Traverse a TOML table 
-extern void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type&);
+extern void load( const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& );
 
 // Create a type description of a static structure, using hana for class instrospection
 template <typename Struct>
@@ -125,47 +126,47 @@ struct describe {
     // Static introspection of the descriptor for Struct
     static descriptor::type type() {
         namespace hana = boost::hana;
-        if (!typemap.count(typeid(Struct)))
-            throw polysync::error("unnamed type") 
-                << exception::type(typeid(Struct).name())
-                << exception::module("description")
+        if ( !typemap.count( typeid( Struct ) ) )
+            throw polysync::error( "unnamed type" ) 
+                << exception::type( typeid( Struct ).name() )
+                << exception::module( "description" )
                 << status::description_error;
 
-        std::string tpname = descriptor::typemap.at(typeid(Struct)).name; 
+        std::string tpname = descriptor::typemap.at( typeid( Struct ) ).name; 
 
-        return hana::fold(Struct(), descriptor::type(tpname), [](auto desc, auto pair) { 
-                std::string name = hana::to<char const*>(hana::first(pair));
+        return hana::fold( Struct(), descriptor::type(tpname), []( auto desc, auto pair ) { 
+                std::string name = hana::to<char const*>( hana::first( pair ) );
 
-                if (typemap.count(typeid(hana::second(pair))) == 0)
-                    throw polysync::error("missing typemap") 
-                        << exception::module("description")
-                        << exception::type(name)
+                if ( typemap.count( typeid( hana::second( pair ) ) ) == 0)
+                    throw polysync::error( "missing typemap" ) 
+                        << exception::module( "description" )
+                        << exception::type( name )
                         << status::description_error;
 
-                terminal a = typemap.at(std::type_index(typeid(hana::second(pair))));
-                desc.emplace_back(field { name, typeid(hana::second(pair)) });
+                terminal a = typemap.at( std::type_index( typeid( hana::second(pair) ) ) );
+                desc.emplace_back(field { name, typeid( hana::second( pair ) ) } );
                 return desc;
                 });
     }
         
     // Generate self descriptions of types 
     static std::string string() {
-        if (!descriptor::typemap.count(typeid(Struct)))
-            throw polysync::error("no typemap description")
-                        << exception::module("description")
-                        << exception::type(typeid(Struct).name())
+        if ( !descriptor::typemap.count( typeid(Struct) ) )
+            throw polysync::error( "no typemap description" )
+                        << exception::module( "description" )
+                        << exception::type( typeid(Struct).name() )
                         << status::description_error;
 
-        std::string tpname = descriptor::typemap.at(typeid(Struct)).name; 
+        std::string tpname = descriptor::typemap.at( typeid(Struct) ).name; 
         std::string result = tpname + " { ";
-        hana::for_each(Struct(), [&result, tpname](auto pair) {
-                std::type_index tp = typeid(hana::second(pair));
-                std::string fieldname = hana::to<char const*>(hana::first(pair));
-                if (descriptor::typemap.count(tp) == 0)
-                    throw polysync::error("type not described") 
-                        << exception::type(tpname) 
-                        << exception::field(fieldname)
-                        << exception::module("description")
+        hana::for_each(Struct(), [ &result, tpname ]( auto pair ) {
+                std::type_index tp = typeid(hana::second( pair ));
+                std::string fieldname = hana::to<char const*>( hana::first(pair) );
+                if ( descriptor::typemap.count(tp) == 0 )
+                    throw polysync::error( "type not described" ) 
+                        << exception::type( tpname ) 
+                        << exception::field( fieldname )
+                        << exception::module( "description" )
                         << status::description_error;
 
                 result += fieldname + ": " + descriptor::typemap.at(tp).name + "; ";
@@ -177,13 +178,14 @@ struct describe {
 
 struct lex : std::string {
 
-    lex(const field::variant& v);
-    std::string operator()(std::type_index idx) const; 
-    std::string operator()(nested idx) const;
-    std::string operator()(skip idx) const;
-    std::string operator()(array idx) const;
-    std::string operator()(std::string s) const;
-    std::string operator()(size_t s) const;
+    lex( const field::variant& v );
+    std::string operator()( std::type_index ) const; 
+    std::string operator()( nested ) const;
+    std::string operator()( skip ) const;
+    std::string operator()( array ) const;
+    std::string operator()( std::string ) const;
+    std::string operator()( size_t ) const;
+
 };
 
 // Define some metaprograms to compute the sizes of types.

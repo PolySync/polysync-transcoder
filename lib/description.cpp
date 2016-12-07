@@ -1,11 +1,11 @@
+#include <regex>
+
 #include <polysync/description.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/3rdparty/cpptoml.h>
-
-#include <regex>
+#include <deps/cpptoml.h>
 
 namespace polysync { 
 
@@ -20,7 +20,7 @@ catalog_type catalog;
 void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& catalog) {
     logger log("description");
 
-    BOOST_LOG_SEV(log, severity::debug1) << "loading \"" << name << "\"";
+    BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
     try {
 
         // Recurse nested tables
@@ -41,7 +41,7 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             // skip reserved bytes
             if (fp->contains("skip")) {
                 int size = *fp->get_as<int>("skip");
-                std::string name = "skip:" + std::to_string(skip_index);
+                std::string name = "skip-" + std::to_string(skip_index);
                 desc.emplace_back(field { name, skip { skip_index, size } });
                 skip_index += 1;
                 continue;
@@ -87,9 +87,9 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
             if (fp->contains("format")) {
                 std::string format = *fp->get_as<std::string>("format");
                 if (format == "hex")
-                    desc.back().format = [](const node& n) {
+                    desc.back().format = [](const variant& n) {
                         std::stringstream os;
-                        os << std::hex << "0x" << n << std::dec;
+                        eggs::variants::apply([&os](auto v) { os << std::hex << "0x" << v << std::dec; }, n);
                         return os.str();
                     };
                 else 

@@ -12,9 +12,9 @@ enum struct severity { error, warn, info, verbose, debug1, debug2 };
 using source_type = boost::log::sources::severity_channel_logger_mt<severity, std::string>; 
 
 struct logger : source_type {
-    logger(const std::string& channel) : source_type(boost::log::keywords::channel = channel) {}  
+    logger( const std::string& channel ) : source_type( boost::log::keywords::channel = channel ) {}  
 };
 
-void set_level(const std::string&);
+void set_level( const std::string& );
 
 }} // namespace polysync::logging
