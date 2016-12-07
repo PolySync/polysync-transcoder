@@ -14,11 +14,9 @@ namespace fs = boost::filesystem;
 
 namespace polysync { 
 
-namespace plugin {
-extern po::options_description options( const fs::path& );
-}
-
 namespace encode {
+
+extern po::options_description options();
 
 // Visitation points.
 struct visitor {
@@ -42,8 +40,7 @@ struct plugin {
     virtual void connect( const po::variables_map&, visitor& ) = 0;
 };
 
-extern po::options_description options( const fs::path& );
-extern po::options_description load( const po::variables_map&, const fs::path& );
+extern po::options_description load();
 extern std::map< std::string, boost::shared_ptr<encode::plugin> > map;
 
 } // namespace encode
@@ -57,8 +54,7 @@ struct plugin {
     virtual type predicate( const po::variables_map& ) const = 0;  
 };
 
-extern po::options_description load( const po::variables_map&, const fs::path& ); 
-
+extern po::options_description load(); 
 extern std::map< std::string, boost::shared_ptr<filter::plugin> > map;
 
 } // namespace filter

@@ -15,7 +15,7 @@ struct slice : filter::plugin {
 
     po::options_description options() const override {
 
-        po::options_description filter_opt( "Filter Options" );
+        po::options_description filter_opt( "slice" );
         filter_opt.add_options()
             ( "slice", po::value<std::string>(), "<begin:stride:end> Numpy style record slice syntax" )
             ;
@@ -23,13 +23,13 @@ struct slice : filter::plugin {
         return filter_opt;
     }
 
-    filter::type predicate( const po::variables_map& vm) const override {
+    filter::type predicate( const po::variables_map& cmdline_args) const override {
 
-        if ( vm.count("slice") ) {
+        if ( cmdline_args.count("slice") ) {
             // Emulate the the excellent Python Numpy slicing syntax
             static std::regex slice_re( R"((\d+)?(:)?(\d+)?(:)?(\d+)?)" );
             std::smatch slice;
-            if ( std::regex_match(vm["slice"].as<std::string>(), slice, slice_re) ) {
+            if ( std::regex_match(cmdline_args["slice"].as<std::string>(), slice, slice_re) ) {
                 if ( slice[4].matched && !slice[5].matched )
                     throw polysync::error( "bad slice format" ) << polysync::status::bad_argument;
 

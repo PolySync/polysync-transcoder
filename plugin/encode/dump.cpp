@@ -106,7 +106,7 @@ struct dump : encode::plugin {
         return opt;
     };
 
-    void connect(const po::variables_map& vm, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
         visit.record.connect(pretty_printer { std::cout } );
     }
 };

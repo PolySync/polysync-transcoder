@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <regex>
+#include <cstdlib>
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -8,6 +9,7 @@
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plugin.hpp>
+#include <polysync/toml.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
@@ -22,13 +24,6 @@ namespace ps = polysync;
 using ps::logging::severity;
 using ps::logging::logger;
 
-namespace polysync {
-
-namespace toml { extern po::options_description options( const fs::path& exe ); }
-namespace toml { extern void load(const po::variables_map&);  }
-
-} // namespace polysync
-
 namespace std {
 
 // boost::program_options likes to print the arguments, so here we teach it how
@@ -40,7 +35,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
 
 } // namespace std
 
-
 int catch_main( int ac, char* av[] ) {
 
     logger log( "transcode" );
@@ -50,67 +44,61 @@ int catch_main( int ac, char* av[] ) {
     // By default, use a fancy formatter.  This can change below.
     format = std::make_shared< polysync::formatter::fancy >();
 
-    // Define a rather sophisticated command line parse that supports
-    // subcommands (rather like git) where each subcommand is a supported
-    // output driver (like CSV, HDF5, or SciDB).  Originally described by
+    // The command line parse is complicated because the plugins are allowed to add options.  
+    // There are three stages: 
+    // 1) Configure the console spew because this will affect the second stage.
+    // 2) Parse the positional arguments (input and encoder) to identify the
+    //    encoder's name.  Filters are also parsed in this stage.  Filter
+    //    options cannot be duplicated; take care in the filter plugins that
+    //    the option names are not reserved by some other plugin.
+    // 3) The final parse enables only the options from the chosen encoder.  This
+    //    allows duplicate options between different encoder plugins, which will
+    //    be common (like output file name).
+    //
+    // The encoders are handled similarly to subcommands (like git does).  This
+    // pattern was originally described for boost::program_options by
     // http://stackoverflow.com/questions/15541498/how-to-implement-subcommands-using-boost-program-options
     
-    // compute reasonable guess about plugin and share locations.
-    char exebuf[1024];
-    size_t exelen = readlink( "/proc/self/exe", exebuf, 1024 ); // This is my own path, compliments of /proc.
-    fs::path exe( std::string( exebuf, exelen ) );
-
-    po::options_description general_opt( "General Options" );
-    general_opt.add_options()
+    // All the stages accumulate results into one container of arguments, called cmdline_args.
+    po::variables_map cmdline_args;
+    
+    // Stage 1:  Console options
+    po::options_description console_opts( "General Options" );
+    console_opts.add_options()
         ( "help,h", "print this help message" )
         ( "verbose,v", po::value<std::string>()->default_value("info"), "debug level" )
         ( "plain,p", "remove color from console formatting" )
         ;
 
-    po::options_description positional_opt;
-    positional_opt.add_options()
-        ( "path", po::value<std::vector<fs::path>>(), "plog input files" )
-        ( "encoder", po::value<std::string>()->default_value("list"), "Output encoder" )
-        ( "subargs", po::value<std::vector<std::string>>(), "Encoder arguments" )
-        ;
-
-    po::positional_options_description posdesc;
-    posdesc.add( "path", 1 ).add( "encoder", 1 ).add( "subargs", -1 );
-
-    po::options_description cmdline, helpline;  // These are the same except for positional_opt.
-    po::options_description toml_opt = polysync::toml::options( exe );
-    po::options_description plugin_opt = polysync::plugin::options( exe );
-    cmdline.add( general_opt ).add( toml_opt ).add( plugin_opt ).add( positional_opt );
-    helpline.add( general_opt ).add( toml_opt ).add( plugin_opt );
-
-    // Do the first of two parses.  This first one is required to discover the
-    // plugin path and the encoder name.
-    po::variables_map vm;
-    po::parsed_options parse = po::command_line_parser( ac, av )
-        .options(cmdline)
-        .positional(posdesc)
-        .allow_unregistered()
+    po::parsed_options stage1_parse = po::command_line_parser( ac, av )
+        .options(console_opts)
+        .allow_unregistered() // Pass through everything except console_opts
         .run();
-    po::store( parse, vm );
-    po::notify( vm );
+    po::store( stage1_parse, cmdline_args );
+    po::notify( cmdline_args );
 
-    // Set the debug and console format options right away
-    ps::logging::set_level( vm["verbose"].as<std::string>() );
+    // Set the debug and console format options right away so log messages in
+    // the subsequent plugin loaders are processed correctly.
+    ps::logging::set_level( cmdline_args["verbose"].as<std::string>() );
 
-    if (vm.count("plain"))
+    if (cmdline_args.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();
 
-    polysync::toml::load( vm );
+    // Check that the environment is set up so the plugins do not have to.
+    char* libdir = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
+    if ( libdir == nullptr )
+        throw polysync::error("POLYSYNC_TRANSCODER_LIB unset; cannot find TOML or plugins");
 
-    po::options_description filter_opts = polysync::filter::load( vm, exe );
-    cmdline.add( filter_opts );
-    helpline.add( filter_opts );
+    // Find all the runtime resources and load them
+    po::options_description toml_opts = ps::toml::load();
+    po::options_description filter_opts = ps::filter::load();
+    po::options_description encode_opts = ps::encode::load();
 
-    po::options_description encode_opts = polysync::encode::load( vm, exe );
-    cmdline.add( encode_opts );
-    helpline.add( encode_opts );
+    // Build the help spew.  toml_opts is omitted because, for now, it is actually empty.
+    po::options_description helpline;
+    helpline.add( console_opts ).add( filter_opts ).add( encode_opts );
 
-    if ( vm.count("help") ) {
+    if ( cmdline_args.count("help") ) {
         std::cout << format->header( "PolySync Transcoder" ) << std::endl << std::endl;
         std::cout << "Usage:" << std::endl;
         std::cout << "\ttranscode [options] <input-file> <encoder> [encoder-options]" << std::endl;
@@ -118,27 +106,60 @@ int catch_main( int ac, char* av[] ) {
         return ps::status::ok;
     }
 
-    if ( !vm.count("path") ) 
-        throw ps::error( "no input files" ) << ps::status::bad_input;
+    // Stage 2: determine the filters and encoder name
+    po::options_description positional_opts;
+    positional_opts.add_options()
+        ( "input", po::value<std::vector<fs::path>>(), "Input file" )
+        ( "encoder", po::value<std::string>()->default_value("list"), "Output encoder" )
+        ( "subargs", po::value<std::vector<std::string>>(), "Encoder arguments" )
+        ;
 
-    std::string encoder = vm["encoder"].as<std::string>();
+    po::positional_options_description posdesc;
+    posdesc.add( "input", 1 ).add( "encoder", 1 ).add( "subargs", -1 );
+
+    po::options_description stage2_cmdline;
+    stage2_cmdline.add( console_opts ).add( filter_opts ).add( positional_opts );
+
+    po::parsed_options stage2_parse = po::command_line_parser( ac, av )
+        .options(stage2_cmdline)
+        .positional(posdesc)
+        .allow_unregistered() // Pass through all the encoder arguments, awaiting stage 3 pass
+        .run();
+    po::store( stage2_parse, cmdline_args );
+    po::notify( cmdline_args );
+
+    if ( !cmdline_args.count("input") ) 
+        throw ps::error( "no input file" ) << ps::status::bad_input;
+
+    std::string encoder = cmdline_args["encoder"].as<std::string>();
     if ( !ps::encode::map.count( encoder ) ) {
-        std::cerr << "error: unknown output \"" << encoder << "\"" << std::endl;
+        std::cerr << "error: unknown encoder \"" << encoder << "\"" << std::endl;
         exit( ps::status::no_plugin );
     }
-
-    std::vector<std::string> opts = po::collect_unrecognized( parse.options, po::include_positional );
-    if ( !opts.empty() ) {
-        opts.erase( opts.begin() );
-
-        po::options_description encoder_opts = ps::encode::map.at( encoder )->options();
-
-        // Parse again, with now with encoder options
-        po::store( po::command_line_parser( opts ).options( encoder_opts ).run(), vm );
-        po::notify(vm);
+    
+    // The filter arguments are parsed.  Build a list of active filters.
+    std::vector<ps::filter::type> filters;
+    for ( auto pair: ps::filter::map ) {
+        ps::filter::type pred = pair.second->predicate( cmdline_args );
+        if ( pred )
+            filters.push_back(pred);
     }
 
-    std::function<bool ( const plog::log_record& )> filter = []( const plog::log_record& ) { return true; };
+    // Stage 3: 
+    // At this point, all the general options are parsed, as are the positional
+    // arguments for input and encoder name. Build a final stage 3 parse that is
+    // informed by the specific encoder requested.
+
+    po::options_description encoder_opts = ps::encode::map.at( encoder )->options();
+    po::options_description stage3_cmdline;
+    stage3_cmdline.add( encoder_opts );
+
+    std::vector<std::string> encoder_args = 
+        po::collect_unrecognized( stage2_parse.options, po::include_positional );
+
+    // Parse again, with now with encoder options
+    po::store( po::command_line_parser( encoder_args ).options( stage3_cmdline ).run(), cmdline_args );
+    po::notify(cmdline_args);
 
     ps::descriptor::catalog.emplace( "log_record", ps::descriptor::describe<plog::log_record>::type() );
     ps::descriptor::catalog.emplace( "msg_header", ps::descriptor::describe<plog::msg_header>::type() );
@@ -162,12 +183,12 @@ int catch_main( int ac, char* av[] ) {
             plog::type_support_map.emplace( t.type, t.name ); 
             } );
 
-    ps::encode::map.at( encoder )->connect( vm, visit );
+    ps::encode::map.at( encoder )->connect( cmdline_args, visit );
 
    
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
-    for ( fs::path path: vm["path"].as<std::vector<fs::path>>() ) 
+    for ( fs::path path: cmdline_args["input"].as<std::vector<fs::path>>() ) 
     {
         try {
             std::ifstream st( path.c_str(), std::ifstream::binary );
@@ -186,7 +207,8 @@ int catch_main( int ac, char* av[] ) {
             for ( const plog::type_support& type: head.type_supports )
                 visit.type_support( type );
             for ( const plog::log_record& rec: decoder ) {
-                if ( filter(rec) ) {
+                if ( std::all_of(filters.begin(), filters.end(), 
+                            [&rec]( const ps::filter::type& pred ) { return pred(rec); }) ) {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;
                     polysync::node top( "log_record", decoder.deep(rec) );
                     visit.record(top);

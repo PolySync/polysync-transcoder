@@ -53,11 +53,11 @@ struct list : encode::plugin {
 
     model_counter count;
 
-    void connect(const po::variables_map& vm, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
 
         std::uint8_t detail = 0;
-        if (vm.count("detail"))
-            detail = vm["detail"].as<std::uint8_t>();
+        if (cmdline_args.count("detail"))
+            detail = cmdline_args["detail"].as<std::uint8_t>();
 
         // As each record is visited, we only count them.  
         visit.record.connect(std::ref(count));

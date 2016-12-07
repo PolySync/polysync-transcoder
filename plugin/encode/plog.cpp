@@ -30,9 +30,9 @@ public:
         return opt;
     }
 
-    void connect(const po::variables_map& vm, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
 
-        std::string path = vm["name"].as<fs::path>().string();
+        std::string path = cmdline_args["name"].as<fs::path>().string();
 
         // Open a new output file for each new decoder opened. Right now, this
         // only works for the first file because there is not yet a scheme to

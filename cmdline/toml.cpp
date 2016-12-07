@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <deps/cpptoml.h>
 
@@ -20,23 +21,14 @@ using logging::logger;
 
 static logger log( "toml" );
 
-po::options_description options( const fs::path& exe ) {
-    po::options_description opt( "Type Descriptor Options" );
-    opt.add_options()
-        ( "descdir,D", po::value<std::vector<fs::path>>()
-                ->default_value( std::vector<fs::path>{
-                    "../share", exe.parent_path() / "../../share" } )
-                ->composing()
-                ->multitoken(),
-                "TOML type description path list" )
-        ;
-    return opt;
-}
+po::options_description load() {
 
-void load(const po::variables_map& vm) {
+    std::vector<std::string> libdirs;
+    char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
+    boost::split( libdirs, libenv, boost::is_any_of(";") );
+    for ( fs::path descdir: libdirs ) {
 
-    for ( fs::path descdir: vm["descdir"].as<std::vector<fs::path>>() ) {
-
+        descdir = descdir / "share";
         if ( !fs::exists( descdir ) ) {
             BOOST_LOG_SEV( log, severity::debug1 ) << "skipping description path " << descdir 
                 << " because it does not exist";
@@ -87,6 +79,8 @@ void load(const po::variables_map& vm) {
         }
     }
 
+    po::options_description opts("Type Description Options");
+    return opts;
 }
 
 }} // namespace polysync::toml
