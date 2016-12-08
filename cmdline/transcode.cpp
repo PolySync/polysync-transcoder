@@ -5,6 +5,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
@@ -44,8 +45,8 @@ int catch_main( int ac, char* av[] ) {
     // By default, use a fancy formatter.  This can change below.
     format = std::make_shared< polysync::formatter::fancy >();
 
-    // The command line parse is complicated because the plugins are allowed to add options.  
-    // There are three stages: 
+    // The command line parse is complicated because the plugins are allowed to
+    // add options.  There are three stages: 
     // 1) Configure the console spew because this will affect the second stage.
     // 2) Parse the positional arguments (input and encoder) to identify the
     //    encoder's name.  Filters are also parsed in this stage.  Filter
@@ -59,15 +60,21 @@ int catch_main( int ac, char* av[] ) {
     // pattern was originally described for boost::program_options by
     // http://stackoverflow.com/questions/15541498/how-to-implement-subcommands-using-boost-program-options
     
-    // All the stages accumulate results into one container of arguments, called cmdline_args.
+    // All the stages accumulate results into one container of arguments,
+    // called cmdline_args.
     po::variables_map cmdline_args;
     
     // Stage 1:  Console options
     po::options_description console_opts( "General Options" );
     console_opts.add_options()
         ( "help,h", "print this help message" )
-        ( "loglevel,d", po::value<std::string>()->default_value("info"), "log level" )
+        ( "loglevel,d", po::value<std::string>()
+            ->default_value("info"), "log level" )
         ( "plain,p", "remove color from console formatting" )
+        ( "plugdir,P", po::value< std::vector<fs::path> >()
+            ->default_value( std::vector<fs::path>() )
+            ->composing(),
+            "additional plugin directories (augments POLYSYNC_TRANSCODE_LIB")
         ;
 
     po::parsed_options stage1_parse = po::command_line_parser( ac, av )
@@ -84,16 +91,21 @@ int catch_main( int ac, char* av[] ) {
     if (cmdline_args.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();
 
-    // Check that the environment is set up so the plugins do not have to.
-    char* libdir = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
-    if ( libdir == nullptr )
-        throw polysync::error("POLYSYNC_TRANSCODER_LIB unset; cannot find TOML or plugins")
-            << polysync::status::bad_environment;
+    // Configure the runtime environment to find the plugins
+    std::vector<fs::path> plugpath = 
+        cmdline_args["plugdir"].as< std::vector<fs::path> >();
+    char* libenv = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
+    if ( libenv != nullptr ) 
+        boost::split( plugpath, libenv, boost::is_any_of(";") );
+
+    if ( plugpath.empty() )
+        BOOST_LOG_SEV(log, severity::warn) << "plugin path unset;"
+            << " use POLYSYNC_TRANSCODE_LIB or --plugdir to find them";
 
     // Find all the runtime resources and load them
-    po::options_description toml_opts = ps::toml::load();
-    po::options_description filter_opts = ps::filter::load();
-    po::options_description encode_opts = ps::encode::load();
+    po::options_description toml_opts = ps::toml::load( plugpath );
+    po::options_description filter_opts = ps::filter::load( plugpath );
+    po::options_description encode_opts = ps::encode::load( plugpath );
 
     // Build the help spew.  toml_opts is omitted because, for now, it is actually empty.
     po::options_description helpline;

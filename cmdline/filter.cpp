@@ -24,7 +24,7 @@ using logging::logger;
 static logger log( "filter" );
 std::map< std::string, boost::shared_ptr<filter::plugin> > map;
 
-po::options_description load() {
+po::options_description load( const std::vector<fs::path>& plugpath ) {
 
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
@@ -32,18 +32,17 @@ po::options_description load() {
     // screen, also useful.
     dll::shared_library self( dll::program_location() );
     for ( std::string plugname: { "slice" } ) {
-        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>( plugname + "_plugin" );
+        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>( 
+                plugname + "_plugin" );
         filter::map.emplace( plugname, factory() );
-        BOOST_LOG_SEV( log, severity::debug1 ) << "\"" << plugname << "\" plugin found: hard linked";
+        BOOST_LOG_SEV( log, severity::debug1 ) 
+            << "\"" << plugname << "\" plugin found: hard linked";
     }
 
 
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
-    std::vector<std::string> libdirs;
-    char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
-    boost::split( libdirs, libenv, boost::is_any_of(";") );
-    for ( fs::path plugdir: libdirs ) { // cmdline_args["plugdir"].as<std::vector<fs::path>>() ) {
+    for ( fs::path plugdir: plugpath ) {
 
         plugdir = plugdir / "filter";
 

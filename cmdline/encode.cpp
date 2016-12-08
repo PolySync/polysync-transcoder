@@ -7,7 +7,6 @@
 #include <boost/dll/runtime_symbol_info.hpp> // for program_location()
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
@@ -26,7 +25,7 @@ static logger log( "encode" );
 
 std::map< std::string, boost::shared_ptr<encode::plugin> > map;
 
-po::options_description load() {
+po::options_description load( const std::vector<fs::path>& plugpath ) {
 
     po::options_description options( "Encoder Plugins:" );
 
@@ -45,19 +44,18 @@ po::options_description load() {
 
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
-    std::vector<std::string> libdirs;
-    char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
-    boost::split( libdirs, libenv, boost::is_any_of(";") );
-    for ( fs::path plugdir: libdirs ) {
+    for ( fs::path plugdir: plugpath ) {
 
         plugdir = plugdir / "encode";
 
         if ( !fs::exists( plugdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping non-existing plugin path " << plugdir;
+            BOOST_LOG_SEV( log, severity::debug1 ) 
+                << "skipping non-existing plugin path " << plugdir;
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << plugdir << " for encoder plugins";
+        BOOST_LOG_SEV( log, severity::debug1 ) 
+            << "searching " << plugdir << " for encoder plugins";
         static std::regex is_plugin( R"(.*encode\.(.+)\.so)" );
         for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
             std::cmatch match;
@@ -66,14 +64,16 @@ po::options_description load() {
                 std::string plugname = match[1];
 
                 if ( encode::map.count(plugname) ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) << "encoder \"" << plugname << "\"already loaded";
+                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                        << "encoder \"" << plugname << "\"already loaded";
                     continue;
                 }
 
                 try {
                     boost::shared_ptr<encode::plugin> plugin = 
                         dll::import<encode::plugin>( lib.path(), "encoder" );
-                    BOOST_LOG_SEV( log, severity::debug1 ) << "loaded encoder from " << lib.path();
+                    BOOST_LOG_SEV( log, severity::debug1 ) 
+                        << "loaded encoder from " << lib.path();
                     po::options_description opt = plugin->options();
                     options.add( opt );
                     encode::map.emplace( plugname, plugin );
@@ -89,7 +89,6 @@ po::options_description load() {
     }
 
     return options;
-
 }
 
 }} // namespace polysync::encode

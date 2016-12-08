@@ -21,16 +21,14 @@ using logging::logger;
 
 static logger log( "toml" );
 
-po::options_description load() {
+po::options_description load( const std::vector<fs::path>& plugpath ) {
 
-    std::vector<std::string> libdirs;
-    char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
-    boost::split( libdirs, libenv, boost::is_any_of(";") );
-    for ( fs::path descdir: libdirs ) {
+    for ( fs::path descdir: plugpath ) {
 
         descdir = descdir / "share";
         if ( !fs::exists( descdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping description path " << descdir 
+            BOOST_LOG_SEV( log, severity::debug1 ) 
+                << "skipping description path " << descdir 
                 << " because it does not exist";
             continue;
         }
