@@ -25,14 +25,14 @@ public:
     po::options_description options() const override {
         po::options_description opt("plog: Encode a new PLog");
         opt.add_options()
-            ("name,n", po::value<fs::path>(), "filename")
+            ("outfile,o", po::value<fs::path>()->default_value("/dev/stdout"), "outfile")
             ;
         return opt;
     }
 
     void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
 
-        std::string path = cmdline_args["name"].as<fs::path>().string();
+        std::string path = cmdline_args["outfile"].as<fs::path>().string();
 
         // Open a new output file for each new decoder opened. Right now, this
         // only works for the first file because there is not yet a scheme to

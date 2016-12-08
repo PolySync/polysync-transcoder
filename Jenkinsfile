@@ -25,6 +25,7 @@ node('clang') {
     }, 'acceptance tests': {
       sh 'behave bad-inputs.feature'
       sh 'behave filter.slice.feature'
+      sh 'behave encode.plog.feature'
       echo 'Acceptance Tests Complete!'
     }
   }

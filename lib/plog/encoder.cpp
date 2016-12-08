@@ -203,7 +203,10 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
             } 
             if (n.target_type() == typeid(bytes)) {
                 const bytes& raw = *n.target<bytes>();
-                return encode(raw.data(), raw.size());
+                BOOST_LOG_SEV(log, severity::debug2) << "writing " << raw.size() 
+                    << " raw bytes to offset " << stream.tellp();
+                stream.write((char *)raw.data(), raw.size());
+                return;
             }
             BOOST_LOG_SEV(log, severity::warn) 
                 << "field \"" << n.name << "\" not serialized due to lack of description";

@@ -66,7 +66,7 @@ int catch_main( int ac, char* av[] ) {
     po::options_description console_opts( "General Options" );
     console_opts.add_options()
         ( "help,h", "print this help message" )
-        ( "verbose,v", po::value<std::string>()->default_value("info"), "debug level" )
+        ( "loglevel,d", po::value<std::string>()->default_value("info"), "log level" )
         ( "plain,p", "remove color from console formatting" )
         ;
 
@@ -79,7 +79,7 @@ int catch_main( int ac, char* av[] ) {
 
     // Set the debug and console format options right away so log messages in
     // the subsequent plugin loaders are processed correctly.
-    ps::logging::set_level( cmdline_args["verbose"].as<std::string>() );
+    ps::logging::set_level( cmdline_args["loglevel"].as<std::string>() );
 
     if (cmdline_args.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();

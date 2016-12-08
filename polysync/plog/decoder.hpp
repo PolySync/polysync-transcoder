@@ -87,8 +87,8 @@ public:
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Struct, class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
-    void decode(Struct& record) {
+    template <typename S, class = typename std::enable_if_t<hana::Struct<S>::value>>
+    void decode(S& record) {
         hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
                 decode(hana::at_key(record, key));
                 }); 
@@ -168,8 +168,10 @@ protected:
 };
 
 inline iterator::iterator(decoder* s, std::streamoff pos) : stream(s), pos(pos) {
-    if (stream)
+    if (stream) {
+        BOOST_LOG_SEV(stream->log, severity::debug1) << "decoding \"plog::log_record\" at " << pos;
         stream->decode(header, pos);
+    }
 } 
 
 inline log_record iterator::operator*() { 
@@ -180,8 +182,10 @@ inline iterator& iterator::operator++() {
     
     // Advance the iterator's position to the beginning of the next record.
     pos += descriptor::size<log_record>::value() + header.size;
-    if (pos < stream->endpos)
+    if (pos < stream->endpos) {
+        BOOST_LOG_SEV(stream->log, severity::debug1) << "decoding \"plog::log_record\" at " << pos;
         stream->decode(header, pos);
+    }
     return *this;
 }
 
