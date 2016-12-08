@@ -159,7 +159,6 @@ struct branch_builder {
         d->stream.read((char *)raw.data(), skip.size);
         std::string name = "skip-" + std::to_string(skip.order);
         branch->emplace_back(name, raw);
-        // d->stream.seekg(skip.size, std::ios_base::cur);
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
     }
 

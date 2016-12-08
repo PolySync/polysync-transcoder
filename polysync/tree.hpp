@@ -24,16 +24,21 @@ namespace hana = boost::hana;
 
 struct node;
 
-struct tree : std::shared_ptr<std::vector<node>> {
+struct tree : std::shared_ptr< std::vector<node> > {
     std::string type;
 
-    tree() : std::shared_ptr<std::vector<node>>( new std::vector<node>() ) {}
+    tree() : std::shared_ptr< std::vector<node> >( new std::vector<node>() ) {}
 
     tree( const std::string& type ) : 
-        std::shared_ptr< std::vector<node> >( new std::vector<node>() ), type(type) {}
+        std::shared_ptr< std::vector<node> >( new std::vector<node>() ), 
+        type(type) {}
 
+    // This initialization_list<> constructor should only be invoked within
+    // unit tests to describe test vectors.  The initialization ends up copy
+    // constructing each node which is too slow for the application.
     tree( const std::string& type, std::initializer_list<node> init ) 
-        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ), type(type) {}
+        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ), 
+          type(type) {}
 };
 
 // Add some context to exceptions
@@ -78,6 +83,13 @@ struct node : variant {
 
     template <typename T>
     node( const std::string& n, const T& value ) : variant( value ), name( n ) { }
+
+    node(node&&) = default;
+
+    // The copy constructor should be used sparingly, because the move
+    // constructor is faster.  Hopefully, this constructor is invoked only in
+    // unit test vector construction.
+    node(const node&) = default;
 
     const std::string name;
     std::function<std::string ( const variant& )> format;
