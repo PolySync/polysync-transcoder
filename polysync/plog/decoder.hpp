@@ -180,10 +180,12 @@ inline log_record iterator::operator*() {
 
 inline iterator& iterator::operator++() {
     
+    static const std::streamoff recordsize = descriptor::size<log_record>::value();
     // Advance the iterator's position to the beginning of the next record.
-    pos += descriptor::size<log_record>::value() + header.size;
+    pos += recordsize + header.size;
     if (pos < stream->endpos) {
-        BOOST_LOG_SEV(stream->log, severity::debug1) << "decoding \"plog::log_record\" at " << pos;
+        BOOST_LOG_SEV(stream->log, severity::debug1) 
+            << "decoding \"plog::log_record\" at " << pos;
         stream->decode(header, pos);
     }
     return *this;

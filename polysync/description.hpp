@@ -195,11 +195,12 @@ struct size {
 };
 
 
-template <typename Struct>
-struct size<Struct, typename std::enable_if<hana::Foldable<Struct>::value>::type> {
+template <typename S>
+struct size<S, typename std::enable_if<hana::Struct<S>::value>::type> {
     static std::streamoff value() {
-        return hana::fold(hana::members(Struct()), 0, [](std::streamoff s, auto field) { 
-                return s + size<decltype(field)>::value(); 
+        return hana::fold(hana::members(S()), 0, 
+                [](std::streamoff s, auto field) { 
+                    return s + size<decltype(field)>::value(); 
                 });
     }
 };
