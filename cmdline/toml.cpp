@@ -21,7 +21,7 @@ using logging::logger;
 
 static logger log( "toml" );
 
-po::options_description load() {
+void load( po::options_description& options ) {
 
     std::vector<std::string> libdirs;
     char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
@@ -30,57 +30,62 @@ po::options_description load() {
 
         descdir = descdir / "share";
         if ( !fs::exists( descdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping description path " << descdir 
+            BOOST_LOG_SEV( log, severity::debug1 )
+                << "skipping description path " << descdir
                 << " because it does not exist";
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << descdir << " for type descriptions";
+        BOOST_LOG_SEV( log, severity::debug1 )
+            << "searching " << descdir << " for type descriptions";
+
         static std::regex is_description( R"((.+)\.toml)" );
         for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) ) {
             std::cmatch match;
             std::regex_match( tofl.path().string().c_str(), match, is_description );
             if (match.size()) {
-                BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << tofl;
+                BOOST_LOG_SEV( log, severity::debug1 )
+                    << "loading descriptions from " << tofl;
                 try {
-                    std::shared_ptr<cpptoml::table> descfile = cpptoml::parse_file( tofl.path().string() );
+                    std::shared_ptr<cpptoml::table> descfile =
+                        cpptoml::parse_file( tofl.path().string() );
 
                     // Parse the file in two passes, so the detectors have
                     // access to the descriptor's types
                     for ( const auto& type: *descfile ) {
-                        if ( type.second->is_table() )
+                        if ( type.second->is_table() ) {
                             descriptor::load(
                                     type.first, type.second->as_table(), descriptor::catalog );
-                        else if ( type.second->is_value() ) {
+                        } else if ( type.second->is_value() ) {
                             auto val = type.second->as<std::string>();
-                            if ( !descriptor::namemap.count(val->get()) )
-                                throw error( "unknown type alias" ) 
+                            if ( !descriptor::namemap.count(val->get()) ) {
+                                throw error( "unknown type alias" )
                                     << exception::type(type.first);
+                            }
                             std::type_index idx = descriptor::namemap.at(val->get());
                             descriptor::namemap.emplace( type.first, idx );
-                            BOOST_LOG_SEV( log, severity::debug2 ) 
+                            BOOST_LOG_SEV( log, severity::debug2 )
                                 << "loaded type alias " << type.first << " = " << val->get();
                         } else
                             BOOST_LOG_SEV( log, severity::warn ) << "unused description: " << type.first;
                     }
                     for ( const auto& type: *descfile )
-                        if ( type.second->is_table() )
-                            detector::load( type.first, type.second->as_table(), detector::catalog );
+                        if ( type.second->is_table() ) {
+                            detector::load( type.first, type.second->as_table(),
+                                            detector::catalog );
+                        }
                 } catch ( error& e ) {
                     e << status::description_error;
                     e << exception::path( tofl.path().string() );
                     throw;
                 } catch ( cpptoml::parse_exception& e ) {
-                    throw polysync::error( e.what() ) 
+                    throw polysync::error( e.what() )
                         << status::description_error
                         << exception::path( tofl.path().string() );
                 }
             }
         }
     }
-
-    po::options_description opts("Type Description Options");
-    return opts;
 }
 
 }} // namespace polysync::toml

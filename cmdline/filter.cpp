@@ -24,7 +24,7 @@ using logging::logger;
 static logger log( "filter" );
 std::map< std::string, boost::shared_ptr<filter::plugin> > map;
 
-po::options_description load() {
+void load( po::options_description& options ) {
 
     // We have some hard linked plugins.  This makes important ones and that
     // have no extra dependencies always available, even if the plugin path is
@@ -32,9 +32,11 @@ po::options_description load() {
     // screen, also useful.
     dll::shared_library self( dll::program_location() );
     for ( std::string plugname: { "slice" } ) {
-        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>( plugname + "_plugin" );
+        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>(
+                plugname + "_plugin" );
         filter::map.emplace( plugname, factory() );
-        BOOST_LOG_SEV( log, severity::debug1 ) << "\"" << plugname << "\" found: hard linked";
+        BOOST_LOG_SEV( log, severity::debug1 )
+            << "\"" << plugname << "\" found: hard linked";
     }
 
 
@@ -43,16 +45,19 @@ po::options_description load() {
     std::vector<std::string> libdirs;
     char* libenv = std::getenv("POLYSYNC_TRANSCODER_LIB");
     boost::split( libdirs, libenv, boost::is_any_of(";") );
-    for ( fs::path plugdir: libdirs ) { // cmdline_args["plugdir"].as<std::vector<fs::path>>() ) {
+    for ( fs::path plugdir: libdirs ) {
 
         plugdir = plugdir / "filter";
 
         if ( !fs::exists( plugdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping non-existing plugin path " << plugdir;
+            BOOST_LOG_SEV( log, severity::debug1 )
+                << "skipping non-existing plugin path " << plugdir;
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << plugdir << " for filter plugins";
+        BOOST_LOG_SEV( log, severity::debug1 )
+            << "searching " << plugdir << " for filter plugins";
+
         static std::regex is_plugin( R"(.*filter\.(.+)\.so)" );
         for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
             std::cmatch match;
@@ -66,26 +71,25 @@ po::options_description load() {
                 }
 
                 try {
-                    boost::shared_ptr<filter::plugin> plugin = 
+                    boost::shared_ptr<filter::plugin> plugin =
                         dll::import<filter::plugin>( lib.path(), "filter" );
                     BOOST_LOG_SEV( log, severity::debug1 ) << "loaded filter from " << lib.path();
                     filter::map.emplace( plugname, plugin );
                 } catch ( std::runtime_error& ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                    BOOST_LOG_SEV( log, severity::debug2 )
                         << lib.path() << " provides no filter; symbols not found";
                 }
             } else {
-                BOOST_LOG_SEV( log, severity::debug2 ) 
+                BOOST_LOG_SEV( log, severity::debug2 )
                     << lib.path() << " provides no filter; filename mismatch";
             }
         }
     }
 
-    po::options_description options( "Filtering Plugins:" );
-    for ( auto pair: filter::map )
+    for ( auto pair: filter::map ) {
         options.add( pair.second->options() );
-    return options;
     }
+}
 
 }} // namespace polysync::filter
 
