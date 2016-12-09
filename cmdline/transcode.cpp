@@ -35,6 +35,29 @@ std::ostream& operator<<(std::ostream& os, const std::vector<fs::path>& paths) {
 
 } // namespace std
 
+po::options_description generateGeneralCommandLineOptions() {
+    po::options_description console_opts( "General Options" );
+    console_opts.add_options()
+        ( "help,h", "print this help message" )
+        ( "verbose,v", po::value<std::string>()->default_value("info"), "debug level" )
+        ( "plain,p", "remove color from console formatting" )
+        ;
+    return console_opts;
+}
+
+void printUsage() {
+    using polysync::format;
+    format = std::make_shared<polysync::formatter::plain>();
+    po::options_description helpline;
+    helpline.add( generateGeneralCommandLineOptions() )
+            .add( ps::filter::load() )
+            .add( ps::encode::load() );
+    std::cout << format->header( "PolySync Transcoder" ) << std::endl << std::endl;
+    std::cout << "Usage:" << std::endl;
+    std::cout << "\ttranscode [options] <input-file> <encoder> [encoder-options]" << std::endl;
+    std::cout << helpline << std::endl << std::endl;
+}
+
 int catch_main( int ac, char* av[] ) {
 
     logger log( "transcode" );
@@ -63,12 +86,7 @@ int catch_main( int ac, char* av[] ) {
     po::variables_map cmdline_args;
 
     // Stage 1:  Console options
-    po::options_description console_opts( "General Options" );
-    console_opts.add_options()
-        ( "help,h", "print this help message" )
-        ( "verbose,v", po::value<std::string>()->default_value("info"), "debug level" )
-        ( "plain,p", "remove color from console formatting" )
-        ;
+    auto console_opts = generateGeneralCommandLineOptions();
 
     po::parsed_options stage1_parse = po::command_line_parser( ac, av )
         .options(console_opts)
@@ -95,14 +113,9 @@ int catch_main( int ac, char* av[] ) {
     po::options_description encode_opts = ps::encode::load();
 
     // Build the help spew.  toml_opts is omitted because, for now, it is actually empty.
-    po::options_description helpline;
-    helpline.add( console_opts ).add( filter_opts ).add( encode_opts );
 
     if ( cmdline_args.count("help") ) {
-        std::cout << format->header( "PolySync Transcoder" ) << std::endl << std::endl;
-        std::cout << "Usage:" << std::endl;
-        std::cout << "\ttranscode [options] <input-file> <encoder> [encoder-options]" << std::endl;
-        std::cout << helpline << std::endl << std::endl;
+        printUsage();
         return ps::status::ok;
     }
 
