@@ -27,8 +27,8 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
         descdir = descdir / "share";
         if ( !fs::exists( descdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) 
-                << "skipping description path " << descdir 
+            BOOST_LOG_SEV( log, severity::debug1 )
+                << "skipping description path " << descdir
                 << " because it does not exist";
             continue;
         }
@@ -52,11 +52,11 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                         else if ( type.second->is_value() ) {
                             auto val = type.second->as<std::string>();
                             if ( !descriptor::namemap.count(val->get()) )
-                                throw error( "unknown type alias" ) 
+                                throw error( "unknown type alias" )
                                     << exception::type(type.first);
                             std::type_index idx = descriptor::namemap.at(val->get());
                             descriptor::namemap.emplace( type.first, idx );
-                            BOOST_LOG_SEV( log, severity::debug2 ) 
+                            BOOST_LOG_SEV( log, severity::debug2 )
                                 << "loaded type alias " << type.first << " = " << val->get();
                         } else
                             BOOST_LOG_SEV( log, severity::warn ) << "unused description: " << type.first;
@@ -69,7 +69,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                     e << exception::path( tofl.path().string() );
                     throw;
                 } catch ( cpptoml::parse_exception& e ) {
-                    throw polysync::error( e.what() ) 
+                    throw polysync::error( e.what() )
                         << status::description_error
                         << exception::path( tofl.path().string() );
                 }

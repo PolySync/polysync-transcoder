@@ -35,7 +35,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
     // screen, also useful.
     dll::shared_library self( dll::program_location() );
     for ( std::string plugname: { "list", "dump" } ) {
-        auto plugin_factory = 
+        auto plugin_factory =
             self.get_alias<boost::shared_ptr<encode::plugin>()>( plugname + "_plugin" );
         auto plugin = plugin_factory();
         options.add( plugin->options() );
@@ -49,12 +49,12 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
         plugdir = plugdir / "encode";
 
         if ( !fs::exists( plugdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) 
+            BOOST_LOG_SEV( log, severity::debug1 )
                 << "skipping non-existing plugin path " << plugdir;
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) 
+        BOOST_LOG_SEV( log, severity::debug1 )
             << "searching " << plugdir << " for encoder plugins";
         static std::regex is_plugin( R"(.*encode\.(.+)\.so)" );
         for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
@@ -64,25 +64,25 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                 std::string plugname = match[1];
 
                 if ( encode::map.count(plugname) ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                    BOOST_LOG_SEV( log, severity::debug2 )
                         << "encoder \"" << plugname << "\"already loaded";
                     continue;
                 }
 
                 try {
-                    boost::shared_ptr<encode::plugin> plugin = 
+                    boost::shared_ptr<encode::plugin> plugin =
                         dll::import<encode::plugin>( lib.path(), "encoder" );
-                    BOOST_LOG_SEV( log, severity::debug1 ) 
+                    BOOST_LOG_SEV( log, severity::debug1 )
                         << "loaded encoder from " << lib.path();
                     po::options_description opt = plugin->options();
                     options.add( opt );
                     encode::map.emplace( plugname, plugin );
                 } catch ( std::runtime_error& ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                    BOOST_LOG_SEV( log, severity::debug2 )
                         << lib.path() << " provides no encoder; symbols not found";
                 }
             } else {
-                BOOST_LOG_SEV( log, severity::debug2 ) 
+                BOOST_LOG_SEV( log, severity::debug2 )
                     << lib.path() << " provides no encoder; filename mismatch";
             }
         }

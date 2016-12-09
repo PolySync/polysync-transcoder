@@ -122,15 +122,16 @@ struct branch_builder {
     decoder* d;
 
     // Terminal types
-    void operator()(std::type_index idx) const {
-        if (!descriptor::typemap.count(idx))
+    void operator()( const std::type_index& idx ) const {
+        auto term = descriptor::typemap.find(idx);
+        if ( term == descriptor::typemap.end() )
             throw polysync::error("no typemap") << exception::field(field.name);
-        const descriptor::terminal& term = descriptor::typemap.at(idx);
-        variant a = d->decode_desc(term.name, field.bigendian);
+        // const descriptor::terminal& term = descriptor::typemap.at(idx);
+        variant a = d->decode_desc(term->second.name, field.bigendian);
         branch->emplace_back(field.name, a);
         branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " 
-            << field.format(branch->back()) << " (" << term.name 
+            << field.format(branch->back()) << " (" << term->second.name 
             << (field.bigendian ? ", bigendian" : "")
             << ")";
     }

@@ -32,10 +32,10 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
     // screen, also useful.
     dll::shared_library self( dll::program_location() );
     for ( std::string plugname: { "slice" } ) {
-        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>( 
+        auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>(
                 plugname + "_plugin" );
         filter::map.emplace( plugname, factory() );
-        BOOST_LOG_SEV( log, severity::debug1 ) 
+        BOOST_LOG_SEV( log, severity::debug1 )
             << "\"" << plugname << "\" plugin found: hard linked";
     }
 
@@ -65,16 +65,16 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                 }
 
                 try {
-                    boost::shared_ptr<filter::plugin> plugin = 
+                    boost::shared_ptr<filter::plugin> plugin =
                         dll::import<filter::plugin>( lib.path(), "filter" );
                     BOOST_LOG_SEV( log, severity::debug1 ) << "loaded filter from " << lib.path();
                     filter::map.emplace( plugname, plugin );
                 } catch ( std::runtime_error& ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                    BOOST_LOG_SEV( log, severity::debug2 )
                         << lib.path() << " provides no filter; symbols not found";
                 }
             } else {
-                BOOST_LOG_SEV( log, severity::debug2 ) 
+                BOOST_LOG_SEV( log, severity::debug2 )
                     << lib.path() << " provides no filter; filename mismatch";
             }
         }
