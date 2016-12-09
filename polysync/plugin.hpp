@@ -12,7 +12,7 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-namespace polysync { 
+namespace polysync {
 
 namespace encode {
 
@@ -21,7 +21,7 @@ extern po::options_description options();
 // Visitation points.
 struct visitor {
 
-    template <typename T> 
+    template <typename T>
     using callback = boost::signals2::signal<void (T)>;
 
     callback< plog::decoder& > open; // New plog file was opened.
@@ -40,7 +40,7 @@ struct plugin {
     virtual void connect( const po::variables_map&, visitor& ) = 0;
 };
 
-extern po::options_description load();
+extern void load( po::options_description& );
 extern std::map< std::string, boost::shared_ptr<encode::plugin> > map;
 
 } // namespace encode
@@ -51,10 +51,10 @@ using type = std::function<bool (const plog::log_record&)>;
 
 struct plugin {
     virtual po::options_description options() const = 0;
-    virtual type predicate( const po::variables_map& ) const = 0;  
+    virtual type predicate( const po::variables_map& ) const = 0;
 };
 
-extern po::options_description load(); 
+extern void load( po::options_description& );
 extern std::map< std::string, boost::shared_ptr<filter::plugin> > map;
 
 } // namespace filter
