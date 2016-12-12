@@ -56,7 +56,7 @@ public:
     // Decode an entire record and return a parse tree.
     variant deep(const log_record&);
     variant operator()(const descriptor::type& type) { return decode(type); }
-    
+
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
     // match every possible struct, sequence, or terminal type, nested or not,
@@ -67,7 +67,7 @@ public:
     template <typename Number>
     typename std::enable_if_t<std::is_arithmetic<Number>::value>
     decode(Number& value) {
-        stream.read((char *)(&value), sizeof(Number)); 
+        stream.read((char *)(&value), sizeof(Number));
     }
 
     // Endian swapped types
@@ -81,23 +81,23 @@ public:
         stream.read((char *)buf.data(), buf.size());
         multiprecision::import_bits(value, buf.begin(), buf.end(), 8);
     }
-     
+
     // Specialize decode() for hana wrapped structures.  This works out padding
     // in the structure definition where a straight memcpy would fail, and also
     // recurses into nested structures.  Hana has a function hana::members()
     // which would make this simpler, but sadly members() cannot return
     // non-const references which we need here (we are setting the value).
-    template <typename Struct, class = typename std::enable_if_t<hana::Foldable<Struct>::value>>
-    void decode(Struct& record) {
-        hana::for_each(hana::keys(record), [&](auto&& key) mutable { 
+    template <typename S, class = typename std::enable_if_t<hana::Struct<S>::value>>
+    void decode(S& record) {
+        hana::for_each(hana::keys(record), [&](auto&& key) mutable {
                 decode(hana::at_key(record, key));
-                }); 
+                });
     }
 
     // Sequences have a LenType number first specifying how many T's follow.  T
     // might be a flat (arithmetic) type or a nested structure.  Either way,
     // iterate the fields and serialize each one using the specialized decode().
-    template <typename LenType, typename T> 
+    template <typename LenType, typename T>
     void decode(sequence<LenType, T>& seq) {
         LenType len;
         stream.read(reinterpret_cast<char *>(&len), sizeof(len));
@@ -112,12 +112,15 @@ public:
         std::uint16_t len;
         stream.read((char *)(&len), sizeof(len));
         name.resize(len);
-        stream.read((char *)(name.data()), len); 
+        stream.read((char *)(name.data()), len);
     }
 
-    // Decode a dynamic type using the description name.  This name will become
-    // decode() as soon as I figure out how to distingish strings from !hana::Foldable<>.
-    variant decode_desc(const std::string& type, bool endian = false);
+    void decode(bytes& raw) {
+        stream.read((char *)raw.data(), raw.size());
+    }
+
+    // Decode a dynamic type using the description name.
+    variant decode(const std::string& type, bool bigendian = false);
 
     variant decode(const descriptor::type&);
 
@@ -167,21 +170,23 @@ protected:
     std::streamoff record_endpos; // the last byte of the current record
 };
 
-inline iterator::iterator(decoder* s, std::streamoff pos) : stream(s), pos(pos) {
-    if (stream)
-        stream->decode(header, pos);
-} 
+inline iterator::iterator( decoder* s, std::streamoff pos ) : stream( s ), pos( pos ) {
+    if ( stream ) {
+        stream->decode( header, pos );
+    }
+}
 
-inline log_record iterator::operator*() { 
+inline log_record iterator::operator*() {
     return header;
 }
 
 inline iterator& iterator::operator++() {
-    
+
     // Advance the iterator's position to the beginning of the next record.
     pos += descriptor::size<log_record>::value() + header.size;
-    if (pos < stream->endpos)
-        stream->decode(header, pos);
+    if ( pos < stream->endpos ) {
+        stream->decode( header, pos );
+    }
     return *this;
 }
 
