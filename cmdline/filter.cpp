@@ -31,7 +31,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
     // misconfigured.  It also makes the query options appear first in the help
     // screen, also useful.
     dll::shared_library self( dll::program_location() );
-    for ( std::string plugname: { "slice" } ) {
+    for ( std::string plugname: { "slice", "typefilter" } ) {
         auto factory = self.get_alias<boost::shared_ptr<filter::plugin>()>(
                 plugname + "_plugin" );
         filter::map.emplace( plugname, factory() );

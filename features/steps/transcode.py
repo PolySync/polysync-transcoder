@@ -1,5 +1,8 @@
 from behave import *
+
+# Started out using compare, which turns out to be old and sucky. Need to finish moving to hamcrest.
 from compare import expect
+from hamcrest import *
 import subprocess, shlex, ctypes, os
 
 path = '../build/cmdline'
@@ -39,6 +42,10 @@ def step_impl(context):
 @then('stderr is empty')
 def step_impl(context):
     expect(not context.response.stderr)
+
+@then('stdout does not contain: {stdout}')
+def step_impl(context, stdout):
+    assert_that(context.response.stdout.decode('ascii'), is_not(contains_string(stdout)))
 
 @then('the size of stdout is {size}')
 def step_impl(context, size):

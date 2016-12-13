@@ -36,3 +36,14 @@ std::ostream& operator<<( std::ostream& os, const pair<T, std::uint8_t>& p ) {
 
 }} // boost::hana
 
+namespace std { 
+
+// Implement a stream printer for any hana wrapped structure
+template <typename S>
+typename std::enable_if_t<boost::hana::Struct<S>::value, std::ostream&>
+operator<<(std::ostream& os, const S& record) {
+    return boost::hana::fold(record, os, [](std::ostream& os, auto field) -> std::ostream& 
+            { return os << field << " "; } );
+}
+
+} // namespace std

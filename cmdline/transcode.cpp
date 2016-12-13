@@ -198,7 +198,6 @@ int catch_main( int ac, char* av[] ) {
 
     ps::encode::map.at( encoder )->connect( cmdline_args, visit );
 
-
     // The observers are finally all set up.  Here, we finally do the computation!
     // Double iterate over files from the command line, and records in each file.
     for ( fs::path path: cmdline_args["input"].as<std::vector<fs::path>>() )
