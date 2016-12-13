@@ -1,13 +1,14 @@
 #include <typeindex>
 
 #include <polysync/description.hpp>
+#include <polysync/size.hpp>
 #include <polysync/plog/core.hpp>
 
-namespace polysync { 
+namespace polysync {
 
 namespace plog {
 std::map<plog::msg_type, std::string> type_support_map;
-} 
+}
 
 namespace descriptor {
 
@@ -36,7 +37,7 @@ std::map<std::type_index, descriptor::terminal> typemap {
     { typeid(std::uint64_t), { "uint64", sizeof(std::uint64_t) } },
     { typeid(float), { "float", sizeof(float) } },
     { typeid(double), { "double", sizeof(double) } },
-    
+
     { typeid(plog::msg_header), { "msg_header", size<plog::msg_header>::value() } },
     { typeid(plog::log_record), { "log_record", size<plog::log_record>::value() } },
     { typeid(plog::log_header), { "log_header", size<plog::log_header>::value() } },

@@ -19,7 +19,7 @@ using logging::severity;
 class encoder {
 public:
 
-    encoder(std::ostream& st) : stream(st) {} 
+    encoder(std::ostream& st) : stream(st) {}
 
     // Expose the encode() members as operator(), for convenience.
     template <typename... Args>
@@ -33,9 +33,9 @@ public:
     // Write non-flat (hana wrapped) structures.  This works out packing
     // the structure where a straight memcpy would fail due to padding, and also
     // recurses into nested structures.
-    template <typename Struct>
-    typename std::enable_if_t<hana::Foldable<Struct>::value>
-    encode(const Struct& rec) {
+    template <typename S>
+    typename std::enable_if_t<hana::Struct<S>::value>
+    encode(const S& rec) {
         hana::for_each(hana::members(rec), [this](auto field) { encode(field); });
     }
 
@@ -44,9 +44,9 @@ public:
     template <typename Number>
     typename std::enable_if_t<std::is_arithmetic<Number>::value>
     encode(const Number& value) {
-        stream.write((char *)(&value), sizeof(Number)); 
+        stream.write((char *)(&value), sizeof(Number));
     }
-    
+
     // Endian swapped types
     template <typename T, size_t N>
     void encode(const boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value) {
@@ -62,7 +62,7 @@ public:
     // Sequences have a LenType number first specifying how many T's follow.  T
     // might be a flat (arithmetic) type or a nested structure.  Either way,
     // iterate the fields and serialize each one using the specialized encode().
-    template <typename LenType, typename T> 
+    template <typename LenType, typename T>
     void encode(const sequence<LenType, T>& seq) {
         LenType len = seq.size();
         stream.write((char *)(&len), sizeof(len));
@@ -72,7 +72,7 @@ public:
     // Fixed length arrays modeled by std::array<>.
     template <typename... Args>
     void encode(const std::array<Args...>& array) {
-        stream.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type)); 
+        stream.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type));
     }
 
     // plog::hash_type is multiprecision; other very long ints may come along someday
@@ -81,18 +81,18 @@ public:
         multiprecision::export_bits(value, buf.begin(), 8);
 
         // export_bits helpfully omits the zero high order bits.  This is not what I want.
-        while (buf.size() < PSYNC_MODULE_VERIFY_HASH_LEN) 
+        while (buf.size() < PSYNC_MODULE_VERIFY_HASH_LEN)
             buf.insert(buf.begin(), 0);
         stream.write((char *)buf.data(), buf.size());
     }
-   
+
     // Specialize name_type because the underlying std::string type needs special
     // handling.  It resembels a Pascal string (length first, no trailing zero
     // as a C string would have)
     void encode(const name_type& name) {
         name_type::length_type len = name.size();
         stream.write((char *)(&len), sizeof(len));
-        stream.write((char *)(name.data()), len); 
+        stream.write((char *)(name.data()), len);
     }
 
     void encode( const polysync::tree&, const descriptor::type& );
@@ -111,7 +111,7 @@ public:
     }
 
 public:
-    
+
     logging::logger log { "plog::encoder" };
 
 protected:
@@ -122,5 +122,5 @@ protected:
 
 };
 
- 
+
 }} // namespace polysync::plog

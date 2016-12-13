@@ -8,11 +8,12 @@
 #include <iostream>
 #include <boost/optional.hpp>
 #include <boost/hana.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 // Dynamic parse trees are basically just vectors of "nodes".  A node knows
 // it's name and a strongly typed value.
 
-namespace polysync { 
+namespace polysync {
 
 namespace hana = boost::hana;
 
@@ -29,15 +30,15 @@ struct tree : std::shared_ptr< std::vector<node> > {
 
     tree() : std::shared_ptr< std::vector<node> >( new std::vector<node>() ) {}
 
-    tree( const std::string& type ) : 
-        std::shared_ptr< std::vector<node> >( new std::vector<node>() ), 
+    tree( const std::string& type ) :
+        std::shared_ptr< std::vector<node> >( new std::vector<node>() ),
         type(type) {}
 
     // This initialization_list<> constructor should only be invoked within
     // unit tests to describe test vectors.  The initialization ends up copy
     // constructing each node which is too slow for the application.
-    tree( const std::string& type, std::initializer_list<node> init ) 
-        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ), 
+    tree( const std::string& type, std::initializer_list<node> init )
+        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ),
           type(type) {}
 };
 
@@ -58,22 +59,23 @@ using variant = eggs::variant<
     tree, std::vector<tree>,
 
     // Undecoded raw bytes (fallback when description is missing)
-    bytes, 
+    bytes,
 
     // Floating point types and native vectors
-    float, std::vector<float>, 
-    double, std::vector<double>, 
+    float, std::vector<float>,
+    double, std::vector<double>,
 
     // Integer types and native vectors
-    std::int8_t, std::vector<std::int8_t>, 
-    std::int16_t, std::vector<std::int16_t>, 
-    std::int32_t, std::vector<std::int32_t>, 
+    std::int8_t, std::vector<std::int8_t>,
+    std::int16_t, std::vector<std::int16_t>,
+    std::int32_t, std::vector<std::int32_t>,
     std::int64_t, std::vector<std::int64_t>,
-    std::uint8_t, 
-    std::uint16_t, std::vector<std::uint16_t>, 
-    std::uint32_t, std::vector<std::uint32_t>, 
-    std::uint64_t, std::vector<std::uint64_t>
+    std::uint8_t,
+    std::uint16_t, std::vector<std::uint16_t>,
+    std::uint32_t, std::vector<std::uint32_t>,
+    std::uint64_t, std::vector<std::uint64_t>,
 
+    boost::multiprecision::cpp_int
     >;
 
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
@@ -99,11 +101,11 @@ struct node : variant {
     static node from( const Struct& s, const std::string& );
 };
 
-inline bool operator==( const tree& lhs, const tree& rhs ) { 
+inline bool operator==( const tree& lhs, const tree& rhs ) {
     if ( lhs->size() != rhs->size() )
         return false;
 
-    return std::equal( lhs->begin(), lhs->end(), rhs->begin(), rhs->end(), 
+    return std::equal( lhs->begin(), lhs->end(), rhs->begin(), rhs->end(),
             []( const node& ln, const node& rn ) {
 
                 // If the two nodes are both trees, recurse.
@@ -123,15 +125,15 @@ inline bool operator!=( const tree& lhs, const tree& rhs ) { return !operator==(
 template <typename Struct>
 inline node node::from( const Struct& s, const std::string& type ) {
     tree tr(type);
-    hana::for_each( s, [tr](auto pair) { 
+    hana::for_each( s, [tr](auto pair) {
             std::string name = hana::to<char const*>( hana::first(pair) );
             tr->emplace_back( name, hana::second(pair) );
             });
-        
+
     return node( type, tr );
 }
 
-inline std::ostream& operator<<( std::ostream&, const tree& ); 
+inline std::ostream& operator<<( std::ostream&, const tree& );
 
 } // namespace polysync
 

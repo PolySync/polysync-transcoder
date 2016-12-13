@@ -1,4 +1,4 @@
-#include <polysync/description.hpp>
+#include <polysync/size.hpp>
 #include <polysync/plog/core.hpp>
 
 #include <mettle.hpp>
@@ -8,7 +8,7 @@ namespace plog = polysync::plog;
 
 mettle::suite<> size("size", [](auto& suite) {
         suite.test("log_record", []() {
-                expect(polysync::descriptor::size<plog::log_record>::value(), equal_to(20));
+                expect(polysync::size<plog::log_record>::value(), equal_to(20));
                 });
         });
 

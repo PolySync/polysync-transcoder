@@ -41,7 +41,7 @@ struct skip {
 // value of the array may be either a native type, or a compound type.
 struct array {
     // Fixed size, or field name to look up.
-    eggs::variant<size_t, std::string> size; 
+    eggs::variant<size_t, std::string> size;
 
     // Native type's typeid(), or the name of a compound type's description.
     eggs::variant<std::type_index, std::string> type;
@@ -77,12 +77,12 @@ struct field {
     // is optional.
     bool bigendian { false };
 
-    std::function<std::string ( const polysync::variant& )> format { 
+    std::function<std::string ( const polysync::variant& )> format {
         // The default implementation just finds the operator<< overload for the node.
-        [](const polysync::variant& n) { 
+        [](const polysync::variant& n) {
             std::stringstream os;
             eggs::variants::apply([&os]( auto v ) { os << v; }, n);
-            return os.str(); 
+            return os.str();
         }};
 
 };
@@ -97,7 +97,7 @@ inline bool operator==( const field& lhs, const field& rhs ) {
 struct type : std::vector<field> {
 
     type(const std::string& n) : name(n) {}
-    type(const char * n, std::initializer_list<field> init) 
+    type(const char * n, std::initializer_list<field> init)
         : name(n), std::vector<field>(init) {}
 
     // This is the name of the type.  Each element of the vector also has a
@@ -106,7 +106,11 @@ struct type : std::vector<field> {
 };
 
 inline bool operator==( const type& lhs, const type& rhs ) {
-    return (lhs.name == rhs.name);
+    return lhs.name == rhs.name and static_cast<const std::vector<field>&>(lhs) == rhs;
+}
+
+inline bool operator!=( const type& lhs, const type& rhs ) {
+    return lhs.name != rhs.name or static_cast<const std::vector<field>&>(lhs) != rhs;
 }
 
 using catalog_type = std::map<std::string, type>;
@@ -114,9 +118,9 @@ using catalog_type = std::map<std::string, type>;
 // Global type descriptor catalogs
 extern catalog_type catalog;
 extern std::map<std::type_index, terminal> typemap;
-extern std::map<std::string, std::type_index> namemap; 
+extern std::map<std::string, std::type_index> namemap;
 
-// Traverse a TOML table 
+// Traverse a TOML table
 extern void load( const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& );
 
 // Create a type description of a static structure, using hana for class instrospection
@@ -127,18 +131,18 @@ struct describe {
     static descriptor::type type() {
         namespace hana = boost::hana;
         if ( !typemap.count( typeid( Struct ) ) )
-            throw polysync::error( "unnamed type" ) 
+            throw polysync::error( "unnamed type" )
                 << exception::type( typeid( Struct ).name() )
                 << exception::module( "description" )
                 << status::description_error;
 
-        std::string tpname = descriptor::typemap.at( typeid( Struct ) ).name; 
+        std::string tpname = descriptor::typemap.at( typeid( Struct ) ).name;
 
-        return hana::fold( Struct(), descriptor::type(tpname), []( auto desc, auto pair ) { 
+        return hana::fold( Struct(), descriptor::type(tpname), []( auto desc, auto pair ) {
                 std::string name = hana::to<char const*>( hana::first( pair ) );
 
                 if ( typemap.count( typeid( hana::second( pair ) ) ) == 0)
-                    throw polysync::error( "missing typemap" ) 
+                    throw polysync::error( "missing typemap" )
                         << exception::module( "description" )
                         << exception::type( name )
                         << status::description_error;
@@ -148,8 +152,8 @@ struct describe {
                 return desc;
                 });
     }
-        
-    // Generate self descriptions of types 
+
+    // Generate self descriptions of types
     static std::string string() {
         if ( !descriptor::typemap.count( typeid(Struct) ) )
             throw polysync::error( "no typemap description" )
@@ -157,14 +161,14 @@ struct describe {
                         << exception::type( typeid(Struct).name() )
                         << status::description_error;
 
-        std::string tpname = descriptor::typemap.at( typeid(Struct) ).name; 
+        std::string tpname = descriptor::typemap.at( typeid(Struct) ).name;
         std::string result = tpname + " { ";
         hana::for_each(Struct(), [ &result, tpname ]( auto pair ) {
                 std::type_index tp = typeid(hana::second( pair ));
                 std::string fieldname = hana::to<char const*>( hana::first(pair) );
                 if ( descriptor::typemap.count(tp) == 0 )
-                    throw polysync::error( "type not described" ) 
-                        << exception::type( tpname ) 
+                    throw polysync::error( "type not described" )
+                        << exception::type( tpname )
                         << exception::field( fieldname )
                         << exception::module( "description" )
                         << status::description_error;
@@ -179,7 +183,7 @@ struct describe {
 struct lex : std::string {
 
     lex( const field::variant& v );
-    std::string operator()( std::type_index ) const; 
+    std::string operator()( std::type_index ) const;
     std::string operator()( nested ) const;
     std::string operator()( skip ) const;
     std::string operator()( array ) const;
@@ -188,26 +192,9 @@ struct lex : std::string {
 
 };
 
-// Define some metaprograms to compute the sizes of types.
-template <typename Number, class Enable = void>
-struct size {
-    static std::streamoff value() { return sizeof(Number); }
-};
-
-
-template <typename S>
-struct size<S, typename std::enable_if<hana::Struct<S>::value>::type> {
-    static std::streamoff value() {
-        return hana::fold(hana::members(S()), 0, 
-                [](std::streamoff s, auto field) { 
-                    return s + size<decltype(field)>::value(); 
-                });
-    }
-};
-
 // Unit tests, exception handling, and the logger all require printing the type
 // descriptions to the console.
- 
+
 extern std::ostream& operator<<(std::ostream& os, const field& f);
 extern std::ostream& operator<<(std::ostream& os, const type& desc);
 

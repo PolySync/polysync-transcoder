@@ -13,7 +13,7 @@ struct fixture {
     cpptoml::parser parser;
     std::shared_ptr<cpptoml::table> root;
 
-    fixture(const std::string& toml) : 
+    fixture(const std::string& toml) :
         stream(toml), parser(stream), root(parser.parse()) {}
 
     std::shared_ptr<cpptoml::table> operator->() const { return root; };
@@ -30,21 +30,19 @@ mettle::suite<fixture> description("description", mettle::bind_factory(toml::ps_
                             { "payload", typeid(uint32_t) } }
                             };
 
-                            expect(desc, equal_to(descriptor::ps_byte_array_msg)); 
+                            // exercises operator==(const descriptor::type&, const descriptor::type&)
+                            expect(desc, equal_to(descriptor::ps_byte_array_msg));
                 });
 
-                _.test("name-mismatch", { mettle::skip }, [](fixture&) {
+                _.test("name-mismatch", [](fixture&) {
                         polysync::descriptor::type desc { "byte_array_msg", {
                             { "dest_guid", typeid(plog::guid) },
                             { "data_type", typeid(uint32_t) },
                             { "payload", typeid(uint32_t) } }
                             };
 
-                            // not_equal_to thinks the arg is
-                            // descriptor::field, not descriptor::type and call
-                            // the wrong comparison operator.  WTF?  I do not
-                            // understand this bug at all.
-                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg)); 
+                            // exercises operator!=(const descriptor::type&, const descriptor::type&)
+                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg));
                 });
 
                 _.test("field-name-mismatch", [](fixture&) {
@@ -54,7 +52,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(toml::ps_
                             { "payload", typeid(uint32_t) } }
                             };
 
-                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg)); 
+                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg));
                 });
 
                 _.test("field-type-mismatch", [](fixture&) {
@@ -64,7 +62,7 @@ mettle::suite<fixture> description("description", mettle::bind_factory(toml::ps_
                             { "payload", typeid(uint32_t) } }
                             };
 
-                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg)); 
+                            expect(desc, not_equal_to(descriptor::ps_byte_array_msg));
                 });
         });
 
@@ -116,13 +114,13 @@ mettle::suite<fixture> description("description", mettle::bind_factory(toml::ps_
         _.subsuite("build-description", [](auto&_) {
                 _.test("TOML", [](fixture& root) {
                         polysync::descriptor::catalog_type catalog;
-                        polysync::descriptor::load(
-                                "ps_byte_array_msg", root->get_table("ps_byte_array_msg"), catalog);
-                        expect(catalog, has_key("ps_byte_array_msg"));
+                        polysync::descriptor::load( "ps_byte_array_msg",
+                                root->get_table("ps_byte_array_msg"), catalog );
+                        expect( catalog, has_key("ps_byte_array_msg") );
 
                         const polysync::descriptor::type& desc = catalog.at("ps_byte_array_msg");
-                        expect(desc, array( 
-                                    polysync::descriptor::field { "dest_guid", typeid(plog::guid) }, 
+                        expect(desc, array(
+                                    polysync::descriptor::field { "dest_guid", typeid(plog::guid) },
                                     polysync::descriptor::field { "data_type", typeid(std::uint32_t) },
                                     polysync::descriptor::field { "payload", typeid(std::uint32_t) }
                                     ));
