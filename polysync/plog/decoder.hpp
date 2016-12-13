@@ -121,7 +121,7 @@ public:
     }
 
     // Decode a dynamic type using the description name.
-    variant decode(const std::string& type, bool bigendian = false);
+    variant decode(const std::string& type);
 
     variant decode(const descriptor::type&);
 
