@@ -14,7 +14,7 @@ node('clang') {
   stage('Build') {
     echo 'Compiling'
     sh 'mkdir build'
-    sh 'CXX=clang++ cmake -Bbuild -H. -DJENKINS=1 -DCMAKE_BUILD_TYPE=Debug'
+    sh 'CXX=g++ cmake -Bbuild -H. -DJENKINS=1 -DCMAKE_BUILD_TYPE=Debug'
     sh 'cd build && make'
     echo 'Build Complete!'
   }
