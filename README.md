@@ -186,7 +186,7 @@ PLog->Plog transcoding interesting.
 ### Truncation
 
 ~~~
-➜  polysync-transcode ibeo.25.plog --slice :2 plog -n ibeo.2.plog
+➜  polysync-transcode ibeo.25.plog --slice :2 plog -o ibeo.2.plog
 ➜  polysync-transcode ibeo.2.plog --type log_record
 log_record x2
 ~~~
@@ -231,7 +231,7 @@ raw fields, just fully decoded records of type `ibeo.vehicle_state` and
 `ibeo.scan_data`, respectively.  (Hint: the transcoder will read raw bytes like
 this whenever it cannot determine a better model.)  Diagnose the problem:
 ~~~
-➜  polysync-transcode ibeo.25.plog --slice 2 dump --verbose debug1
+➜  polysync-transcode ibeo.25.plog --slice 2 dump --loglevel debug1
 ...
 transcode[debug1]: loading descriptions from "../share/ibeo.toml"
 transcode[debug1]: loading descriptions from "../share/sensor.toml"
@@ -253,7 +253,7 @@ What if this result is surprising, and you think that ibeo type 0x2280 should
 be fully decoded because the description actually exists?  Check more detail:
 
 ~~~
-➜  polysync-transcode ibeo.25.plog --slice 2 dump --verbose debug2
+➜  polysync-transcode ibeo.25.plog --slice 2 dump --loglevel debug2
 ...
 detector[debug2]: ibeo.vehicle_state not matched: parent "msg_header" != "ibeo.header"
 detector[debug2]: ibeo.scan_data not matched: parent "msg_header" != "ibeo.header"
