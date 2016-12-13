@@ -14,18 +14,16 @@ node('clang') {
   stage('Build') {
     echo 'Compiling'
     sh 'mkdir build'
-    sh 'CXX=clang++ cmake -Bbuild -H.'
+    sh 'CXX=clang++ cmake -Bbuild -H. -DJENKINS -DCMAKE_BUILD_TYPE=Debug'
     sh 'cd build && make'
     echo 'Build Complete!'
   }
   stage('Test') {
     parallel 'unit tests': {
-      //sh 'make test'
+      
       echo 'Unit Tests Complete!'
     }, 'acceptance tests': {
-      sh 'behave bad-inputs.feature'
-      sh 'behave filter.slice.feature'
-      sh 'behave encode.plog.feature'
+      sh 'behave *.feature'
       echo 'Acceptance Tests Complete!'
     }
   }
