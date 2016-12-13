@@ -41,16 +41,6 @@ auto hana_equal(Struct&& expected) {
             "hana_equal ");
 }
 
-namespace polysync { namespace descriptor {
-
-template <typename Struct>
-typename std::enable_if_t<hana::Foldable<Struct>::value>
-operator==(const Struct& lhs, const Struct& rhs) {
-    return hana::equal(lhs, rhs);
-}
-
-}}
-
 namespace cpptoml {
 
 // Teach mettle how to print TOML objects.  Must be in cpptoml namespace for

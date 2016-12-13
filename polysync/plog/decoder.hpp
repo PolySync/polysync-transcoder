@@ -133,9 +133,14 @@ public:
     // Factory function of any supported type, for convenience
     template <typename T>
     T decode() {
-        T value;
-        decode(value);
-        return value;
+        try {
+            T value;
+            decode(value);
+            return value;
+        } catch ( std::ios_base::failure ) {
+            throw polysync::error("read error")
+                << exception::module("plog::decoder");
+        }
     }
 
     // Deserialize a structure from a known offset in the file.  This is the

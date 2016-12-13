@@ -6,6 +6,7 @@
 #include <polysync/byteswap.hpp>
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/encoder.hpp>
+#include <polysync/print_hana.hpp>
 #include "types.hpp"
 
 using namespace mettle;
@@ -28,7 +29,7 @@ struct hana_factory {
 
 template <>
 plog::log_module hana_factory::make<plog::log_module>() {
-    return { 11, 21, 31, 41, mp::cpp_int("0xF0E1D2C3B4A50697" "88796A5B4C3D2E1F0"), "log" };
+    return { 11, 21, 31, 41, mp::cpp_int("0xF0E1D2C3B4A50697" "88796A5B4C3D2E1"), "log" };
 }
 
 template <>
@@ -123,6 +124,7 @@ hash("hash_type", [](auto& _) {
             std::stringstream stream;
             plog::encoder encode(stream);
             plog::decoder decode(stream);
+
             encode.encode(value);
             expect(decode.decode<multiprecision::cpp_int>(), equal_to(value));
             });
@@ -131,15 +133,15 @@ hash("hash_type", [](auto& _) {
 mettle::suite<plog::log_header, plog::msg_header, plog::log_module, plog::type_support, plog::log_record>
 structures("structures", hana_factory {}, [](auto& _) {
 
-        _.test("transcode", [](auto cls) {
+        _.test("transcode", [](auto value) {
                 using T = mettle::fixture_type_t<decltype(_)>;
 
                 std::stringstream stream;
-                plog::encoder write(stream);
-                plog::decoder read(stream);
+                plog::encoder encode(stream);
+                plog::decoder decode(stream);
 
-                write.encode(cls);
-                expect(read.decode<T>(), hana_equal(cls));
+                encode.encode(value);
+                expect(decode.decode<T>(), hana_equal(value));
 
                 });
 
