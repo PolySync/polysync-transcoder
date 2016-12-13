@@ -18,8 +18,12 @@ struct pretty_printer {
     // Entry point from visitor callback
     void operator()(const node& top) const { print (top, *top.target<tree>()); }
 
-    void print(const node& n, tree top) const; 
-    void print(tree top) const; 
+    void print(const node& n, tree top) const;
+    void print(tree top) const;
+
+    void print(const node& n, const boost::multiprecision::cpp_int& value) const {
+        os << std::hex << value << std::dec;
+    }
 
     template <typename T>
     void print(const node& n, const std::vector<T>& array) const {
@@ -34,7 +38,7 @@ struct pretty_printer {
         for (const tree& value: array) {
             rec += 1;
             os << format->begin_ordered(rec, value.type);
-            print(value); 
+            print(value);
             os << format->end_ordered();
         };
         os << format->end_block();
@@ -59,6 +63,7 @@ struct pretty_printer {
         ss << static_cast<std::uint16_t>(value);
         os << format->item(n.name, ss.str(), "uint16");
     }
+
 };
 
 // Specialize bytes so it does not print characters, which is useless behavior.
@@ -67,13 +72,13 @@ void pretty_printer::print(const node& n, const bytes& record) const {
     std::stringstream ss;
     const int psize = 12;
     ss << "[ " << std::hex;
-    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()), 
+    std::for_each(record.begin(), std::min(record.begin() + psize, record.end()),
             [&ss](auto& field) mutable { ss << ((std::uint16_t)field & 0xFF) << " "; });
 
     if (record.size() > 2*psize)
         ss << "... ";
     if (record.size() > psize)
-        std::for_each(record.end() - psize, record.end(), 
+        std::for_each(record.end() - psize, record.end(),
                 [&ss](auto& field) mutable { ss << ((std::uint16_t)field & 0xFF) << " "; });
 
     ss << "]" << std::dec << " (" << record.size() << " elements)";
@@ -82,15 +87,15 @@ void pretty_printer::print(const node& n, const bytes& record) const {
 
 void pretty_printer::print( const node& n, tree top ) const {
     os << format->begin_block(n.name);
-    for (const polysync::node& node: *top) 
-        eggs::variants::apply([&](auto& f) { print( node, f); }, node);
+    for (const polysync::node& node: *top)
+        eggs::variants::apply([&](auto& f) { print(node, f); }, node);
     os << format->end_block();
 }
 
 void pretty_printer::print( tree top ) const {
     format->begin_block(top.type);
-    std::for_each(top->begin(), top->end(), 
-            [&](auto& pair) { 
+    std::for_each(top->begin(), top->end(),
+            [&](auto& pair) {
             eggs::variants::apply([&](auto& f) { print(pair, f); }, pair);
             });
     format->end_block();

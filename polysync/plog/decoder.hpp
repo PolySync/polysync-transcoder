@@ -4,6 +4,7 @@
 
 #include <polysync/tree.hpp>
 #include <polysync/description.hpp>
+#include <polysync/size.hpp>
 #include <polysync/plog/core.hpp>
 #include <polysync/logging.hpp>
 #include <fstream>
@@ -134,7 +135,7 @@ public:
     T decode() {
         T value;
         decode(value);
-        return std::move(value);
+        return value;
     }
 
     // Deserialize a structure from a known offset in the file.  This is the
@@ -183,7 +184,7 @@ inline log_record iterator::operator*() {
 inline iterator& iterator::operator++() {
 
     // Advance the iterator's position to the beginning of the next record.
-    pos += descriptor::size<log_record>::value() + header.size;
+    pos += size<log_record>::value() + header.size;
     if ( pos < stream->endpos ) {
         stream->decode( header, pos );
     }

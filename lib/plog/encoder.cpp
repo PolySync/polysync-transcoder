@@ -1,39 +1,9 @@
 #include <set>
 
 #include <polysync/plog/encoder.hpp>
+#include <polysync/byteswap.hpp>
 
 namespace polysync { namespace plog {
-
-// Match all integer types to swap the bytes; specialize for non-integers below.
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value, T>::type
-byteswap(const T& value) {
-    endian::endian_arithmetic<endian::order::big, T, 8*sizeof(T)> swap(value);
-    return *(new ((void *)swap.data()) T);
-}
-
-float byteswap(float value) {
-    // Placement new native float bytes into an int
-    std::uint32_t bytes = *(new ((void *)&value) std::uint32_t);
-    endian::big_uint32_t swap(bytes);
-    // Placement new back into a byte-swapped float
-    return *(new ((void *)swap.data()) float);
-}
-
-double byteswap(double value) {
-    // Placement new native float bytes into an int
-    std::uint64_t bytes = *(new ((void *)&value) std::uint64_t);
-    endian::big_uint64_t swap(bytes);
-    // Placement new back into a byte-swapped double
-    return *(new ((void *)swap.data()) double);
-}
-
-// Non-arithmetic types should not ever be marked bigendian.
-template <typename T>
-typename std::enable_if<!std::is_arithmetic<T>::value, T>::type
-byteswap(const T&) {
-    throw polysync::error("non-arithmetic type cannot be byteswapped");
-}
 
 struct branch {
     encoder* enc;
@@ -44,7 +14,7 @@ struct branch {
     // Terminal types
     void operator()(std::type_index idx) const {
         if (!descriptor::typemap.count(idx))
-            throw polysync::error("no typemap") 
+            throw polysync::error("no typemap")
                 << exception::field(field.name)
                 << exception::module("plog::encode");
 
@@ -53,9 +23,9 @@ struct branch {
                << exception::field(node.name)
                << exception::module("plog::encode");
 
-        BOOST_LOG_SEV(enc->log, severity::debug2) << node.name << " = " << node 
+        BOOST_LOG_SEV(enc->log, severity::debug2) << node.name << " = " << node
             << " (" << descriptor::typemap.at(idx).name << ")";
-        eggs::variants::apply([this](auto& val) { 
+        eggs::variants::apply([this](auto& val) {
                 if (field.bigendian)
                     enc->encode(byteswap(val));
                 else
@@ -106,8 +76,8 @@ struct branch {
         size_t size;
 
         if (sizefield) {
-            auto it = std::find_if(tree->begin(), tree->end(), 
-                    [sizefield](const polysync::node& n) { return n.name == *sizefield; }); 
+            auto it = std::find_if(tree->begin(), tree->end(),
+                    [sizefield](const polysync::node& n) { return n.name == *sizefield; });
             if (it == tree->end())
                 throw polysync::error("size indicator field not found") << exception::field(*sizefield);
 
@@ -120,11 +90,11 @@ struct branch {
                 throw polysync::error("cannot parse size") << exception::type(it->name);
             }
         } else
-            size = *fixedsize; 
+            size = *fixedsize;
 
         BOOST_LOG_SEV(enc->log, severity::debug2) << "encoding " << size << " elements";
         auto nesttype = desc.type.target<std::string>();
-        
+
         if (nesttype) {
             if (!descriptor::catalog.count(*nesttype))
                 throw polysync::error("unknown nested type");
@@ -149,18 +119,18 @@ struct branch {
 
 };
 
-std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>> 
+std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>>
     branch::array_func {
-        { typeid(float), branch::array<float> }, 
-        { typeid(double), branch::array<double> }, 
-        { typeid(std::int8_t), branch::array<std::int8_t> }, 
-        { typeid(std::int16_t), branch::array<std::int16_t> }, 
-        { typeid(std::int32_t), branch::array<std::int32_t> }, 
-        { typeid(std::int64_t), branch::array<std::int64_t> }, 
-        { typeid(std::uint8_t), branch::array<std::uint8_t> }, 
-        { typeid(std::uint16_t), branch::array<std::uint16_t> }, 
-        { typeid(std::uint32_t), branch::array<std::uint32_t> }, 
-        { typeid(std::uint64_t), branch::array<std::uint64_t> }, 
+        { typeid(float), branch::array<float> },
+        { typeid(double), branch::array<double> },
+        { typeid(std::int8_t), branch::array<std::int8_t> },
+        { typeid(std::int16_t), branch::array<std::int16_t> },
+        { typeid(std::int32_t), branch::array<std::int32_t> },
+        { typeid(std::int64_t), branch::array<std::int64_t> },
+        { typeid(std::uint8_t), branch::array<std::uint8_t> },
+        { typeid(std::uint16_t), branch::array<std::uint16_t> },
+        { typeid(std::uint32_t), branch::array<std::uint32_t> },
+        { typeid(std::uint64_t), branch::array<std::uint64_t> },
     };
 
 void encoder::encode( const tree& t, const descriptor::type& desc ) {
@@ -175,8 +145,8 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
             // names; The tree's natural order is irrelevant, given a
             // descriptor.  This is exactly how the type can be re-ordered
             // during a format change without breaking legacy plogs.
-            auto fi = std::find_if(t->begin(), t->end(), [field](const node& n) { 
-                    return n.name == field.name; 
+            auto fi = std::find_if(t->begin(), t->end(), [field](const node& n) {
+                    return n.name == field.name;
                     });
 
             // Skip is a special case and will never be in the parse tree,
@@ -191,21 +161,21 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
     // What to do with fields not described in desc?  For now, the policy is to
     // omit terminals, but encode any trees or undecoded buffers, in order.  This should work when
     // the type description changes by removing a terminal field, but still
-    // completes the encoding of a list of trees. 
+    // completes the encoding of a list of trees.
     std::for_each(t->begin(), t->end(), [&](const node& n) {
-            if (done.count(n.name)) 
+            if (done.count(n.name))
                 return;
             if (n.target_type() == typeid(tree)) {
                 tree subtree = *n.target<tree>();
                 const descriptor::type& subtype = descriptor::catalog.at(subtree.type);
                 BOOST_LOG_SEV(log, severity::debug1) << "recursing subtree " << subtree.type;
                 return encode(subtree, subtype);
-            } 
+            }
             if (n.target_type() == typeid(bytes)) {
                 const bytes& raw = *n.target<bytes>();
                 return encode(raw.data(), raw.size());
             }
-            BOOST_LOG_SEV(log, severity::warn) 
+            BOOST_LOG_SEV(log, severity::warn)
                 << "field \"" << n.name << "\" not serialized due to lack of description";
 
             });

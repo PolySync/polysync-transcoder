@@ -11,64 +11,30 @@ namespace plog = polysync::plog;
 namespace hana = boost::hana;
 
 struct number_factory {
+
     template <typename T>
-    polysync::variant make() { return static_cast<T>(42); }
+    polysync::variant make() {
+        return T { 42 };
+    }
 };
 
-type_suite<decltype(hana::concat(integers, reals))> 
+type_suite<decltype(hana::concat(integers, reals))>
 number("polysync::variant == number", number_factory {}, [](auto& _) {
 
         using T = mettle::fixture_type_t<decltype(_)>;
 
-        _.test("equal", [](polysync::variant var) { 
-                expect(var, equal_to(T { 42 })); 
+        _.test("equal", [](polysync::variant var) {
+                expect(var, equal_to(T { 42 }));
                 });
 
-        _.test("not_equal", [](polysync::variant var) { 
-                expect(var, not_equal_to(T { 41 })); 
+        _.test("not_equal", [](polysync::variant var) {
+                expect(var, not_equal_to(T { 41 }));
                 });
 
-        _.test("type_mismatch", [](polysync::variant var) { 
-                expect(var, not_equal_to(std::vector<std::uint8_t>{ 42 })); 
+        _.test("type_mismatch", [](polysync::variant var) {
+                expect(var, not_equal_to(std::vector<std::uint8_t>{ 42 }));
                 });
         });
-
-// Check variant equality over each endian swapped type
-// type_suite<decltype(bigendians)>
-// bigendian("polysync::variant == boost::endian", number_factory {}, [](auto& _) {
-//             using T = mettle::fixture_type_t<decltype(_)>;
-// 
-//             _.test("equal", [](polysync::variant var) { 
-//                     expect(var, equal_to(T { 42 })); 
-//                     });
-// 
-//             _.test("not_equal", [](polysync::variant var) { 
-//                     expect(var, not_equal_to(T { 41 })); 
-//                     });
-// 
-//             _.test("type_mismatch", [](polysync::variant var) { 
-//                     expect(var, not_equal_to(float { 42 })); 
-//                     });
-// 
-//             _.test("endian_swap", [](polysync::variant var) { 
-//                     expect(var, equal_to(typename T::value_type { 42 })); 
-//                     });
-//         });
-// 
-// // Check variant == variant over integer and bigendian types
-// type_suite<decltype(hana::concat(integers, bigendians))>
-// variant_eq("polysync::variant == polysync::variant", number_factory{}, [](auto& _) {
-//             using T = mettle::fixture_type_t<decltype(_)>;
-// 
-//             _.test("equal", [](polysync::variant var) {
-//                     expect(var, equal_to(polysync::variant(T { 42 })));
-//                     });
-// 
-//             _.test("not_equal", [](polysync::variant var) {
-//                     expect(var, not_equal_to(polysync::variant(T { 41 })));
-//                 });
-// 
-//             });
 
 mettle::suite<> terminal_array("terminal_array", [](auto& _) {
 
