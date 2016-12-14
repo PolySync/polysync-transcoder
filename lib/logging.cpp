@@ -15,7 +15,7 @@
 
 #include <iostream>
 
-namespace polysync { 
+namespace polysync {
 
 std::shared_ptr<formatter::interface> format { new formatter::fancy() };
 
@@ -29,10 +29,10 @@ std::string to_string(severity s)
 {
     switch (s) {
         case severity::error: return format->error("[err]");
-        case severity::warn: return format->warn("[warn]"); 
-        case severity::info: return format->info("[info]"); 
+        case severity::warn: return format->warn("[warn]");
+        case severity::info: return format->info("[info]");
         case severity::verbose: return format->verbose("[verbose]");
-        case severity::debug1: return format->debug("[debug1]"); 
+        case severity::debug1: return format->debug("[debug1]");
         case severity::debug2: return format->debug("[debug2]");
     };
 }
@@ -48,8 +48,10 @@ std::map<std::string, severity> severity_map = {
 };
 
 void set_level(const std::string& level) {
-    if (!severity_map.count(level))
-        throw polysync::error("unknown debug level \"" + level + "\"");
+    if (!severity_map.count(level)) {
+        std::string msg = "unknown debug level \"" + level + "\"";
+        throw polysync::error(msg);
+    }
 
     boost::log::core::get()->set_filter(severity_attr <= severity_map.at(level));
 };
@@ -71,7 +73,7 @@ struct init_logger {
                  << format->channel(boost::log::extract<std::string>("Channel", rec).get<std::string>())
                  << to_string(boost::log::extract<severity>("Severity", rec).get<severity>())
                  << ": " << rec[expr::smessage];
-                 }); 
+                 });
 
         auto core = boost::log::core::get();
         core->add_sink(sink);
