@@ -8,17 +8,33 @@ node('clang') {
       userRemoteConfigs: scm.userRemoteConfigs
     ])
     try {
-      sh 'rm -rf build'
+      sh 'rm -rf clang-debug'
     } finally {}
   }
-  stage('Build') {
+  stage('CLang Debug Build') {
     echo 'Compiling'
-    sh 'mkdir build'
-    sh 'CXX=g++ cmake -Bbuild -H. -DJENKINS=1 -DCMAKE_BUILD_TYPE=Debug'
-    sh 'cd build && make'
+    sh 'mkdir clang-debug'
+    sh 'CXX=clang++ cmake -Bclang-debug -H. -DJENKINS=1 -DCMAKE_BUILD_TYPE=Debug'
+    sh 'cd clang-debug && make'
     echo 'Build Complete!'
   }
-  stage('Test') {
+  stage('Clang Test') {
+    parallel 'unit tests': {
+      
+      echo 'Unit Tests Complete!'
+    }, 'acceptance tests': {
+      sh 'behave *.feature'
+      echo 'Acceptance Tests Complete!'
+    }
+  }
+  stage('GCC Debug Build') {
+    echo 'Compiling'
+    sh 'mkdir gcc-debug'
+    sh 'CXX=g++ cmake -Bclang-debug -H. -DJENKINS=1 -DCMAKE_BUILD_TYPE=Debug'
+    sh 'cd gcc-debug && make'
+    echo 'Build Complete!'
+  }
+  stage('GCC Test') {
     parallel 'unit tests': {
       
       echo 'Unit Tests Complete!'
