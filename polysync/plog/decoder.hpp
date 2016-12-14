@@ -90,8 +90,8 @@ public:
     // non-const references which we need here (we are setting the value).
     template <typename S, class = typename std::enable_if_t<hana::Struct<S>::value>>
     void decode(S& record) {
-        hana::for_each(hana::keys(record), [&](auto&& key) mutable {
-                decode(hana::at_key(record, key));
+        hana::for_each(hana::keys(record), [this, &record](auto&& key) mutable {
+                this->decode(hana::at_key(record, key));
                 });
     }
 
@@ -103,7 +103,7 @@ public:
         LenType len;
         stream.read(reinterpret_cast<char *>(&len), sizeof(len));
         seq.resize(len);
-        std::for_each(seq.begin(), seq.end(), [=](auto&& val) mutable { decode(val); });
+        std::for_each(seq.begin(), seq.end(), [this](auto& val) mutable { this->decode(val); });
     }
 
     // Specialize name_type because the underlying std::string type needs special

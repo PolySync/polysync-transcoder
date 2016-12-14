@@ -36,7 +36,7 @@ public:
     template <typename S>
     typename std::enable_if_t<hana::Struct<S>::value>
     encode(const S& rec) {
-        hana::for_each(hana::members(rec), [this](auto field) { encode(field); });
+        hana::for_each(hana::members(rec), [this](auto field) { this->encode(field); });
     }
 
     // For flat objects like arithmetic types, just straight copy memory as
@@ -66,7 +66,7 @@ public:
     void encode(const sequence<LenType, T>& seq) {
         LenType len = seq.size();
         stream.write((char *)(&len), sizeof(len));
-        std::for_each(seq.begin(), seq.end(), [this](auto& val) { encode(val); });
+        std::for_each(seq.begin(), seq.end(), [this](auto& val) { this->encode(val); });
     }
 
     // Fixed length arrays modeled by std::array<>.
@@ -99,7 +99,7 @@ public:
 
     template <typename T>
     void encode( const std::vector<T>& vec ) {
-        std::for_each(vec.begin(), vec.end(), [this](const T& val) { encode(val); });
+        std::for_each(vec.begin(), vec.end(), [this](const T& val) { this->encode(val); });
     }
 
     void encode( const polysync::tree& t ) { return encode(*t); }
@@ -107,7 +107,7 @@ public:
 public:
 
     void encode( const polysync::variant& n ) {
-        eggs::variants::apply([this](auto& value) { encode(value); }, n);
+        eggs::variants::apply([this](auto& value) { this->encode(value); }, n);
     }
 
 public:

@@ -88,15 +88,15 @@ void pretty_printer::print(const node& n, const bytes& record) const {
 void pretty_printer::print( const node& n, tree top ) const {
     os << format->begin_block(n.name);
     for (const polysync::node& node: *top)
-        eggs::variants::apply([&](auto& f) { print(node, f); }, node);
+        eggs::variants::apply([this, &node](auto& f) { this->print(node, f); }, node);
     os << format->end_block();
 }
 
 void pretty_printer::print( tree top ) const {
     format->begin_block(top.type);
     std::for_each(top->begin(), top->end(),
-            [&](auto& pair) {
-            eggs::variants::apply([&](auto& f) { print(pair, f); }, pair);
+            [this](auto& pair) {
+            eggs::variants::apply([this, &pair](auto& f) { this->print(pair, f); }, pair);
             });
     format->end_block();
 }

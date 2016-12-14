@@ -48,10 +48,8 @@ std::map<std::string, severity> severity_map = {
 };
 
 void set_level(const std::string& level) {
-    if (!severity_map.count(level)) {
-        std::string msg = "unknown debug level \"" + level + "\"";
-        throw polysync::error(msg);
-    }
+    if (!severity_map.count(level))
+        throw polysync::error("unknown debug level \"" + level + "\"");
 
     boost::log::core::get()->set_filter(severity_attr <= severity_map.at(level));
 };

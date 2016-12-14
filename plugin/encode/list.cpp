@@ -28,7 +28,7 @@ struct model_counter {
         types[tree.type] += 1;
 
         // Recurse all the nested types
-        std::for_each(tree->begin(), tree->end(), [this](const node& n) { operator()(n); });
+        std::for_each(tree->begin(), tree->end(), [this](const node& n) { this->operator()(n); });
     }
 
     void count(const std::vector<polysync::tree>& trees) {
@@ -39,7 +39,7 @@ struct model_counter {
 
     void operator()(const polysync::node& record) {
         // Unpack a variant and dispatch the appropriate counter method.
-        eggs::variants::apply([this](auto v) { count(v); }, record);
+        eggs::variants::apply([this](auto v) { this->count(v); }, record);
     }
 
 };

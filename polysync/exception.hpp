@@ -4,12 +4,12 @@
 #include <boost/exception/exception.hpp>
 #include <boost/exception/all.hpp>
 
-namespace polysync { 
+namespace polysync {
 
 // Define a custom exception, and use boost::exception to incrementally add
 // context as the stack unwinds during an exception.
 struct error : virtual std::runtime_error, virtual boost::exception {
-    using std::runtime_error::runtime_error;
+    error(const std::string& msg) : std::runtime_error(msg) {}
 };
 
 std::ostream& operator<<( std::ostream&, const error& );
@@ -22,7 +22,7 @@ enum status : int {
     ok = 0, // No error
     bad_argument = -1, // Malformed command line input
     bad_input = -2, // Error configuring the input dataset
-    no_plugin = -3, // Error configuring the output plugin 
+    no_plugin = -3, // Error configuring the output plugin
     description_error = -4, // Problem with a TOML file
     bad_environment = -5, // Error configuring runtime environment
 };
