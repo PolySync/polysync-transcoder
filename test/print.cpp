@@ -1,6 +1,7 @@
 #include <mettle.hpp>
 
 #include <polysync/tree.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/console.hpp>
 
 using namespace mettle;

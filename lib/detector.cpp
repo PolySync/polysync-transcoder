@@ -3,6 +3,7 @@
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 
 #include <regex>

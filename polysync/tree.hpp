@@ -1,34 +1,31 @@
 #pragma once
 
-#include <polysync/exception.hpp>
-
-#include <eggs/variant.hpp>
 #include <vector>
 #include <algorithm>
 #include <iostream>
-#include <boost/optional.hpp>
-#include <boost/hana.hpp>
+
 #include <boost/multiprecision/cpp_int.hpp>
+
+#include <eggs/variant.hpp>
+
+#include <polysync/exception.hpp>
 
 // Dynamic parse trees are basically just vectors of "nodes".  A node knows
 // it's name and a strongly typed value.
 
 namespace polysync {
 
-namespace hana = boost::hana;
-
 // Ugh, eggs::variant lacks the recursive feature supported by the old
-// boost::variant, which makes it a PITA to implement a syntax tree (no nested
-// variants!).  The std::shared_ptr<tree> is a workaround for this eggs
+// boost::variant, which makes it a PITA to implement a parse tree (no nested
+// variants!).  The problem is that we cannot define std::vector<node> before
+// we have declared node (as node is an incomplete type unsupported by
+// std::vector).  The std::shared_ptr<tree> is a workaround for this eggs
 // limitation.  Apparently we are getting std::variant in C++17; maybe we can
 // factor out std::shared_ptr<tree> to just tree, then.
 
 struct node;
 
 struct tree : std::shared_ptr< std::vector<node> > {
-    std::string type;
-
-    tree() : std::shared_ptr< std::vector<node> >( new std::vector<node>() ) {}
 
     tree( const std::string& type ) :
         std::shared_ptr< std::vector<node> >( new std::vector<node>() ),
@@ -36,29 +33,29 @@ struct tree : std::shared_ptr< std::vector<node> > {
 
     // This initialization_list<> constructor should only be invoked within
     // unit tests to describe test vectors.  The initialization ends up copy
-    // constructing each node which is too slow for the application.
+    // constructing each node which is too slow for performant applications.
     tree( const std::string& type, std::initializer_list<node> init )
-        : std::shared_ptr< std::vector<node> >( new std::vector<node>(init) ),
+        : std::shared_ptr< std::vector<node> >( new std::vector<node>( init ) ),
           type(type) {}
+
+    const std::string type;
 };
 
 // Add some context to exceptions
 namespace exception {
-
-using tree = boost::error_info<struct tree_type, tree>;
-
+    using tree = boost::error_info< struct tree_type, tree >;
 }
 
 // Fallback to a generic memory chunk when a description is unavailable.
 using bytes = std::vector<std::uint8_t>;
 
-// Each leaf node in the tree may contain any of a limited set of types, defined here.
+// Each node in the tree may contain any of a limited set of strong types.
 using variant = eggs::variant<
 
     // Nested types and vectors of nested types
     tree, std::vector<tree>,
 
-    // Undecoded raw bytes (fallback when description is missing)
+    // Undecoded raw bytes 
     bytes,
 
     // Floating point types and native vectors
@@ -75,7 +72,8 @@ using variant = eggs::variant<
     std::uint32_t, std::vector<std::uint32_t>,
     std::uint64_t, std::vector<std::uint64_t>,
 
-    boost::multiprecision::cpp_int
+    // Integers longer than 64 bits
+    boost::multiprecision::cpp_int, std::vector<boost::multiprecision::cpp_int>
     >;
 
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
@@ -86,33 +84,39 @@ struct node : variant {
     template <typename T>
     node( const std::string& n, const T& value ) : variant( value ), name( n ) { }
 
-    node(node&&) = default;
+    // Factory functions and decoders should return nodes by move for speed
+    node( node&& ) = default;
 
     // The copy constructor should be used sparingly, because the move
-    // constructor is faster.  Hopefully, this constructor is invoked only in
+    // constructor is faster. Ideally, this constructor is invoked only in
     // unit test vector construction.
-    node(const node&) = default;
+    node( const node& ) = default;
 
     const std::string name;
+
+    // nodes may have a specialized function for formatting the value to a string.
     std::function<std::string ( const variant& )> format;
 
-    // Convert a hana structure into a vector of dynamic nodes.
-    template <typename Struct>
-    static node from( const Struct& s, const std::string& );
 };
 
-inline bool operator==( const tree& lhs, const tree& rhs ) {
-    if ( lhs->size() != rhs->size() )
+inline bool operator==( const tree& left, const tree& right ) {
+
+    if ( left->size() != right->size() or left.type != right.type )
         return false;
 
-    return std::equal( lhs->begin(), lhs->end(), rhs->begin(), rhs->end(),
+    return std::equal( left->begin(), left->end(), right->begin(), right->end(),
             []( const node& ln, const node& rn ) {
+
+	   	if ( ln.name != rn.name ) {
+		    return false;
+	        }
 
                 // If the two nodes are both trees, recurse.
                 const tree* ltree = ln.target<tree>();
                 const tree* rtree = rn.target<tree>();
-                if (ltree && rtree)
+                if (ltree && rtree) {
                     return operator==(*ltree, *rtree);
+	        }
 
                 // Otherwise, just use variant operator==()
                 return ln == rn;
@@ -121,45 +125,5 @@ inline bool operator==( const tree& lhs, const tree& rhs ) {
 
 inline bool operator!=( const tree& lhs, const tree& rhs ) { return !operator==( lhs, rhs ); }
 
-// Convert a hana structure into a vector of dynamic nodes.
-template <typename Struct>
-inline node node::from( const Struct& s, const std::string& type ) {
-    tree tr(type);
-    hana::for_each( s, [tr](auto pair) {
-            std::string name = hana::to<char const*>( hana::first(pair) );
-            tr->emplace_back( name, hana::second(pair) );
-            });
-
-    return node( type, tr );
-}
-
-inline std::ostream& operator<<( std::ostream&, const tree& );
-
 } // namespace polysync
-
-#include <polysync/print.hpp>
-
-namespace polysync {
-
-inline std::ostream& operator<<( std::ostream& os, const node& n ) {
-    if ( n.target_type() == typeid(std::uint8_t) )
-            return os << static_cast<std::uint16_t>( *n.target<std::uint8_t>() );
-    if ( n && n.format )
-        return eggs::variants::apply([&os, &n]( auto a ) -> std::ostream& { return os << n.format(a); }, n);
-    if ( n && !n.format )
-        return eggs::variants::apply([&os]( auto a ) -> std::ostream& { return os << a; }, n);
-    return os << "unset";
-}
-
-inline std::ostream& operator<<( std::ostream& os, const variant& n ) {
-    return eggs::variants::apply([&os]( auto a ) -> std::ostream& { return os << a; }, n);
-}
-
-
-inline std::ostream& operator<<( std::ostream& os, const tree& t ) {
-    return os << *t;
-}
-
-} // namespace polysync
-
 

@@ -3,6 +3,7 @@
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/logging.hpp>
 #include <deps/cpptoml.h>

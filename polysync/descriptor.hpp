@@ -10,12 +10,16 @@
 
 #include <boost/hana.hpp>
 
+#include <deps/cpptoml.h>
+
 #include <polysync/console.hpp>
 #include <polysync/tree.hpp>
 #include <polysync/exception.hpp>
-#include <deps/cpptoml.h>
+#include <polysync/print_tree.hpp>
 
 namespace polysync { namespace descriptor {
+
+namespace hana = boost::hana;
 
 // A node may contain a terminal type, a nested compound type, an array of
 // nested or native types, or a skip (to implement padding or reserved space).

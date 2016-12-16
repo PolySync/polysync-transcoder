@@ -2,6 +2,7 @@
 #include <polysync/detector.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
+#include <polysync/hana.hpp>
 
 #include <boost/endian/arithmetic.hpp>
 #include <algorithm>
@@ -14,7 +15,7 @@ using logging::severity;
 // "msg_header".  Continue reading the stream until it ends.
 variant decoder::deep(const log_record& record) {
 
-    variant result = node::from(record, "log_record");
+    variant result = from_hana(record, "log_record");
     polysync::tree& tree = *result.target<polysync::tree>();
 
     record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
@@ -23,7 +24,7 @@ variant decoder::deep(const log_record& record) {
     // msg_header.  Hence, we must just assume that every message is well
     // formed and starts with a msg_header.  In that case, might as well do a
     // static parse on msg_header and dynamic parse the rest.
-    tree->emplace_back(node::from(decode<msg_header>(), "msg_header"));
+    tree->emplace_back(from_hana(decode<msg_header>(), "msg_header"));
 
     // Burn through the rest of the log record, decoding a sequence of types.
     while (stream.tellg() < record_endpos) {

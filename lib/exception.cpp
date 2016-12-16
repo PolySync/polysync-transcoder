@@ -1,6 +1,7 @@
 #include <polysync/exception.hpp>
 #include <polysync/console.hpp>
 #include <polysync/tree.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/plog/core.hpp>
 
