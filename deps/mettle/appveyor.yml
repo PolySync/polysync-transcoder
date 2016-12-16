@@ -1,0 +1,25 @@
+build: false
+version: "{branch}-{build}"
+
+environment:
+  BOOST_INCLUDEDIR: C:\Libraries\boost_1_59_0
+  BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib32-msvc-14.0
+  PYTHON: C:\Python27
+
+  matrix:
+    - VS: C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat
+      BOOST_INCLUDEDIR: C:\Libraries\boost_1_59_0
+      BOOST_LIBRARYDIR: C:\Libraries\boost_1_59_0\lib32-msvc-14.0
+
+install:
+  - call "%VS%" x86
+  - cl.exe
+  - set PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
+  - pip install bfg9000
+  - cinst ninja
+  - python scripts\vendorize_bencode.py
+test_script:
+  - set CPPFLAGS=/WX
+  - 9k build --backend=ninja
+  - cd build
+  - ninja test
