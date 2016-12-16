@@ -1,6 +1,6 @@
 #include <mettle.hpp>
 
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/console.hpp>
 #include "types.hpp"
 

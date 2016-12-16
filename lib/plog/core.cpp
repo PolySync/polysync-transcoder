@@ -1,6 +1,6 @@
 #include <typeindex>
 
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/size.hpp>
 #include <polysync/plog/core.hpp>
 

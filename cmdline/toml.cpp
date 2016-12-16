@@ -8,7 +8,7 @@
 
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 
 namespace po = boost::program_options;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <polysync/plog/core.hpp>
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 
 #include <boost/endian/arithmetic.hpp>

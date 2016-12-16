@@ -1,4 +1,4 @@
-foreach ( component IN ITEMS decode_hana tree size description detector 
+foreach ( component IN ITEMS decode_hana tree size descriptor detector 
           encode decode print )
     add_executable ( ${component} ${component}.cpp )
     target_link_libraries ( ${component} transcode libmettle ${Boost_LIBRARIES} 

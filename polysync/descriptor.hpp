@@ -3,7 +3,7 @@
 // Most PolySync and vendor specific message types are defined dynamically,
 // using TOML strings embedded in the plog files, or external config files.
 // Legacy types will be supported by a fallback in external files.  Ubiquitous
-// message types are found in every plog file, and are specially defined in
+// message types are found in every plog file and described by boost::hana in 
 // core.hpp, and not by the dynamic mechanism implemented here.
 
 #include <typeindex>

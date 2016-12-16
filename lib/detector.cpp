@@ -1,5 +1,5 @@
 #include <numeric>
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>

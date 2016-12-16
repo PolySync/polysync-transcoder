@@ -6,7 +6,7 @@
 #include <boost/endian/arithmetic.hpp>
 
 #include <polysync/plog/core.hpp>
-#include <polysync/description.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
 
