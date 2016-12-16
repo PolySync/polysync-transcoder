@@ -17,6 +17,7 @@ find_package(Boost "1.61" COMPONENTS log log_setup system filesystem
 find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
+set ( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 include_directories( . "deps" "deps/mettle/include" "deps/eggs/include" )
 add_subdirectory( lib )
 add_subdirectory( cmdline )
