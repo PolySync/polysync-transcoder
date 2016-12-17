@@ -3,7 +3,7 @@ from behave import *
 from hamcrest import *
 import subprocess, shlex, ctypes, os
 
-path = '../build/cmdline'
+path = '../build'
 
 @given('the command line: {cmdline}')
 def step_impl(context, cmdline):

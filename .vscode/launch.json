@@ -5,9 +5,9 @@
             "name": "polysync-transcode",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/build/cmdline/polysync-transcode",
-            "args": [ "--loglevel=debug2", "features/artifacts/ibeo.25.plog"],
-            "stopAtEntry": false,
+            "program": "${workspaceRoot}/build/polysync-transcode",
+            "args": [ "${workspaceRoot}/features/artifacts/ibeo.25.plog", "-P${workspaceRoot}", "-P${workspaceRoot}/plugin"],
+            "stopAtEntry": true,
             "cwd": "${workspaceRoot}",
             "environment": [],
             "externalConsole": true,
@@ -15,9 +15,9 @@
                 "MIMode": "gdb",
                 "setupCommands": [
                     {
-                        "description": "",
+                        "description": "gdb bug workaround",
                         "text": "set demangle-style none",
-                        "ignoreFailures": true
+                        "ignoreFailures": false
                     }
                 ]
             }
@@ -39,10 +39,10 @@
                         "description": "gdb bug workaround",
                         "text": "set demangle-style none",
                         "ignoreFailures": true
-                    }
+                    },
                     {
-                        "description": "break on throw exceptions"
-                        "text": "catch throw"
+                        "description": "break on throw exceptions",
+                        "text": "catch throw",
                         "ignoreFailures": true
                     }
                 ]

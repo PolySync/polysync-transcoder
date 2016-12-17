@@ -1,11 +1,15 @@
-#include <polysync/plog/decoder.hpp>
+#include <algorithm>
+#include <typeindex>
+
+#include <boost/endian/arithmetic.hpp>
+
 #include <polysync/detector.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/hana.hpp>
 
-#include <boost/endian/arithmetic.hpp>
-#include <algorithm>
+#include <polysync/plog/decoder.hpp>
 
 namespace polysync { namespace plog {
 
@@ -136,7 +140,7 @@ struct branch_builder {
         branch->emplace_back(field.name, a);
         branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = "
-            << field.format(branch->back()) << " (" << term->second.name
+            << branch->back() << " (" << term->second.name
             << (field.bigendian ? ", bigendian" : "")
             << ")";
     }
@@ -178,21 +182,24 @@ struct branch_builder {
         if (sizefield) {
 
             // The branch should have a previous element with name sizefield
-            auto it = std::find_if(branch->begin(), branch->end(),
+            auto node_iter = std::find_if(branch->begin(), branch->end(),
                     [sizefield](const node& n) { return n.name == *sizefield; });
 
-            if (it == branch->end())
-                throw polysync::error("size indicator field not found")
+            if (node_iter == branch->end())
+                throw polysync::error("array size indicator field not found")
                     << exception::field(*sizefield)
                     << status::description_error;
 
-            // Figure out the size, regardless of the integer type
+	    // Compute the size, regardless of the integer type, by just lexing
+	    // to a string and converting the string back to an int.
+	    // Otherwise, we would have to fuss with the exact integer type
+	    // which is not very interesting here.
             std::stringstream os;
-            os << *it;
+            os << *node_iter;
             try {
-                size = std::stoll(os.str());
-            } catch (std::invalid_argument) {
-                throw polysync::error("cannot parse size value \"" + os.str() +
+                size = std::stoll( os.str() );
+            } catch ( std::invalid_argument ) {
+                throw polysync::error("cannot parse array size value \"" + os.str() +
                         "\", string of size " + std::to_string(os.str().size()))
                     << exception::field(*sizefield)
                     << status::description_error;

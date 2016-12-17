@@ -20,5 +20,6 @@ node from_hana( const S& s, const std::string& type ) {
     return node( type, tr );
 }
 
-
 } // namespace polysync
+
+

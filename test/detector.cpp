@@ -1,3 +1,5 @@
+#include <typeindex>
+
 #include <polysync/detector.hpp>
 
 namespace std {

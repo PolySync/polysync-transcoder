@@ -40,7 +40,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 			{ "payload", typeid(uint32_t) } 
 			} };
 
-                polysync::tree truth = polysync::tree( "type", {
+                polysync::tree truth = polysync::tree( "ps_byte_array_msg", {
                         { "dest_guid", plog::guid { 1 } },
                         { "data_type", std::uint16_t { 2 } },
                         { "payload", std::uint32_t { 3 } } 
@@ -59,13 +59,13 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 			{ "magic", typeid(std::uint32_t) },
 			{ "prev_size", typeid(std::uint32_t) },
 			{ "size", typeid(std::uint8_t) },
-			{ "skip-1", polysync::descriptor::skip { 1, 4 } },
+			{ "skip-1", polysync::descriptor::skip { 4, 1 } },
 			{ "device_id", typeid(std::uint8_t) },
 			{ "data_type", typeid(std::uint16_t) },
 			{ "time", typeid(std::uint64_t) } }
 		};
 
-                polysync::tree truth = polysync::tree( "type", {
+                polysync::tree truth = polysync::tree( "ibeo.header", {
                         { "magic", std::uint32_t { 1 } },
                         { "prev_size", std::uint32_t { 2 } },
                         { "size", std::uint8_t { 3 } },
@@ -110,12 +110,12 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                 polysync::descriptor::catalog.emplace("scanner_info", scanner_info);
                 polysync::descriptor::type container { "container", {
                     { "start_time", typeid(std::uint16_t) },
-                    { "scanner_info_list", polysync::descriptor::nested{"scanner_info"} } }
+                    { "scanner_info", polysync::descriptor::nested{"scanner_info"} } }
                 };
 
-                polysync::tree truth = polysync::tree("type", {
+                polysync::tree truth = polysync::tree("container", {
                         { "start_time", std::uint16_t { 1 } },
-                        { "scanner_info", polysync::tree("type", {
+                        { "scanner_info", polysync::tree("scanner_info", {
                                 { "device_id", std::uint8_t { 2 } },
                                 { "scanner_type", std::uint8_t { 3 } }
                                 }) }
@@ -144,7 +144,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "terminal_array", [](auto &_) {
 
-                polysync::descriptor::type sometype { "sometype", {
+                polysync::descriptor::type sometype { "type", {
                     { "time", typeid(std::uint16_t) },
                     { "data", polysync::descriptor::array { 3, typeid(std::uint8_t) } }
                 } };
@@ -185,22 +185,22 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
 			polysync::descriptor::catalog.emplace("scanner_info", scanner_info);
 			polysync::descriptor::type container { "container", {
-			    { "start_time", typeid(std::uint16_t) },
-			    { "scanner_info_list", polysync::descriptor::array { 3, "scanner_info" } } }
+			    { "time", typeid(std::uint16_t) },
+			    { "scanner_info", polysync::descriptor::array { 3, "scanner_info" } } }
 			};
 
-                polysync::tree truth = polysync::tree( "type", {
+                polysync::tree truth = polysync::tree( "container", {
                         { "time", std::uint16_t { 1 } },
                         { "scanner_info", std::vector<polysync::tree> {
-                                polysync::tree("type", {
+                                polysync::tree("scanner_info", {
                                         { "device_id", std::uint8_t { 2 } },
                                         { "scanner_type", std::uint8_t { 3 } },
                                         }),
-                                polysync::tree("type", {
+                                polysync::tree("scanner_info", {
                                         { "device_id", std::uint8_t { 4 } },
                                         { "scanner_type", std::uint8_t { 5 } },
                                         }),
-                                polysync::tree("type", {
+                                polysync::tree("scanner_info", {
                                         { "device_id", std::uint8_t { 6 } },
                                         { "scanner_type", std::uint8_t { 7 } }
                                         }),
@@ -219,7 +219,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "dynamic_array", [](auto &_) {
 
-                polysync::descriptor::type sometype { "dynarray", {
+                polysync::descriptor::type sometype { "type", {
                     { "points", typeid(std::uint16_t) },
                     { "data", polysync::descriptor::array { "points", typeid(std::uint8_t) } }
                 } };

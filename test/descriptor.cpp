@@ -1,6 +1,8 @@
 #include <mettle.hpp>
 
 #include <polysync/descriptor.hpp>
+#include <polysync/hana_descriptor.hpp>
+#include <polysync/print_descriptor.hpp>
 #include <polysync/console.hpp>
 #include "types.hpp"
 

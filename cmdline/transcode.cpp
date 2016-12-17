@@ -8,14 +8,17 @@
 #include <boost/algorithm/string.hpp>
 
 #include <polysync/plog/core.hpp>
+#include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plugin.hpp>
 #include <polysync/toml.hpp>
+#include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/console.hpp>
 #include <polysync/print_hana.hpp>
+#include <polysync/size.hpp>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -170,12 +173,11 @@ int catch_main( int ac, char* av[] ) {
     std::vector<std::string> encoder_args =
         po::collect_unrecognized( stage2_parse.options, po::include_positional );
 
+    ps::plog::load();
+
     // Parse again, with now with encoder options
     po::store( po::command_line_parser( encoder_args ).options( stage3_cmdline ).run(), cmdline_args );
     po::notify(cmdline_args);
-
-    ps::descriptor::catalog.emplace( "log_record", ps::descriptor::describe<plog::log_record>::type() );
-    ps::descriptor::catalog.emplace( "msg_header", ps::descriptor::describe<plog::msg_header>::type() );
 
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
@@ -193,7 +195,7 @@ int catch_main( int ac, char* av[] ) {
                  ps::detector::catalog.push_back(ps::detector::type { "msg_header",
                     { { "type", t.type } },
                     t.name } );
-            plog::type_support_map.emplace( t.type, t.name );
+            // plog::type_support_map.emplace( t.type, t.name );
             } );
 
     ps::encode::map.at( encoder )->connect( cmdline_args, visit );

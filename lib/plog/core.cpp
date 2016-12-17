@@ -1,46 +1,24 @@
 #include <typeindex>
 
-#include <polysync/descriptor.hpp>
+#include <polysync/hana_descriptor.hpp>
 #include <polysync/size.hpp>
 #include <polysync/plog/core.hpp>
 
-namespace polysync {
+namespace polysync { namespace plog {
 
-namespace plog {
-std::map<plog::msg_type, std::string> type_support_map;
+void load() {
+    descriptor::typemap.emplace ( typeid(msg_header), 
+        	    descriptor::terminal { "msg_header", size<msg_header>::value() } );
+    // descriptor::typemap.emplace ( typeid(log_header), 
+    //     	    descriptor::terminal { "log_header", size<log_header>::value() } );
+    descriptor::typemap.emplace ( typeid(log_record), 
+        	    descriptor::terminal { "log_record", size<log_record>::value() } );
+    // descriptor::typemap.emplace ( typeid(log_module), 
+    //     	    descriptor::terminal { "log_module", size<log_module>::value() } );
+    // descriptor::catalog.emplace( "log_module", descriptor::describe<log_module>::type() );
+    // descriptor::catalog.emplace( "log_header", descriptor::describe<log_header>::type() );
+    descriptor::catalog.emplace( "msg_header", descriptor::describe<msg_header>::type() );
+    descriptor::catalog.emplace( "log_record", descriptor::describe<log_record>::type() );
 }
 
-namespace descriptor {
-
-std::map<std::string, std::type_index> namemap {
-    { "int8", typeid(std::int8_t) },
-    { "int16", typeid(std::int16_t) },
-    { "int32", typeid(std::int32_t) },
-    { "int64", typeid(std::int64_t) },
-    { "uint8",  typeid(std::uint8_t) },
-    { "uint16", typeid(std::uint16_t) },
-    { "uint32", typeid(std::uint32_t) },
-    { "uint64", typeid(std::uint64_t) },
-    { "float", typeid(float) },
-    { "float32", typeid(float) },
-    { "double", typeid(double) },
-};
-
-std::map<std::type_index, descriptor::terminal> typemap {
-    { typeid(std::int8_t), { "int8", sizeof(std::int8_t) } },
-    { typeid(std::int16_t), { "int16", sizeof(std::int16_t) } },
-    { typeid(std::int32_t), { "int32", sizeof(std::int32_t) } },
-    { typeid(std::int64_t), { "int64", sizeof(std::int64_t) } },
-    { typeid(std::uint8_t), { "uint8", sizeof(std::uint8_t) } },
-    { typeid(std::uint16_t), { "uint16", sizeof(std::uint16_t) } },
-    { typeid(std::uint32_t), { "uint32", sizeof(std::uint32_t) } },
-    { typeid(std::uint64_t), { "uint64", sizeof(std::uint64_t) } },
-    { typeid(float), { "float", sizeof(float) } },
-    { typeid(double), { "double", sizeof(double) } },
-
-    { typeid(plog::msg_header), { "msg_header", size<plog::msg_header>::value() } },
-    { typeid(plog::log_record), { "log_record", size<plog::log_record>::value() } },
-    { typeid(plog::log_header), { "log_header", size<plog::log_header>::value() } },
-};
-
-}} // namespace polysync::descriptor
+}} // namespace polysync::plog

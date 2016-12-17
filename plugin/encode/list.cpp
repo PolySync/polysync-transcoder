@@ -3,6 +3,7 @@
 #include <boost/make_shared.hpp>
 
 #include <polysync/plugin.hpp>
+#include <polysync/descriptor/lex.hpp>
 
 // The list plugin dumps the dataypes and the record counts for each type found in a plog.
 

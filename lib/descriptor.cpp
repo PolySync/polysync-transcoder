@@ -1,12 +1,15 @@
 #include <regex>
 
+#include <deps/cpptoml.h>
+
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
+#include <polysync/print_descriptor.hpp>
 #include <polysync/logging.hpp>
-#include <deps/cpptoml.h>
+#include <polysync/descriptor/lex.hpp>
 
 namespace polysync { 
 
@@ -18,7 +21,9 @@ namespace descriptor {
 catalog_type catalog; 
 
 // Load the global type description catalog with an entry from a TOML table.
-void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& catalog) {
+void load(const std::string& name, std::shared_ptr<cpptoml::table> table, 
+	  catalog_type& catalog) {
+
     logger log("description");
 
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
@@ -41,9 +46,9 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
 
             // skip reserved bytes
             if (fp->contains("skip")) {
-                int size = *fp->get_as<int>("skip");
+	        std::streamoff size = *fp->get_as<int>("skip");
                 std::string name = "skip-" + std::to_string(skip_index);
-                desc.emplace_back(field { name, skip { skip_index, size } });
+                desc.emplace_back( field { name, skip { size, skip_index } } );
                 skip_index += 1;
                 continue;
             }
@@ -110,8 +115,6 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table, catalo
     }
 };
 
-lex::lex(const field::variant& v) : std::string(eggs::variants::apply(*this, v)) {}
-
 std::string lex::operator()(std::type_index idx) const {
     return typemap.at(idx).name;
 }
@@ -133,8 +136,7 @@ std::string lex::operator()(std::string s) const { return s; }
 std::string lex::operator()(size_t s) const { return std::to_string(s); }
 
 std::ostream& operator<<(std::ostream& os, const field& f) {
-    return os << format->fieldname(f.name + ": ") << format->value(lex(f.type));
-}
+    return os << format->fieldname(f.name + ": ") << format->value(lex(f.type));}
 
 std::ostream& operator<<(std::ostream& os, const type& desc) {
     os << format->type(desc.name + ": { "); 
@@ -142,5 +144,31 @@ std::ostream& operator<<(std::ostream& os, const type& desc) {
     return os << format->type("}");
 }
 
+std::map<std::string, std::type_index> namemap {
+    { "int8", typeid(std::int8_t) },
+    { "int16", typeid(std::int16_t) },
+    { "int32", typeid(std::int32_t) },
+    { "int64", typeid(std::int64_t) },
+    { "uint8",  typeid(std::uint8_t) },
+    { "uint16", typeid(std::uint16_t) },
+    { "uint32", typeid(std::uint32_t) },
+    { "uint64", typeid(std::uint64_t) },
+    { "float", typeid(float) },
+    { "float32", typeid(float) },
+    { "double", typeid(double) },
+};
+
+std::map<std::type_index, descriptor::terminal> typemap {
+    { typeid(std::int8_t), { "int8", sizeof(std::int8_t) } },
+    { typeid(std::int16_t), { "int16", sizeof(std::int16_t) } },
+    { typeid(std::int32_t), { "int32", sizeof(std::int32_t) } },
+    { typeid(std::int64_t), { "int64", sizeof(std::int64_t) } },
+    { typeid(std::uint8_t), { "uint8", sizeof(std::uint8_t) } },
+    { typeid(std::uint16_t), { "uint16", sizeof(std::uint16_t) } },
+    { typeid(std::uint32_t), { "uint32", sizeof(std::uint32_t) } },
+    { typeid(std::uint64_t), { "uint64", sizeof(std::uint64_t) } },
+    { typeid(float), { "float", sizeof(float) } },
+    { typeid(double), { "double", sizeof(double) } },
+};
 
 }} // namespace polysync::descriptor

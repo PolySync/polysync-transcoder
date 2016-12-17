@@ -158,8 +158,8 @@ struct nested_tree_factory {
     polysync::variant make() {
 	    return polysync::tree( "type", {
                         { "header", std::uint16_t { 1 } },
-			    { "start_time", std::uint16_t { 1 } },
-			    { "scanner_count", std::uint32_t { 2 } }
+			    { "start_time", std::uint16_t { 2 } },
+			    { "scanner_count", std::uint32_t { 3 } }
 			    });
     }
 };
