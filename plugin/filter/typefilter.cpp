@@ -3,6 +3,7 @@
 #include <boost/make_shared.hpp>
 
 #include <polysync/plugin.hpp>
+#include <polysync/print_tree.hpp>
 
 namespace polysync { namespace filter {
 

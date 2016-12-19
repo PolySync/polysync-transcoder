@@ -3,6 +3,8 @@
 #include <boost/make_shared.hpp>
 
 #include <polysync/plugin.hpp>
+#include <polysync/descriptor/lex.hpp>
+#include <polysync/print_tree.hpp>
 
 // The list plugin dumps the dataypes and the record counts for each type found in a plog.
 
@@ -92,7 +94,7 @@ struct list : encode::plugin {
 
                         for (const descriptor::field& d: descriptor::catalog.at(pair.first)) {
                             std::string tags;
-                            if (d.bigendian)
+                            if (d.byteorder == descriptor::byteorder::big_endian)
                                 tags += std::string(" bigendian ");
                             std::cout << format->item(d.name, descriptor::lex(d.type), tags);
                         }

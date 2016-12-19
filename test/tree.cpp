@@ -1,191 +1,210 @@
-#include <polysync/tree.hpp>
-#include <polysync/print_hana.hpp>
 #include <iostream>
-#include <mettle.hpp>
+
 #include <boost/hana/ext/std/integral_constant.hpp>
-#include "types.hpp"
+
+#include <mettle.hpp>
+
+#include <polysync/tree.hpp>
+#include <polysync/print_tree.hpp>
 
 using namespace mettle;
-namespace endian = boost::endian;
-namespace plog = polysync::plog;
-namespace hana = boost::hana;
 
+// Mettle is able to instantiate a suite template for a list of types.  The
+// number_factory is a fixture that teaches mettle how to construct a test
+// value for any tested type.
 struct number_factory {
-
     template <typename T>
     polysync::variant make() {
         return T { 42 };
     }
 };
 
-type_suite<decltype(hana::concat(integers, reals))>
-number("polysync::variant == number", number_factory {}, [](auto& _) {
+suite< 
+    std::int8_t, std::int16_t, std::int32_t, std::int64_t,
+    std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t,
+    float, double,
+    boost::multiprecision::cpp_int
+    >
+number("scalar_comparison", number_factory {}, [](auto& _) {
 
-        using T = mettle::fixture_type_t<decltype(_)>;
+        using T = mettle::fixture_type_t< decltype(_) >;
 
-        _.test("equal", [](polysync::variant var) {
-                expect(var, equal_to(T { 42 }));
+        _.test( "equal", []( polysync::variant var ) {
+                expect( var, equal_to( T { 42 } ) );
                 });
 
-        _.test("not_equal", [](polysync::variant var) {
-                expect(var, not_equal_to(T { 41 }));
+        _.test( "not_equal", []( polysync::variant var ) {
+                expect( var, not_equal_to(T { 41 } ) );
                 });
 
-        _.test("type_mismatch", [](polysync::variant var) {
-                expect(var, not_equal_to(std::vector<std::uint8_t>{ 42 }));
+        _.test( "type_mismatch", []( polysync::variant var ) {
+                expect( var, not_equal_to( std::vector<std::uint8_t> { 42 } ) );
                 });
         });
 
-mettle::suite<> terminal_array("terminal_array", [](auto& _) {
+struct vector_factory {
+    template <typename T>
+    polysync::variant make() {
+        return std::vector<T> { 17, 42, 37 };
+    }
+};
 
-        _.test("equal", []() {
-                polysync::node truth("array", std::vector<std::uint8_t> { 1, 2, 3 } );
-                polysync::node correct("array", std::vector<std::uint8_t> { 1, 2, 3 } );
-                expect(correct, equal_to(truth));
+mettle::suite<
+    std::int8_t, std::int16_t, std::int32_t, std::int64_t,
+    std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t,
+    float, double,
+    boost::multiprecision::cpp_int
+    >
+terminal_array( "scalar_vector_comparison", vector_factory {}, [](auto& _) {
+
+        using T = mettle::fixture_type_t< decltype(_) >;
+
+        _.test( "equal", []( polysync::variant truth ) {
+                polysync::node correct( "array", std::vector<T> { 17, 42, 37 } );
+                expect( correct, equal_to(truth) );
                 });
 
-        _.test("notequal", []() {
-                polysync::node truth("array", std::vector<std::uint8_t> { 1, 2, 3 } );
-                polysync::node wrong("array", std::vector<std::uint8_t> { 1, 2, 4 } );
-                expect(wrong, not_equal_to(truth));
+        _.test( "notequal", []( polysync::variant truth ) {
+                polysync::node wrong( "array", std::vector<T> { 17, 42, 47 } );
+                expect( wrong, not_equal_to(truth) );
                 });
 
-        _.test("tooshort", []() {
-                polysync::node truth("array", std::vector<std::uint8_t> { 1, 2, 3 } );
-                polysync::node tooshort("array", std::vector<std::uint8_t> { 1, 2 } );
-                expect(tooshort, not_equal_to(truth));
+        _.test( "tooshort", []( polysync::variant truth ) {
+                polysync::node tooshort( "array", std::vector<T> { 17, 42 } );
+                expect( tooshort, not_equal_to(truth) );
                 });
 
-        _.test("toolong", []() {
-                polysync::node truth("array", std::vector<std::uint8_t> { 1, 2, 3 });
-                polysync::node toolong("array", std::vector<std::uint8_t> { 1, 2, 3, 4 });
-                expect(toolong, not_equal_to(truth));
+        _.test( "toolong", []( polysync::variant truth ) {
+                polysync::node toolong( "array", std::vector<T> { 17, 42, 37, 56 } );
+                expect( toolong, not_equal_to(truth) );
+                });
+
+        _.test( "wrong_type", []( polysync::variant truth ) {
+                polysync::node toolong( "array", std::vector<float> { 17, 42, 37, 56 } );
+                expect( toolong, not_equal_to(truth) );
                 });
 });
 
-mettle::suite<> tree("tree", [](auto& _) {
+struct tree_factory {
+    template <typename T>
+    polysync::variant make() {
+	    return polysync::tree( "type", {
+			    { "start_time", std::uint16_t { 1 } },
+			    { "scanner_count", std::uint32_t { 2 } }
+			    });
+    }
+};
 
-        _.test("equal", []() {
-                polysync::tree equal = polysync::tree("type", {
+mettle::suite<void> tree( "tree_comparison", tree_factory {}, [](auto& _) {
+
+        _.test( "equal", []( polysync::variant truth ) {
+                polysync::tree equal = polysync::tree( "type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
                                 });
 
-                polysync::tree truth = polysync::tree("type", {
-                                { "start_time", std::uint16_t { 1 } },
-                                { "scanner_count", std::uint32_t { 2 } }
-                                });
-
-                expect(equal, equal_to(truth));
+                expect( equal, equal_to(truth) );
                 });
 
-        _.test("notequal", []() {
-                polysync::tree notequal = polysync::tree("type", {
+        _.test( "notequal", []( polysync::variant truth ) {
+                polysync::tree notequal = polysync::tree( "type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                                { "start_time", std::uint16_t { 1 } },
-                                { "scanner_count", std::uint32_t { 2 } }
-                        });
-
-                expect(notequal, not_equal_to(truth));
+                expect( notequal, not_equal_to(truth) );
                 });
 
-        _.test("tooshort", []() {
-                polysync::tree tooshort = polysync::tree("type", {
+        _.test( "tooshort", []( polysync::variant truth ) {
+                polysync::tree tooshort = polysync::tree( "type", {
                                 { "start_time", std::uint16_t { 1 } },
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                                { "start_time", std::uint16_t { 1 } },
-                                { "scanner_count", std::uint32_t { 2 } }
-                        });
-
-                expect(tooshort, not_equal_to(truth));
+                expect( tooshort, not_equal_to(truth) );
                 });
 
-        _.test("toolong", []() {
-                polysync::tree toolong = polysync::tree("type", {
+        _.test( "toolong", []( polysync::variant truth ) {
+                polysync::tree toolong = polysync::tree( "type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } },
                                 { "stop_time", std::uint16_t { 3 } },
                         });
 
-                polysync::tree truth = polysync::tree("type", {
+                expect( toolong, not_equal_to(truth) );
+                });
+
+        _.test( "wrong_name", []( polysync::variant truth ) {
+                polysync::tree equal = polysync::tree( "other_type", {
                                 { "start_time", std::uint16_t { 1 } },
                                 { "scanner_count", std::uint32_t { 2 } }
-                        });
+                                });
 
-                expect(toolong, not_equal_to(truth));
+                expect( equal, not_equal_to(truth) );
                 });
+
+        _.test( "wrong_element_name", []( polysync::variant truth ) {
+                polysync::tree equal = polysync::tree( "type", {
+                                { "another_time", std::uint16_t { 1 } }, // wrong name
+                                { "scanner_count", std::uint32_t { 2 } }
+                                });
+
+                expect( equal, not_equal_to(truth) );
+                });
+
 });
 
-mettle::suite<> nested_tree("nested_tree", [](auto& _) {
+struct nested_tree_factory {
+    template <typename T>
+    polysync::variant make() {
+	    return polysync::tree( "type", {
+                        { "header", std::uint16_t { 1 } },
+			    { "start_time", std::uint16_t { 2 } },
+			    { "scanner_count", std::uint32_t { 3 } }
+			    });
+    }
+};
 
-        _.test("equal", []() {
-                polysync::tree equal = polysync::tree("type", {
+mettle::suite<void> nested_tree( "nested_tree_comparison", nested_tree_factory {}, 
+		[](auto& _) {
+
+        _.test( "equal", []( polysync::variant truth ) {
+                polysync::tree equal = polysync::tree( "type", {
                         { "header", std::uint16_t { 1 } },
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } }
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                        { "header", std::uint16_t { 1 } },
-                                { "start_time", std::uint16_t { 2 } },
-                                { "scanner_count", std::uint32_t { 3 } }
-                        });
-
-                expect(equal, equal_to(truth));
+                expect( equal, equal_to(truth) );
                 });
 
-        _.test("notequal", []() {
-                polysync::tree notequal = polysync::tree("type", {
+        _.test( "notequal", []( polysync::variant truth ) {
+                polysync::tree notequal = polysync::tree( "type", {
                         { "header", std::uint16_t { 1 } },
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 4 } }
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                        { "header", std::uint16_t { 1 } },
-                                { "start_time", std::uint16_t { 2 } },
-                                { "scanner_count", std::uint32_t { 3 } }
-                        });
-
-                expect(notequal, not_equal_to(truth));
+                expect( notequal, not_equal_to(truth) );
                 });
 
-        _.test("tooshort", []() {
-                polysync::tree tooshort = polysync::tree("type", {
+        _.test( "tooshort", []( polysync::variant truth ) {
+                polysync::tree tooshort = polysync::tree( "type", {
                         { "header", std::uint16_t { 1 } },
                                 { "start_time", std::uint16_t { 2 } },
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                        { "header", std::uint16_t { 1 } },
-                                { "start_time", std::uint16_t { 2 } },
-                                { "scanner_count", std::uint32_t { 3 } }
-                        });
-
-                expect(tooshort, not_equal_to(truth));
+                expect( tooshort, not_equal_to(truth) );
                 });
 
-        _.test("toolong", []() {
-                polysync::tree toolong = polysync::tree("type", {
+        _.test( "toolong", []( polysync::variant truth ) {
+                polysync::tree toolong = polysync::tree( "type", {
                         { "header", std::uint16_t { 1 } },
                                 { "start_time", std::uint16_t { 2 } },
                                 { "scanner_count", std::uint32_t { 3 } },
                                 { "stop_time", std::uint16_t { 4 } },
                         });
 
-                polysync::tree truth = polysync::tree("type", {
-                        { "header", std::uint16_t { 1 } },
-                                { "start_time", std::uint16_t { 2 } },
-                                { "scanner_count", std::uint32_t { 3 } }
-                        });
-
-                expect(toolong, not_equal_to(truth));
+                expect( toolong, not_equal_to(truth) );
                 });
 });
 

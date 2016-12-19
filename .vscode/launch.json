@@ -1,0 +1,105 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "polysync-transcode",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/polysync-transcode",
+            "args": [ "${workspaceRoot}/features/artifacts/ibeo.25.plog", "-P${workspaceRoot}", "-P${workspaceRoot}/plugin"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "gdb bug workaround",
+                        "text": "set demangle-style none",
+                        "ignoreFailures": false
+                    }
+                ]
+            }
+        },
+        {
+            "name": "decode",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/test/decode",
+            "args": ["--no-subproc"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "gdb bug workaround",
+                        "text": "set demangle-style none",
+                        "ignoreFailures": true
+                    },
+                    {
+                        "description": "break on throw exceptions",
+                        "text": "catch throw",
+                        "ignoreFailures": true
+                    }
+                ]
+            }
+
+        },  
+        {
+            "name": "encode",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/test/encode",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "",
+                        "text": "set demangle-style none",
+                        "ignoreFailures": true
+                    }
+                ]
+            }
+
+        },      
+        {
+            "name": "C++ Attach",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "enter program name, for example ${workspaceRoot}/a.out",
+            "processId": "${command.pickProcess}",
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    }
+                ]
+            },
+            "osx": {
+                "MIMode": "lldb"
+            },
+            "windows": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    }
+                ]
+            }
+        }
+    ]
+}

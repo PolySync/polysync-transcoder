@@ -1,7 +1,8 @@
 #include <set>
 
-#include <polysync/plog/encoder.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/byteswap.hpp>
+#include <polysync/plog/encoder.hpp>
 
 namespace polysync { namespace plog {
 
@@ -26,11 +27,14 @@ struct branch {
         BOOST_LOG_SEV(enc->log, severity::debug2) << node.name << " = " << node
             << " (" << descriptor::typemap.at(idx).name << ")";
         eggs::variants::apply([this](auto& val) {
-                if (field.bigendian)
-                    enc->encode(byteswap(val));
-                else
-                    enc->encode(val);
-                }, node);
+		switch ( field.byteorder ) {
+		    case descriptor::byteorder::big_endian:
+		    	enc->encode(byteswap(val));
+			break;
+		    case descriptor::byteorder::little_endian:
+                    	enc->encode(val);
+			break;
+		} }, node);
     }
 
     void operator()(const descriptor::nested& idx) const {

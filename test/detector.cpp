@@ -1,6 +1,6 @@
+#include <typeindex>
+
 #include <polysync/detector.hpp>
-#include <polysync/console.hpp>
-#include <polysync/print_hana.hpp>
 
 namespace std {
 

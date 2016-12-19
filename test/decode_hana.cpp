@@ -7,6 +7,7 @@
 #include <polysync/plog/decoder.hpp>
 #include <polysync/plog/encoder.hpp>
 #include <polysync/print_hana.hpp>
+#include <polysync/print_tree.hpp>
 #include "types.hpp"
 
 using namespace mettle;

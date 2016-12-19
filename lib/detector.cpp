@@ -1,11 +1,13 @@
 #include <numeric>
-#include <polysync/description.hpp>
+#include <typeindex>
+#include <regex>
+
+#include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
-
-#include <regex>
 
 namespace polysync {
 

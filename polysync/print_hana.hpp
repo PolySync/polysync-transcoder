@@ -8,7 +8,6 @@
 #include <boost/hana.hpp>
 
 #include <polysync/console.hpp>
-#include <polysync/print.hpp>
 
 // Implement pretty printers for hana::pair<>
 

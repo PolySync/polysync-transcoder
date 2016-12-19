@@ -1,58 +1,43 @@
 #include <mettle.hpp>
 
 #include <polysync/tree.hpp>
+#include <polysync/print_tree.hpp>
 #include <polysync/console.hpp>
 
 using namespace mettle;
 
-mettle::suite<> print("print", [](auto& _) {
+mettle::suite< 
+    std::int8_t, std::int16_t, std::int32_t, std::int64_t,
+    std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t,
+    boost::multiprecision::cpp_int > 
+scalar( "print", mettle::type_only, [](auto& _) {
 
-        _.test("vector<std::uint32_t>", []() {
-                std::vector<std::uint32_t> raw { 1, 2, 3, 4 };
-                std::stringstream os;
-                os << raw;
-                expect(os.str(), equal_to("[ 1 2 3 4 ] (4 elements)"));
-                });
+	using T = mettle::fixture_type_t< decltype(_) >;
+	polysync::format = std::make_shared<polysync::formatter::plain>();
 
-        // bytes=std::vector<uint8_t> printer is specialized
-        _.test("bytes", []() {
-                polysync::bytes raw { 1, 2, 3, 4 };
-                std::stringstream os;
-                os << raw;
-                expect(os.str(), equal_to("[ 1 2 3 4 ] (4 elements)"));
-                });
+	_.test( "scalar", []() {
+			std::stringstream os;
+			polysync::variant value = T { 42 };
+			os << value;
+			expect( os.str(), equal_to("42") );
+			});
 
-        _.subsuite("node", [](auto&_) {
-                _.test("std::uint8_t", []() {
-                        std::uint8_t scalar = 42;
-                        std::stringstream os;
-                        os << polysync::node("scalar", scalar);
-                        expect(os.str(), equal_to("42"));
-                        });
+	_.test( "vector", []() {
+			std::stringstream os;
+			polysync::variant value = std::vector<T> { 0x37, 0x42, 0x17 };
+			os << value;
+			expect( os.str(), equal_to("[ 37 42 17 ] (3 elements)") );
+			});
 
-                _.test("std::uint32_t", []() {
-                        std::uint32_t scalar = 42;
-                        std::stringstream os;
-                        os << polysync::node("scalar", scalar);
-                        expect(os.str(), equal_to("42"));
-                        });
-
-                _.test("vector<std::uint32_t>", []() {
-                        std::vector<std::uint32_t> raw { 1, 2, 3, 4 };
-                        std::stringstream os;
-                        os << polysync::node("vector", raw);
-                        expect(os.str(), equal_to("[ 1 2 3 4 ] (4 elements)"));
-                        });
-
-                _.test("bytes", []() {
-                        polysync::bytes raw { 1, 2, 3, 4 };
-                        std::stringstream os;
-                        os << polysync::node("vector", raw);
-                        expect(os.str(), equal_to("[ 1 2 3 4 ] (4 elements)"));
-                        });
-
-               });
-
+	_.test( "tree", []() {
+			std::stringstream os;
+			polysync::variant value = polysync::tree ( "mytype", {
+				{ "value1", T { 42 } },
+				{ "value2", T { 17 } }
+				});
+			os << value;
+			expect( os.str(), equal_to("mytype: { value1: 42, value2: 17 }") );
+			});
         });
 
 

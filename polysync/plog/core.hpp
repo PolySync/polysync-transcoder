@@ -117,6 +117,7 @@ struct log_record {
 };
 
 extern std::map<plog::msg_type, std::string> type_support_map;
+extern void load();
 
 }} // namespace polysync::plog
 
@@ -134,6 +135,7 @@ BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
 namespace polysync { namespace exception {
 
 using log_record = boost::error_info<struct tag_record, plog::log_record>;
+
 
 }}
 

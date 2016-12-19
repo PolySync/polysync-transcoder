@@ -1,10 +1,15 @@
-#include <polysync/plog/decoder.hpp>
-#include <polysync/detector.hpp>
-#include <polysync/print_hana.hpp>
-#include <polysync/exception.hpp>
+#include <algorithm>
+#include <typeindex>
 
 #include <boost/endian/arithmetic.hpp>
-#include <algorithm>
+
+#include <polysync/detector.hpp>
+#include <polysync/print_tree.hpp>
+#include <polysync/print_hana.hpp>
+#include <polysync/exception.hpp>
+#include <polysync/hana.hpp>
+
+#include <polysync/plog/decoder.hpp>
 
 namespace polysync { namespace plog {
 
@@ -14,7 +19,7 @@ using logging::severity;
 // "msg_header".  Continue reading the stream until it ends.
 variant decoder::deep(const log_record& record) {
 
-    variant result = node::from(record, "log_record");
+    variant result = from_hana(record, "log_record");
     polysync::tree& tree = *result.target<polysync::tree>();
 
     record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
@@ -23,7 +28,7 @@ variant decoder::deep(const log_record& record) {
     // msg_header.  Hence, we must just assume that every message is well
     // formed and starts with a msg_header.  In that case, might as well do a
     // static parse on msg_header and dynamic parse the rest.
-    tree->emplace_back(node::from(decode<msg_header>(), "msg_header"));
+    tree->emplace_back(from_hana(decode<msg_header>(), "msg_header"));
 
     // Burn through the rest of the log record, decoding a sequence of types.
     while (stream.tellg() < record_endpos) {
@@ -129,14 +134,22 @@ struct branch_builder {
         auto term = descriptor::typemap.find(idx);
         if ( term == descriptor::typemap.end() )
             throw polysync::error("no typemap") << exception::field(field.name);
-        std::string tname = term->second.name + ( field.bigendian ? ".be" : "" );
+        std::string tname;
+	switch ( field.byteorder ) {
+	    case descriptor::byteorder::little_endian:
+		tname = term->second.name;
+		break;
+	    case descriptor::byteorder::big_endian:
+		tname = term->second.name + ".be";
+		break;
+	}
 
         variant a = d->decode(tname);
         branch->emplace_back(field.name, a);
         branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = "
-            << field.format(branch->back()) << " (" << term->second.name
-            << (field.bigendian ? ", bigendian" : "")
+            << branch->back() << " (" << term->second.name
+            << (field.byteorder == descriptor::byteorder::big_endian ? ", bigendian" : "")
             << ")";
     }
 
@@ -177,21 +190,24 @@ struct branch_builder {
         if (sizefield) {
 
             // The branch should have a previous element with name sizefield
-            auto it = std::find_if(branch->begin(), branch->end(),
+            auto node_iter = std::find_if(branch->begin(), branch->end(),
                     [sizefield](const node& n) { return n.name == *sizefield; });
 
-            if (it == branch->end())
-                throw polysync::error("size indicator field not found")
+            if (node_iter == branch->end())
+                throw polysync::error("array size indicator field not found")
                     << exception::field(*sizefield)
                     << status::description_error;
 
-            // Figure out the size, regardless of the integer type
+	    // Compute the size, regardless of the integer type, by just lexing
+	    // to a string and converting the string back to an int.
+	    // Otherwise, we would have to fuss with the exact integer type
+	    // which is not very interesting here.
             std::stringstream os;
-            os << *it;
+            os << *node_iter;
             try {
-                size = std::stoll(os.str());
-            } catch (std::invalid_argument) {
-                throw polysync::error("cannot parse size value \"" + os.str() +
+                size = std::stoll( os.str() );
+            } catch ( std::invalid_argument ) {
+                throw polysync::error("cannot parse array size value \"" + os.str() +
                         "\", string of size " + std::to_string(os.str().size()))
                     << exception::field(*sizefield)
                     << status::description_error;
