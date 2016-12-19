@@ -5,23 +5,45 @@
 #include <vector>
 #include <iostream>
 
-#include <boost/hana/define_struct.hpp>
-#include <boost/hana/comparing.hpp>
+#include <boost/hana.hpp>
+
+#include <eggs/variant.hpp>
 
 #include <polysync/tree.hpp>
-#include <polysync/hana.hpp>
-#include <polysync/print_tree.hpp>
 
 namespace polysync { namespace descriptor {
 
-// Modeling all of the descriptors using boost::hana allows using generic
-// equality operators and generic printers, eliminating a ton of repetition.
-
-template <typename S, typename = std::enable_if_t<hana::Struct<S>::value> >
-bool operator==( const S& left, const S& right ) {
-    return boost::hana::equal( left, right) ;
-}
+namespace hana = boost::hana;
 	
+enum struct byteorder { little_endian, big_endian } ;
+
+struct field;
+
+// A type description is an ordered vector of fields. Each field knows it's own
+// name, and it's own type, and the serialization order is the maintained by
+// the vector.
+struct type : std::vector< field > {
+
+    type( const std::string& n ) : name(n) {}
+
+    // Use the initializer list constructor only for unit test vectors; the
+    // copy is too slow for production code.
+    type( const char * n, std::initializer_list<field> init )
+        : name(n), std::vector<field>( init ) {}
+
+    // The name is the type's key in descriptor::catalog.
+    const std::string name;
+
+    bool operator==( const type& rhs ) {
+        return name == rhs.name and *this == static_cast< const std::vector<field>& >( rhs );
+    }
+
+    bool operator!=( const type& rhs ) {
+        return name != rhs.name or *this != static_cast< const std::vector<field>& >( rhs );
+    }
+
+};
+
 // Describe a native terminal type like floats and integers.  This struct gets
 // instantiated when the "type" field of TOML element is the reserved name of a
 // common scalar type, such as "uint16".
@@ -33,12 +55,11 @@ struct terminal {
 };
 
 // Describe a nested type embedded as an element of a higher level type.  The
-// nested type must also be registered in descriptor::catalog.  This struct
-// gets instantiated when the "type" field of a TOML element is not a native
-// type key (like "uint16").
+// nested type must be registered separately in descriptor::catalog.  This
+// struct gets instantiated when the "type" field of a TOML element is not a
+// native type key (like "uint16").
 struct nested {
     BOOST_HANA_DEFINE_STRUCT( nested,
-        // Key of the embedded type to search in the descriptor::catalog.
     	( std::string, name )
     );
 };
@@ -70,54 +91,40 @@ struct array {
     BOOST_HANA_DEFINE_STRUCT( array,
 
         // Fixed size, or field name to look up.
-        ( eggs::variant<size_t, std::string>, size ),
+        ( eggs::variant< size_t, std::string >, size ),
 
 	// Native type's typeid(), or the name of a compound type's description.
-	( eggs::variant<std::type_index, std::string>, type )
+	( eggs::variant< std::type_index, std::string >, type )
     );
 };
 
 struct field {
-    using variant = eggs::variant<std::type_index, nested, skip, array>;
 
     BOOST_HANA_DEFINE_STRUCT( field,
     	( std::string, name ),
-    	( variant, type )
+    	( eggs::variant< std::type_index, nested, skip, array >, type )
     );
 
     // Optional metadata about a field may include bigendian storage, and a
     // specialized function to pretty print the value.  Using these attributes
     // is optional.
-    bool bigendian { false };
+    descriptor::byteorder byteorder;
 
-    std::function<std::string ( const polysync::variant& )> format;
+    std::function< std::string ( const polysync::variant& ) > format;
 };
 
-inline bool operator==( const field& lhs, const field& rhs ) {
-    return lhs.name == rhs.name && lhs.type == rhs.type;
+// Now, reap the benefits of wrapping the structures in boost::hana; equality
+// operators and printing metaprograms cover every hana type in one shot.
+
+template <typename S, typename = std::enable_if_t< hana::Struct<S>::value > >
+auto operator==( const S& left, const S& right ) {
+    return boost::hana::equal( left, right ) ;
 }
 
-// The full type description is just a vector of fields plus a name for the
-// compound type.  This has to be a vector, not a map, to preserve the
-// serialization order in the plog flat file.
-struct type : std::vector<field> {
-
-    type(const std::string& n) : name(n) {}
-    type(const char * n, std::initializer_list<field> init)
-        : name(n), std::vector<field>(init) {}
-
-    // This is the name of the type.  Each element of the vector also has a
-    // name, which identifies the field.
-    const std::string name;
-};
-
-inline bool operator==( const type& lhs, const type& rhs ) {
-    return lhs.name == rhs.name and static_cast<const std::vector<field>&>(lhs) == rhs;
+template <typename S, typename = std::enable_if_t< hana::Struct<S>::value > >
+auto operator!=( const S& left, const S& right ) {
+    return boost::hana::not_equal( left, right ) ;
 }
-
-inline bool operator!=( const type& lhs, const type& rhs ) {
-    return lhs.name != rhs.name or static_cast<const std::vector<field>&>(lhs) != rhs;
-}
-
+	
 }} // namespace polysync::descriptor
 

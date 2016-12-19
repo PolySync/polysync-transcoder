@@ -134,14 +134,22 @@ struct branch_builder {
         auto term = descriptor::typemap.find(idx);
         if ( term == descriptor::typemap.end() )
             throw polysync::error("no typemap") << exception::field(field.name);
-        std::string tname = term->second.name + ( field.bigendian ? ".be" : "" );
+        std::string tname;
+	switch ( field.byteorder ) {
+	    case descriptor::byteorder::little_endian:
+		tname = term->second.name;
+		break;
+	    case descriptor::byteorder::big_endian:
+		tname = term->second.name + ".be";
+		break;
+	}
 
         variant a = d->decode(tname);
         branch->emplace_back(field.name, a);
         branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = "
             << branch->back() << " (" << term->second.name
-            << (field.bigendian ? ", bigendian" : "")
+            << (field.byteorder == descriptor::byteorder::big_endian ? ", bigendian" : "")
             << ")";
     }
 

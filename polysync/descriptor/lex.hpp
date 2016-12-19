@@ -1,12 +1,16 @@
 #pragma once
 
-#include <polysync/descriptor.hpp>
+#include <eggs/variant.hpp>
+
+#include <polysync/descriptor/type.hpp>
 
 namespace polysync { namespace descriptor {
 
 struct lex : std::string {
 
-    lex( const field::variant& v );
+    template <typename T>
+    lex( const T& v ); 
+
     std::string operator()( std::type_index ) const;
     std::string operator()( nested ) const;
     std::string operator()( skip ) const;
@@ -16,7 +20,8 @@ struct lex : std::string {
 
 };
 
-lex::lex(const field::variant& v) : std::string(eggs::variants::apply(*this, v)) {}
+template <typename T>
+lex::lex( const T& v ) : std::string( eggs::variants::apply(*this, v) ) {}
 
 }} // namespace polysync::descriptor
 

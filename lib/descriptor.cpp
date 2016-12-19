@@ -1,7 +1,10 @@
 #include <regex>
 
+#include <eggs/variant.hpp>
+
 #include <deps/cpptoml.h>
 
+#include <polysync/tree.hpp>
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/exception.hpp>
@@ -87,8 +90,7 @@ void load(const std::string& name, std::shared_ptr<cpptoml::table> table,
             }
 
             // Tune the field description by any optional info
-            if (fp->contains("endian"))
-                desc.back().bigendian = true;
+	    desc.back().byteorder = fp->contains("endian") ? byteorder::big_endian : byteorder::little_endian;
 
             if (fp->contains("format")) {
                 std::string format = *fp->get_as<std::string>("format");
