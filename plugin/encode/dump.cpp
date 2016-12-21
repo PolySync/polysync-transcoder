@@ -53,7 +53,7 @@ struct pretty_printer {
             ss << n.format(n);
         else
             ss << value;
-        std::string type = descriptor::typemap.at(typeid(Number)).name;
+        std::string type = descriptor::terminalTypeMap.at(typeid(Number)).name;
         os << format->item(n.name, ss.str(), type);
     }
 

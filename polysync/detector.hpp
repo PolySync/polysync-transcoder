@@ -8,15 +8,15 @@
 #include <deps/cpptoml.h>
 #include <polysync/tree.hpp>
 
-namespace polysync { 
+namespace polysync {
 
 // Plow through the detector catalog and search for a match against a parent
 // node.  Return the matching type by it's name.  Zero or multiple matches will throw.
 extern std::string detect( const node& );
 
-namespace detector { 
+namespace detector {
 
-struct type {
+struct Type {
     // Detectors all look at their parent node for branching values.
     std::string parent;
 
@@ -27,13 +27,13 @@ struct type {
     std::string child;
 };
 
-using catalog_type = std::vector<type>;
+using Catalog = std::vector<Type>;
 
 // The catalog gets loaded from TOML, unit test fixtures, or hardcoding.
-extern catalog_type catalog;
+extern Catalog catalog;
 
-// Given a parsed TOML table, load the catalog 
-extern void load( const std::string& name, std::shared_ptr<cpptoml::table> table, catalog_type& );
+// Given a parsed TOML table, load the catalog
+extern void load( const std::string& name, std::shared_ptr<cpptoml::table> table, Catalog& );
 
 }} // namespace polysync::detector
 

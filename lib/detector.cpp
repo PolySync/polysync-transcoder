@@ -16,7 +16,7 @@ using polysync::logging::severity;
 
 namespace detector {
 
-catalog_type catalog;
+Catalog catalog;
 
 // Helper function to get an integer out of a hex string.  This would not be
 // necessary if TOML supported hex formatted integers natively, or if
@@ -58,7 +58,7 @@ static variant convert(const std::string value, const std::type_index& type) {
 
     if (!factory.count(type))
         throw polysync::error("no string converter defined")
-            << exception::type(descriptor::typemap.at(type).name)
+            << exception::type(descriptor::terminalTypeMap.at(type).name)
             << exception::module("detector")
             << status::description_error;
 
@@ -68,7 +68,7 @@ static variant convert(const std::string value, const std::type_index& type) {
 // Load the global type detector dictionary detector::catalog with an entry
 // from a TOML table.
 void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
-           catalog_type& catalog ) {
+           Catalog& catalog ) {
 
     logger log("detector");
 
@@ -80,7 +80,7 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
     }
 
     if (!table->contains("detector")) {
-        BOOST_LOG_SEV(log, severity::debug2) 
+        BOOST_LOG_SEV(log, severity::debug2)
             << "no sequel types following \"" << name << "\"";
         return;
     }
@@ -121,8 +121,8 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
                 << exception::module("detector")
                 << status::description_error;
 
-        decltype(std::declval<detector::type>().match) match;
-        const descriptor::type& desc = descriptor::catalog.at(name);
+        decltype(std::declval<detector::Type>().match) match;
+        const descriptor::Type& desc = descriptor::catalog.at(name);
         for (auto pair: *table) {
 
             if (pair.first == "name") // special field
@@ -164,15 +164,15 @@ void load( const std::string& name, std::shared_ptr<cpptoml::table> table,
         auto it = std::find_if(detector::catalog.begin(), detector::catalog.end(),
                     [name, sequel](auto f) { return f.parent == name && f.child == *sequel; });
         if (it != detector::catalog.end()) {
-            BOOST_LOG_SEV(log, severity::debug2) << "duplicate sequel \"" 
+            BOOST_LOG_SEV(log, severity::debug2) << "duplicate sequel \""
                 << name << "\" -> \"" << *sequel << "\" found but not installed";
             return;
         }
 
-        detector::catalog.emplace_back(detector::type { name, match, *sequel });
+        detector::catalog.emplace_back(detector::Type { name, match, *sequel });
 
-        BOOST_LOG_SEV(log, severity::debug2) <<  "installed sequel \"" 
-            << detector::catalog.back().parent << "\" -> \"" 
+        BOOST_LOG_SEV(log, severity::debug2) <<  "installed sequel \""
+            << detector::catalog.back().parent << "\" -> \""
             << detector::catalog.back().child << "\"";
     }
 }
@@ -191,7 +191,7 @@ std::string detect(const node& parent) {
     // Iterate each detector in the catalog and check for a match.  Store the
     // resulting type name in tpname.
     std::string tpname;
-    for (const detector::type& det: detector::catalog) {
+    for (const detector::Type& det: detector::catalog) {
 
         // Parent is not even the right type, so short circuit and fail this test early.
         if (det.parent != parent.name) {

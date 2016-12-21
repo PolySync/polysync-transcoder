@@ -19,7 +19,7 @@ static std::ofstream out;
 static std::shared_ptr<plog::encoder> writer;
 static logging::logger log { "plog" };
 
-class plog_encode : public encode::plugin { 
+class plog_encode : public encode::plugin {
 public:
 
     po::options_description options() const override {
@@ -34,26 +34,32 @@ public:
 
         std::string path = cmdline_args["outfile"].as<fs::path>().string();
 
+        if ( !descriptor::catalog.count("ps_log_record") )
+        {
+            throw polysync::error( "missing required type descriptor" )
+                << polysync::exception::type( "ps_log_record" );
+        }
+
         // Open a new output file for each new decoder opened. Right now, this
         // only works for the first file because there is not yet a scheme to
         // generate unique filenames (FIXME).
-        visit.open.connect([path](plog::decoder& r) { 
+        visit.open.connect([path](plog::decoder& r) {
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
                 writer.reset(new plog::encoder(out));
                 });
 
         // Serialize the global file header.
-        visit.log_header.connect([](const plog::log_header& head) {
-                writer->encode(head); 
+        visit.log_header.connect([](const plog::ps_log_header& head) {
+                writer->encode(head);
             });
 
         // Serialize every record.
-        descriptor::type desc = descriptor::catalog.at("log_record");
-        visit.record.connect([desc](const polysync::node& top) { 
-                writer->encode(*top.target<tree>(), desc); 
+        descriptor::Type desc = descriptor::catalog.at("ps_log_record");
+        visit.record.connect([desc](const polysync::node& top) {
+                writer->encode(*top.target<tree>(), desc);
                 });
-    } 
+    }
 };
 
 extern "C" BOOST_SYMBOL_EXPORT plog_encode encoder;

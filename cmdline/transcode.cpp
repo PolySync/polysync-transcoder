@@ -189,10 +189,10 @@ int catch_main( int ac, char* av[] ) {
     // the type_support field; stash them so we can map the (random) numbers to
     // (useful) static strings.  Most if not every plugin needs these, so just
     // add it globally here.
-    visit.type_support.connect( []( plog::type_support t ) {
+    visit.type_support.connect( []( plog::ps_type_support t ) {
             // Don't bother registering detectors for types if do not have the descriptor.
             if ( ps::descriptor::catalog.count(t.name) )
-                 ps::detector::catalog.push_back(ps::detector::type { "msg_header",
+                 ps::detector::catalog.push_back(ps::detector::Type { "ps_msg_header",
                     { { "type", t.type } },
                     t.name } );
             // plog::type_support_map.emplace( t.type, t.name );
@@ -214,13 +214,13 @@ int catch_main( int ac, char* av[] ) {
 
             visit.open( decoder );
 
-            plog::log_header head;
+            plog::ps_log_header head;
 
             decoder.decode( head );
             visit.log_header( head );
-            for ( const plog::type_support& type: head.type_supports )
+            for ( const plog::ps_type_support& type: head.type_supports )
                 visit.type_support( type );
-            for ( const plog::log_record& rec: decoder ) {
+            for ( const plog::ps_log_record& rec: decoder ) {
                 if ( std::all_of(filters.begin(), filters.end(),
                             [&rec]( const ps::filter::type& pred ) { return pred(rec); }) ) {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;

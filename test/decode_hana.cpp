@@ -29,27 +29,27 @@ struct hana_factory {
 };
 
 template <>
-plog::log_module hana_factory::make<plog::log_module>() {
+plog::ps_log_module hana_factory::make<plog::ps_log_module>() {
     return { 11, 21, 31, 41, mp::cpp_int("0xF0E1D2C3B4A50697" "88796A5B4C3D2E1"), "log" };
 }
 
 template <>
-plog::type_support hana_factory::make<plog::type_support>() {
+plog::ps_type_support hana_factory::make<plog::ps_type_support>() {
     return { 21, "type" };
 }
 
 template <>
-plog::log_header hana_factory::make<plog::log_header>() {
+plog::ps_log_header hana_factory::make<plog::ps_log_header>() {
     return { 1, 2, 3, 4, 5, {}, {} };
 }
 
 template <>
-plog::msg_header hana_factory::make<plog::msg_header>() {
+plog::ps_msg_header hana_factory::make<plog::ps_msg_header>() {
     return { 10, 20, 30 };
 }
 
 template <>
-plog::log_record hana_factory::make<plog::log_record>() {
+plog::ps_log_record hana_factory::make<plog::ps_log_record>() {
     return { 110, 120, 130, 250 };
 }
 
@@ -131,7 +131,7 @@ hash("hash_type", [](auto& _) {
             });
         });
 
-mettle::suite<plog::log_header, plog::msg_header, plog::log_module, plog::type_support, plog::log_record>
+mettle::suite<plog::ps_log_header, plog::ps_msg_header, plog::ps_log_module, plog::ps_type_support, plog::ps_log_record>
 structures("structures", hana_factory {}, [](auto& _) {
 
         _.test("transcode", [](auto value) {
@@ -151,7 +151,7 @@ structures("structures", hana_factory {}, [](auto& _) {
 mettle::suite<> structures2("structures2", [](auto& _) {
         _.subsuite("log_module", [](auto&_) {
                 _.test("encode", []() {
-                        plog::log_module record { 1, 2, 3, 4, 0, "name" };
+                        plog::ps_log_module record { 1, 2, 3, 4, 0, "name" };
                         record.build_hash = 0xFEDCBA9876543210;
                         record.build_hash <<= 64;
                         record.build_hash |= 0xF1E2D3C4B5A69788;
@@ -173,7 +173,7 @@ mettle::suite<> structures2("structures2", [](auto& _) {
                         });
 
                 _.test("decode", []() {
-                        plog::log_module truth { 1, 2, 3, 4, 5, "name" };
+                        plog::ps_log_module truth { 1, 2, 3, 4, 5, "name" };
 
                         std::string hex = "01" "02" "0300" "04000000"
                         "00000000000000000000000000000005"
@@ -186,7 +186,7 @@ mettle::suite<> structures2("structures2", [](auto& _) {
 
                         std::stringstream stream(blob);
                         plog::decoder decode(stream);
-                        plog::log_module record;
+                        plog::ps_log_module record;
                         decode.decode(record);
 
                         expect(record, hana_equal(truth));

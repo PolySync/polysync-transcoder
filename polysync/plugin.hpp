@@ -12,7 +12,7 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-namespace polysync { 
+namespace polysync {
 
 namespace encode {
 
@@ -21,14 +21,14 @@ extern po::options_description options();
 // Visitation points.
 struct visitor {
 
-    template <typename T> 
+    template <typename T>
     using callback = boost::signals2::signal<void (T)>;
 
     callback< plog::decoder& > open; // New plog file was opened.
-    callback< plog::log_header& > log_header; // New plog file was opened and log_header read.
+    callback< plog::ps_log_header& > log_header; // New plog file was opened and log_header read.
     callback< const node& > record; // Response to each log_record
     callback< const plog::decoder& > cleanup; // Decoder is destructed
-    callback< const plog::type_support& > type_support; // Type support name/number association
+    callback< const plog::ps_type_support& > type_support; // Type support name/number association
 
 };
 
@@ -47,14 +47,14 @@ extern std::map< std::string, boost::shared_ptr<encode::plugin> > map;
 
 namespace filter {
 
-using type = std::function<bool (const plog::log_record&)>;
+using type = std::function<bool (const plog::ps_log_record&)>;
 
 struct plugin {
     virtual po::options_description options() const = 0;
-    virtual type predicate( const po::variables_map& ) const = 0;  
+    virtual type predicate( const po::variables_map& ) const = 0;
 };
 
-extern po::options_description load( const std::vector<fs::path>& ); 
+extern po::options_description load( const std::vector<fs::path>& );
 extern std::map< std::string, boost::shared_ptr<filter::plugin> > map;
 
 } // namespace filter

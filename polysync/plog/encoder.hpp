@@ -76,7 +76,7 @@ public:
     }
 
     // plog::hash_type is multiprecision; other very long ints may come along someday
-    void encode(const hash_type& value) {
+    void encode(const ps_hash_type& value) {
         bytes buf(16);
         multiprecision::export_bits(value, buf.begin(), 8);
 
@@ -89,13 +89,13 @@ public:
     // Specialize name_type because the underlying std::string type needs special
     // handling.  It resembels a Pascal string (length first, no trailing zero
     // as a C string would have)
-    void encode(const name_type& name) {
-        name_type::length_type len = name.size();
+    void encode(const ps_name_type& name) {
+        ps_name_type::length_type len = name.size();
         stream.write((char *)(&len), sizeof(len));
         stream.write((char *)(name.data()), len);
     }
 
-    void encode( const polysync::tree&, const descriptor::type& );
+    void encode( const polysync::tree&, const descriptor::Type& );
 
     template <typename T>
     void encode( const std::vector<T>& vec ) {
@@ -118,7 +118,7 @@ protected:
     friend class branch;
 
     std::ostream& stream;
-    std::map<plog::msg_type, std::string> msg_type_map;
+    std::map<plog::ps_msg_type, std::string> msg_type_map;
 
 };
 

@@ -17,7 +17,7 @@ using logging::severity;
 
 // Kick off a decode with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
-variant decoder::deep(const log_record& record) {
+variant decoder::deep(const ps_log_record& record) {
 
     variant result = from_hana(record, "log_record");
     polysync::tree& tree = *result.target<polysync::tree>();
@@ -28,7 +28,7 @@ variant decoder::deep(const log_record& record) {
     // msg_header.  Hence, we must just assume that every message is well
     // formed and starts with a msg_header.  In that case, might as well do a
     // static parse on msg_header and dynamic parse the rest.
-    tree->emplace_back(from_hana(decode<msg_header>(), "msg_header"));
+    tree->emplace_back(from_hana(decode<ps_msg_header>(), "ps_msg_header"));
 
     // Burn through the rest of the log record, decoding a sequence of types.
     while (stream.tellg() < record_endpos) {
@@ -94,8 +94,8 @@ std::map<std::string, decoder::parser> decoder::parse_map = {
        }},
 
    // PLog aliases
-   { "ps_guid", [](decoder& r){ return r.decode<plog::guid>(); } },
-   { "ps_timestamp", [](decoder& r) { return r.decode<plog::timestamp>(); } },
+   { "ps_guid", [](decoder& r){ return r.decode<plog::ps_guid>(); } },
+   { "ps_timestamp", [](decoder& r) { return r.decode<plog::ps_timestamp>(); } },
    { "NTP64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
 };
 
@@ -120,26 +120,26 @@ variant decoder::decode( const std::string& type ) {
     BOOST_LOG_SEV( log, severity::debug2 )
         << "decoding \"" << type << "\" at offset " << stream.tellg();
 
-    const descriptor::type& desc = descriptor::catalog.at( type );
+    const descriptor::Type& desc = descriptor::catalog.at( type );
     return decode( desc );
 }
 
 struct branch_builder {
     polysync::tree branch;
-    const descriptor::field& field;
+    const descriptor::Field& field;
     decoder* d;
 
     // Terminal types
     void operator()( const std::type_index& idx ) const {
-        auto term = descriptor::typemap.find(idx);
-        if ( term == descriptor::typemap.end() )
+        auto term = descriptor::terminalTypeMap.find(idx);
+        if ( term == descriptor::terminalTypeMap.end() )
             throw polysync::error("no typemap") << exception::field(field.name);
         std::string tname;
 	switch ( field.byteorder ) {
-	    case descriptor::byteorder::little_endian:
+	    case descriptor::ByteOrder::LittleEndian:
 		tname = term->second.name;
 		break;
-	    case descriptor::byteorder::big_endian:
+	    case descriptor::ByteOrder::BigEndian:
 		tname = term->second.name + ".be";
 		break;
 	}
@@ -149,22 +149,22 @@ struct branch_builder {
         branch->back().format = field.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = "
             << branch->back() << " (" << term->second.name
-            << (field.byteorder == descriptor::byteorder::big_endian ? ", bigendian" : "")
+            << (field.byteorder == descriptor::ByteOrder::BigEndian ? ", bigendian" : "")
             << ")";
     }
 
     // Nested described type
-    void operator()(const descriptor::nested& nest) const {
+    void operator()(const descriptor::Nested& nest) const {
         // Type aliases sometimes appear as nested types because the alias was
         // defined after the type that uses it.  This is why we check typemap
         // here; if we could know when parsing the TOML that the type was
         // actually an alias not a nested type, then this would not be necessary.
-        if (descriptor::namemap.count(nest.name))
-            return operator()(descriptor::namemap.at(nest.name));
+        if (descriptor::terminalNameMap.count(nest.name))
+            return operator()(descriptor::terminalNameMap.at(nest.name));
 
         if (!descriptor::catalog.count(nest.name))
             throw polysync::error("no nested descriptor for \"" + nest.name + "\"");
-        const descriptor::type& desc = descriptor::catalog.at(nest.name);
+        const descriptor::Type& desc = descriptor::catalog.at(nest.name);
         node a(field.name, d->decode(desc));
         branch->emplace_back(field.name, a);
         BOOST_LOG_SEV(d->log, severity::debug2) << field.name << " = " << a
@@ -172,7 +172,7 @@ struct branch_builder {
     }
 
     // Burn off unused or reserved space
-    void operator()(const descriptor::skip& skip) const {
+    void operator()(const descriptor::Skip& skip) const {
         polysync::bytes raw(skip.size);
         d->stream.read((char *)raw.data(), skip.size);
         std::string name = "skip-" + std::to_string(skip.order);
@@ -180,7 +180,7 @@ struct branch_builder {
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
     }
 
-    void operator()(const descriptor::array& desc) const {
+    void operator()(const descriptor::Array& desc) const {
 
         // Not sure yet if the array size is fixed, or read from a field in the parent node.
         auto sizefield = desc.size.target<std::string>();
@@ -221,7 +221,7 @@ struct branch_builder {
             if (!descriptor::catalog.count(*nesttype))
                 throw polysync::error("unknown nested type");
 
-            const descriptor::type& nest = descriptor::catalog.at(*nesttype);
+            const descriptor::Type& nest = descriptor::catalog.at(*nesttype);
             std::vector<polysync::tree> array;
             for (size_t i = 0; i < size; ++i) {
                 BOOST_LOG_SEV(d->log, severity::debug2) << "decoding " << nest.name
@@ -242,12 +242,12 @@ struct branch_builder {
 
 };
 
-polysync::variant decoder::decode(const descriptor::type& desc) {
+polysync::variant decoder::decode(const descriptor::Type& desc) {
 
     polysync::tree child(desc.name);
 
     try {
-        std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {
+        std::for_each(desc.begin(), desc.end(), [&](const descriptor::Field& field) {
                 eggs::variants::apply(branch_builder { child, field, this }, field.type);
                 });
     } catch (polysync::error& e) {

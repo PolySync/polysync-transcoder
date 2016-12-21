@@ -11,120 +11,128 @@
 
 #include <polysync/tree.hpp>
 
+namespace hana = boost::hana;
 namespace polysync { namespace descriptor {
 
-namespace hana = boost::hana;
-	
-enum struct byteorder { little_endian, big_endian } ;
+enum struct ByteOrder { LittleEndian, BigEndian } ;
 
-struct field;
+struct Field;
 
-// A type description is an ordered vector of fields. Each field knows it's own
+// A type description is an ordered vector of Fields. Each Field knows it's own
 // name, and it's own type, and the serialization order is the maintained by
 // the vector.
-struct type : std::vector< field > {
-
-    type( const std::string& n ) : name(n) {}
+struct Type : std::vector<Field>
+{
+    Type( const std::string& n ) : name(n) {}
 
     // Use the initializer list constructor only for unit test vectors; the
     // copy is too slow for production code.
-    type( const char * n, std::initializer_list<field> init )
-        : name(n), std::vector<field>( init ) {}
+    Type( const char * n, std::initializer_list<Field> init )
+        : name(n), std::vector<Field>( init ) {}
 
     // The name is the type's key in descriptor::catalog.
     const std::string name;
 
-    bool operator==( const type& rhs ) {
-        return name == rhs.name and *this == static_cast< const std::vector<field>& >( rhs );
-    }
-
-    bool operator!=( const type& rhs ) {
-        return name != rhs.name or *this != static_cast< const std::vector<field>& >( rhs );
-    }
-
 };
 
 // Describe a native terminal type like floats and integers.  This struct gets
-// instantiated when the "type" field of TOML element is the reserved name of a
+// instantiated when the "type" Field of TOML element is the reserved name of a
 // common scalar type, such as "uint16".
-struct terminal {
-    BOOST_HANA_DEFINE_STRUCT( terminal,
-    	( std::string, name),
-    	( std::streamoff, size)
+struct Terminal
+{
+    BOOST_HANA_DEFINE_STRUCT( Terminal,
+    	( std::string, name ),
+    	( std::streamoff, size )
     );
 };
 
 // Describe a nested type embedded as an element of a higher level type.  The
 // nested type must be registered separately in descriptor::catalog.  This
-// struct gets instantiated when the "type" field of a TOML element is not a
+// struct gets instantiated when the "type" Field of a TOML element is not a
 // native type key (like "uint16").
-struct nested {
-    BOOST_HANA_DEFINE_STRUCT( nested,
+struct Nested {
+    BOOST_HANA_DEFINE_STRUCT( Nested,
     	( std::string, name )
     );
 };
 
 // Describe an arbitrary number of bytes to skip, useful for "reserved" space
-// in a binary blob. This struct gets instantiated from the TOML "skip" element. 
-struct skip {
-    BOOST_HANA_DEFINE_STRUCT( skip, 
+// in a binary blob. This struct gets instantiated from the TOML "skip" element.
+struct Skip
+{
+    BOOST_HANA_DEFINE_STRUCT( Skip,
 
     	// Remember how much extra space to skip or add back in, in bytes
         ( std::streamoff, size ),
 
-	// There can be multiple skips in a record, which need to be re-encoded
-	// back in order to preserve binary equivalence.  Maybe the vendors put
-	// something important there, but left it out of the documentation.  Keep a
-	// sort key for each skip, so the order can be preserved on re-encoding.
-	( std::uint16_t, order )
+	    // There can be multiple skips in a record, which need to be re-encoded
+	    // back in order to preserve binary equivalence.  Maybe the vendors put
+	    // something important there, but left it out of the documentation.  Keep a
+	    // sort key for each skip, so the order can be preserved on re-encoding.
+	    ( std::uint16_t, order )
     );
 };
 
 // Describe an array of terminal or embedded types.  Arrays get complicated,
 // because the size may either be a fixed constant in the type definition, or
-// read from one of the parent node's fields.  If the "count" field in the TOML
+// read from one of the parent node's Fields.  If the "count" Field in the TOML
 // element is an *integer*, then the array will have fixed size.  If it is a
-// *string*, then the string should equal one of the prior fields in the record
+// *string*, then the string should equal one of the prior Fields in the record
 // type that yields some type of integer.  This descriptor really covers four
 // separate cases between fixed or dynamic size, and native or compound type.
-struct array {
-    BOOST_HANA_DEFINE_STRUCT( array,
+struct Array
+{
+    BOOST_HANA_DEFINE_STRUCT( Array,
 
-        // Fixed size, or field name to look up.
+        // Fixed size, or Field name to look up.
         ( eggs::variant< size_t, std::string >, size ),
 
-	// Native type's typeid(), or the name of a compound type's description.
-	( eggs::variant< std::type_index, std::string >, type )
+	    // Native type's typeid(), or the name of a compound type's description.
+	    ( eggs::variant< std::type_index, std::string >, type )
     );
 };
 
-struct field {
+struct Field
+{
+    std::string name;
+    eggs::variant< std::type_index, Nested, Skip, Array > type;
 
-    BOOST_HANA_DEFINE_STRUCT( field,
-    	( std::string, name ),
-    	( eggs::variant< std::type_index, nested, skip, array >, type )
-    );
-
-    // Optional metadata about a field may include bigendian storage, and a
+    // Optional metadata about a Field may include bigendian storage, and a
     // specialized function to pretty print the value.  Using these attributes
     // is optional.
-    descriptor::byteorder byteorder;
+    descriptor::ByteOrder byteorder;
 
     std::function< std::string ( const polysync::variant& ) > format;
 };
 
-// Now, reap the benefits of wrapping the structures in boost::hana; equality
-// operators and printing metaprograms cover every hana type in one shot.
-
-template <typename S, typename = std::enable_if_t< hana::Struct<S>::value > >
-auto operator==( const S& left, const S& right ) {
-    return boost::hana::equal( left, right ) ;
+template <typename T>
+std::enable_if_t<hana::Struct<T>::value, bool>
+operator==( const T& left, const T& right )
+{
+    return hana::equal( left, right );
 }
 
-template <typename S, typename = std::enable_if_t< hana::Struct<S>::value > >
-auto operator!=( const S& left, const S& right ) {
-    return boost::hana::not_equal( left, right ) ;
+inline bool operator==( const Field& lhs, const Field& rhs )
+{
+    return lhs.name == rhs.name and lhs.type == rhs.type;
 }
-	
+
+inline bool operator!=( const Field& lhs, const Field& rhs )
+{
+    return !operator==( lhs, rhs );
+}
+
+inline bool operator==( const Type& lhs, const Type& rhs )
+{
+    return lhs.name == rhs.name
+        and std::equal( lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), hana::equal);
+}
+
+inline bool operator!=( const Type& lhs, const Type& rhs )
+{
+    return !operator==( lhs, rhs );
+}
+
 }} // namespace polysync::descriptor
+
 

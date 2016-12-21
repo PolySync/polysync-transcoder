@@ -28,12 +28,12 @@ struct iterator {
 
     decoder* stream;
     std::streamoff pos; // file offset from std::ios_base::beg, pointing to next record
-    log_record header;
+    ps_log_record header;
 
     bool operator!=(const iterator& other) const { return pos < other.pos; }
     bool operator==(const iterator& other) const { return pos == other.pos; }
 
-    log_record operator*(); // read and return the payload
+    ps_log_record operator*(); // read and return the payload
     iterator& operator++(); // skip to the next record
 };
 
@@ -55,8 +55,8 @@ public:
 
 public:
     // Decode an entire record and return a parse tree.
-    variant deep(const log_record&);
-    variant operator()(const descriptor::type& type) { return decode(type); }
+    variant deep(const ps_log_record&);
+    variant operator()(const descriptor::Type& type) { return decode(type); }
 
 public:
     // Define a set of decode() templates, overloads, and specializations to pattern
@@ -77,7 +77,7 @@ public:
         stream.read((char *)value.data(), sizeof(T));
     }
 
-    void decode(hash_type& value) {
+    void decode(ps_hash_type& value) {
         bytes buf(16); // 16 should be a template param, but I cannot get it to match.
         stream.read((char *)buf.data(), buf.size());
         multiprecision::import_bits(value, buf.begin(), buf.end(), 8);
@@ -109,7 +109,7 @@ public:
     // Specialize name_type because the underlying std::string type needs special
     // handling.  It resembles a Pascal string (length first, no trailing zero
     // as a C string would have)
-    void decode(name_type& name) {
+    void decode(ps_name_type& name) {
         std::uint16_t len;
         stream.read((char *)(&len), sizeof(len));
         name.resize(len);
@@ -123,7 +123,7 @@ public:
     // Decode a dynamic type using the description name.
     variant decode(const std::string& type);
 
-    variant decode(const descriptor::type&);
+    variant decode(const descriptor::Type&);
 
     // Define a set of factory functions that know how to decode specific binary
     // types.  They keys are strings from the "type" field of the TOML descriptions.
@@ -178,22 +178,22 @@ protected:
 
 inline iterator::iterator( decoder* s, std::streamoff pos ) : stream( s ), pos( pos ) {
     if ( stream ) {
-        BOOST_LOG_SEV(stream->log, severity::debug1) << "decoding \"plog::log_record\" at " << pos;
+        BOOST_LOG_SEV(stream->log, severity::debug1) << "decoding \"plog::ps_log_record\" at " << pos;
         stream->decode( header, pos );
     }
 }
 
-inline log_record iterator::operator*() {
+inline ps_log_record iterator::operator*() {
     return header;
 }
 
 inline iterator& iterator::operator++() {
-    static const std::streamoff recordsize = size<log_record>::value();
+    static const std::streamoff recordsize = size<ps_log_record>::value();
     // Advance the iterator's position to the beginning of the next record.
     pos += recordsize + header.size;
     if (pos < stream->endpos) {
         BOOST_LOG_SEV(stream->log, severity::debug1)
-            << "decoding \"plog::log_record\" at " << pos;
+            << "decoding \"plog::ps_log_record\" at " << pos;
         stream->decode(header, pos);
     }
     return *this;

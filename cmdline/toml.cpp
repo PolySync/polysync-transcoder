@@ -45,17 +45,24 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
                     // Parse the file in two passes, so the detectors have
                     // access to the descriptor's types
-                    for ( const auto& type: *descfile ) {
+                    for ( const auto& type: *descfile )
+                    {
                         if ( type.second->is_table() )
-                            descriptor::load(
-                                    type.first, type.second->as_table(), descriptor::catalog );
+                        {
+                            std::vector<descriptor::Type> descriptions =
+                                descriptor::fromToml( type.second->as_table(), type.first );
+                            for ( const descriptor::Type& desc: descriptions ) {
+                                descriptor::catalog.emplace( desc.name, desc );
+                            }
+                        }
+
                         else if ( type.second->is_value() ) {
                             auto val = type.second->as<std::string>();
-                            if ( !descriptor::namemap.count(val->get()) )
+                            if ( !descriptor::terminalNameMap.count(val->get()) )
                                 throw error( "unknown type alias" )
                                     << exception::type(type.first);
-                            std::type_index idx = descriptor::namemap.at(val->get());
-                            descriptor::namemap.emplace( type.first, idx );
+                            std::type_index idx = descriptor::terminalNameMap.at(val->get());
+                            descriptor::terminalNameMap.emplace( type.first, idx );
                             BOOST_LOG_SEV( log, severity::debug2 )
                                 << "loaded type alias " << type.first << " = " << val->get();
                         } else

@@ -10,11 +10,11 @@ struct branch {
     encoder* enc;
     const polysync::node& node;
     const polysync::tree tree;
-    const descriptor::field& field;
+    const descriptor::Field& field;
 
     // Terminal types
     void operator()(std::type_index idx) const {
-        if (!descriptor::typemap.count(idx))
+        if (!descriptor::terminalTypeMap.count(idx))
             throw polysync::error("no typemap")
                 << exception::field(field.name)
                 << exception::module("plog::encode");
@@ -25,19 +25,19 @@ struct branch {
                << exception::module("plog::encode");
 
         BOOST_LOG_SEV(enc->log, severity::debug2) << node.name << " = " << node
-            << " (" << descriptor::typemap.at(idx).name << ")";
+            << " (" << descriptor::terminalTypeMap.at(idx).name << ")";
         eggs::variants::apply([this](auto& val) {
 		switch ( field.byteorder ) {
-		    case descriptor::byteorder::big_endian:
+		    case descriptor::ByteOrder::BigEndian:
 		    	enc->encode(byteswap(val));
 			break;
-		    case descriptor::byteorder::little_endian:
+		    case descriptor::ByteOrder::LittleEndian:
                     	enc->encode(val);
 			break;
 		} }, node);
     }
 
-    void operator()(const descriptor::nested& idx) const {
+    void operator()(const descriptor::Nested& idx) const {
         const polysync::tree* nest = node.target<polysync::tree>();
         if (nest == nullptr)
             throw polysync::error("mismatched nested type")
@@ -45,7 +45,7 @@ struct branch {
                << exception::module("plog::encode")
                ;
 
-        std::string type = field.type.target<descriptor::nested>()->name;
+        std::string type = field.type.target<descriptor::Nested>()->name;
         if (!descriptor::catalog.count(type))
             throw polysync::error("unknown type")
                 << exception::type(type)
@@ -55,7 +55,7 @@ struct branch {
         enc->encode(*nest, descriptor::catalog.at(type));
     }
 
-    void operator()(const descriptor::skip& skip) const {
+    void operator()(const descriptor::Skip& skip) const {
         const bytes& raw = *node.target<bytes>();
         enc->stream.write((char *)raw.data(), raw.size());
         BOOST_LOG_SEV(enc->log, severity::debug2) << "padded " << raw;
@@ -74,7 +74,7 @@ struct branch {
     }
 
     static std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>> array_func;
-    void operator()(const descriptor::array& desc) const {
+    void operator()(const descriptor::Array& desc) const {
         auto sizefield = desc.size.target<std::string>();
         auto fixedsize = desc.size.target<size_t>();
         size_t size;
@@ -103,7 +103,7 @@ struct branch {
             if (!descriptor::catalog.count(*nesttype))
                 throw polysync::error("unknown nested type");
 
-            const descriptor::type& nest = descriptor::catalog.at(*nesttype);
+            const descriptor::Type& nest = descriptor::catalog.at(*nesttype);
             const std::vector<polysync::tree>* arr = node.target<std::vector<polysync::tree>>();
 
             // Actual data type is not a vector like the description requires.
@@ -137,13 +137,13 @@ std::map<std::type_index, std::function<void (encoder*, const polysync::node&, s
         { typeid(std::uint64_t), branch::array<std::uint64_t> },
     };
 
-void encoder::encode( const tree& t, const descriptor::type& desc ) {
+void encoder::encode( const tree& t, const descriptor::Type& desc ) {
 
     std::set<std::string> done;
 
     // The serialization must be in the order of the descriptor, not
     // necessarily the value, so iterate the descriptor at the top level.
-    std::for_each(desc.begin(), desc.end(), [&](const descriptor::field& field) {
+    std::for_each(desc.begin(), desc.end(), [&](const descriptor::Field& field) {
 
             // Search the tree itself to find the field, keyed on their
             // names; The tree's natural order is irrelevant, given a
@@ -171,13 +171,18 @@ void encoder::encode( const tree& t, const descriptor::type& desc ) {
                 return;
             if (n.target_type() == typeid(tree)) {
                 tree subtree = *n.target<tree>();
-                const descriptor::type& subtype = descriptor::catalog.at(subtree.type);
+                if ( !descriptor::catalog.count( subtree.type ) )
+                {
+                    throw polysync::error( "missing type descriptor" )
+                        << exception::type( subtree.type );
+                }
+                const descriptor::Type& subtype = descriptor::catalog.at(subtree.type);
                 BOOST_LOG_SEV(log, severity::debug1) << "recursing subtree " << subtree.type;
                 return encode(subtree, subtype);
             }
             if (n.target_type() == typeid(bytes)) {
                 const bytes& raw = *n.target<bytes>();
-                BOOST_LOG_SEV(log, severity::debug2) << "writing " << raw.size() 
+                BOOST_LOG_SEV(log, severity::debug2) << "writing " << raw.size()
                     << " raw bytes to offset " << stream.tellp();
                 stream.write((char *)raw.data(), raw.size());
                 return;

@@ -36,13 +36,13 @@ constexpr size_t PSYNC_MODULE_VERIFY_HASH_LEN = 16;
 namespace multiprecision = boost::multiprecision;
 namespace hana = boost::hana;
 
-using hash_type = multiprecision::cpp_int;
+using ps_hash_type = multiprecision::cpp_int;
 // I think that export_bits() has a bug, breaking the fixed precision type,
 // which is why I am falling back to cpp_int because it seems to work better
 // then.  I have submitted Ticket #12627 to boost.org on this issue.
     // multiprecision::number<multiprecision::cpp_int_backend<
-    // PSYNC_MODULE_VERIFY_HASH_LEN*8, 
-    // PSYNC_MODULE_VERIFY_HASH_LEN*8, 
+    // PSYNC_MODULE_VERIFY_HASH_LEN*8,
+    // PSYNC_MODULE_VERIFY_HASH_LEN*8,
     // multiprecision::unsigned_magnitude>>;
 
 // a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
@@ -65,76 +65,76 @@ struct sequence<LenType, std::uint8_t> : std::string {
     using length_type = LenType;
 };
 
-using name_type = sequence<std::uint16_t, std::uint8_t>;
-using msg_type = std::uint32_t;
-using guid = std::uint64_t;
-using timestamp = std::uint64_t;
-using identifier = std::uint32_t;
-using sensor_kind = std::uint32_t;
+using ps_name_type = sequence<std::uint16_t, std::uint8_t>;
+using ps_msg_type = std::uint32_t;
+using ps_guid = std::uint64_t;
+using ps_timestamp = std::uint64_t;
+using ps_identifier = std::uint32_t;
+using ps_sensor_kind = std::uint32_t;
 
-struct message {
-    struct {
-        boost::optional<std::streamoff> begin;
-        boost::optional<std::streamoff> end;
-    } offset;
-};
+// struct message {
+//     struct {
+//         boost::optional<std::streamoff> begin;
+//         boost::optional<std::streamoff> end;
+//     } offset;
+// };
 
-struct log_module {
+struct ps_log_module {
     std::uint8_t version_major;
     std::uint8_t version_minor;
     std::uint16_t version_subminor;
     std::uint32_t build_date;
-    hash_type build_hash;
-    name_type name;
+    ps_hash_type build_hash;
+    ps_name_type name;
 };
 
-struct type_support {
+struct ps_type_support {
     std::uint32_t type;
-    name_type name;
+    ps_name_type name;
 };
-       
-struct log_header {
+
+struct ps_log_header {
     std::uint8_t version_major;
     std::uint8_t version_minor;
     std::uint16_t version_subminor;
     std::uint32_t build_date;
     std::uint64_t node_guid;
-    sequence<std::uint32_t, log_module> modules;
-    sequence<std::uint32_t, type_support> type_supports;
+    sequence<std::uint32_t, ps_log_module> modules;
+    sequence<std::uint32_t, ps_type_support> type_supports;
 };
 
-struct msg_header {
-    msg_type type;
-    plog::timestamp timestamp;
-    guid src_guid;
+struct ps_msg_header {
+    ps_msg_type type;
+    plog::ps_timestamp timestamp;
+    ps_guid src_guid;
 };
 
-struct log_record {
+struct ps_log_record {
     std::uint32_t index;
     std::uint32_t size;
     std::uint32_t prev_size;
-    plog::timestamp timestamp;
+    plog::ps_timestamp timestamp;
 };
 
-extern std::map<plog::msg_type, std::string> type_support_map;
+extern std::map<plog::ps_msg_type, std::string> type_support_map;
 extern void load();
 
 }} // namespace polysync::plog
 
 // Hana adaptors must be in global namespace
 
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_header,
-        version_major, version_minor, version_subminor, build_date, node_guid 
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::ps_log_header,
+        version_major, version_minor, version_subminor, build_date, node_guid
        , modules, type_supports);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_module, version_major, version_minor, 
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::ps_log_module, version_major, version_minor,
         version_subminor, build_date, build_hash, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::type_support, type, name);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::log_record, index, size, prev_size, timestamp);
-BOOST_HANA_ADAPT_STRUCT(polysync::plog::msg_header, type, timestamp, src_guid);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::ps_type_support, type, name);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::ps_log_record, index, size, prev_size, timestamp);
+BOOST_HANA_ADAPT_STRUCT(polysync::plog::ps_msg_header, type, timestamp, src_guid);
 
 namespace polysync { namespace exception {
 
-using log_record = boost::error_info<struct tag_record, plog::log_record>;
+using ps_log_record = boost::error_info<struct tag_record, plog::ps_log_record>;
 
 
 }}

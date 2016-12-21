@@ -55,7 +55,7 @@ using variant = eggs::variant<
     // Nested types and vectors of nested types
     tree, std::vector<tree>,
 
-    // Undecoded raw bytes 
+    // Undecoded raw bytes
     bytes,
 
     // Floating point types and native vectors
@@ -107,16 +107,16 @@ inline bool operator==( const tree& left, const tree& right ) {
     return std::equal( left->begin(), left->end(), right->begin(), right->end(),
             []( const node& ln, const node& rn ) {
 
-	   	if ( ln.name != rn.name ) {
-		    return false;
-	        }
+	   	        if ( ln.name != rn.name ) {
+		            return false;
+                }
 
                 // If the two nodes are both trees, recurse.
                 const tree* ltree = ln.target<tree>();
                 const tree* rtree = rn.target<tree>();
                 if (ltree && rtree) {
                     return operator==(*ltree, *rtree);
-	        }
+	            }
 
                 // Otherwise, just use variant operator==()
                 return ln == rn;

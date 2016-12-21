@@ -11,7 +11,7 @@ std::ostream& operator<<(std::ostream& os, const error& e) {
     os << e.what() << std::endl;
     if (const std::string* module = boost::get_error_info<exception::module>(e))
         os << "\tModule: " << format->fieldname(*module) << std::endl;
-    if (const plog::log_record* record = boost::get_error_info<exception::log_record>(e))
+    if (const plog::ps_log_record* record = boost::get_error_info<exception::ps_log_record>(e))
         os << "\tRecord: " << *record << std::endl;
     if (const std::string* tpname = boost::get_error_info<exception::type>(e))
         os << "\tType: " << format->type(*tpname) << std::endl;

@@ -42,7 +42,7 @@ struct slice : filter::plugin {
                     end = begin + 1;
                 BOOST_LOG_SEV( log, severity::debug2 ) << "slice " << begin << ":" << stride << ":" << end;
 
-                return [begin, stride, end]( const plog::log_record& rec ) {
+                return [begin, stride, end]( const plog::ps_log_record& rec ) {
                     return ( rec.index >= begin ) and ( rec.index < end ) and
                         ( (rec.index - begin) % stride == 0 );
                 };

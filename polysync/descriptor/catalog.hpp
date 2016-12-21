@@ -8,11 +8,11 @@
 
 namespace polysync { namespace descriptor {
 
-using catalog_type = std::map< std::string, type >;
+using TypeCatalog = std::map< std::string, Type >;
 
 // Global type descriptor catalogs
-extern catalog_type catalog;
-extern std::map< std::type_index, terminal > typemap;
-extern std::map< std::string, std::type_index > namemap;
+extern TypeCatalog catalog;
+extern std::map< std::type_index, Terminal > terminalTypeMap;
+extern std::map< std::string, std::type_index > terminalNameMap;
 
 }} // namespace polysync::descriptor

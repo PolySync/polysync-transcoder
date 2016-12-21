@@ -6,19 +6,14 @@
 
 namespace polysync { namespace plog {
 
-void load() {
-    descriptor::typemap.emplace ( typeid(msg_header), 
-        	    descriptor::terminal { "msg_header", size<msg_header>::value() } );
-    // descriptor::typemap.emplace ( typeid(log_header), 
-    //     	    descriptor::terminal { "log_header", size<log_header>::value() } );
-    descriptor::typemap.emplace ( typeid(log_record), 
-        	    descriptor::terminal { "log_record", size<log_record>::value() } );
-    // descriptor::typemap.emplace ( typeid(log_module), 
-    //     	    descriptor::terminal { "log_module", size<log_module>::value() } );
-    // descriptor::catalog.emplace( "log_module", descriptor::describe<log_module>::type() );
-    // descriptor::catalog.emplace( "log_header", descriptor::describe<log_header>::type() );
-    descriptor::catalog.emplace( "msg_header", descriptor::describe<msg_header>::type() );
-    descriptor::catalog.emplace( "log_record", descriptor::describe<log_record>::type() );
+void load()
+{
+    descriptor::terminalTypeMap.emplace ( typeid(ps_msg_header),
+        	    descriptor::Terminal { "ps_msg_header", size<ps_msg_header>::value() } );
+    descriptor::terminalTypeMap.emplace ( typeid(ps_log_record),
+        	    descriptor::Terminal { "ps_log_record", size<ps_log_record>::value() } );
+    descriptor::catalog.emplace( "ps_msg_header", descriptor::describe<ps_msg_header>::type("ps_msg_header") );
+    descriptor::catalog.emplace( "ps_log_record", descriptor::describe<ps_log_record>::type("ps_log_record") );
 }
 
 }} // namespace polysync::plog

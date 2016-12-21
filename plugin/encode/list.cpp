@@ -92,9 +92,9 @@ struct list : encode::plugin {
                                 << exception::type(pair.first)
                                 << status::description_error;
 
-                        for (const descriptor::field& d: descriptor::catalog.at(pair.first)) {
+                        for (const descriptor::Field& d: descriptor::catalog.at(pair.first)) {
                             std::string tags;
-                            if (d.byteorder == descriptor::byteorder::big_endian)
+                            if (d.byteorder == descriptor::ByteOrder::BigEndian)
                                 tags += std::string(" bigendian ");
                             std::cout << format->item(d.name, descriptor::lex(d.type), tags);
                         }

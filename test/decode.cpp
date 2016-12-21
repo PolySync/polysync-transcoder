@@ -5,7 +5,7 @@
 using namespace mettle;
 namespace plog = polysync::plog;
 
-polysync::tree decode_hex( const polysync::descriptor::type& desc, 
+polysync::tree decode_hex( const polysync::descriptor::Type& desc,
 		           const std::string& hexblob ) {
 
     // Form a binary blob from a hex string with the help of boost::multiprecision
@@ -34,16 +34,16 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.test( "native_types", []() {
 
-		polysync::descriptor::type ps_byte_array_msg { "ps_byte_array_msg", {
-			{ "dest_guid", typeid(plog::guid) },
+		polysync::descriptor::Type ps_byte_array_msg { "ps_byte_array_msg", {
+			{ "dest_guid", typeid(plog::ps_guid) },
 			{ "data_type", typeid(uint16_t) },
-			{ "payload", typeid(uint32_t) } 
+			{ "payload", typeid(uint32_t) }
 			} };
 
                 polysync::tree truth = polysync::tree( "ps_byte_array_msg", {
-                        { "dest_guid", plog::guid { 1 } },
+                        { "dest_guid", plog::ps_guid { 1 } },
                         { "data_type", std::uint16_t { 2 } },
-                        { "payload", std::uint32_t { 3 } } 
+                        { "payload", std::uint32_t { 3 } }
 			});
 
                 std::string hexblob = "0100000000000000" "0200" "03000000";
@@ -55,11 +55,11 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.test( "reserved_bytes", []() {
 
-		polysync::descriptor::type ibeo_header { "ibeo.header", {
+		polysync::descriptor::Type ibeo_header { "ibeo.header", {
 			{ "magic", typeid(std::uint32_t) },
 			{ "prev_size", typeid(std::uint32_t) },
 			{ "size", typeid(std::uint8_t) },
-			{ "skip-1", polysync::descriptor::skip { 4, 1 } },
+			{ "skip-1", polysync::descriptor::Skip { 4, 1 } },
 			{ "device_id", typeid(std::uint8_t) },
 			{ "data_type", typeid(std::uint16_t) },
 			{ "time", typeid(std::uint64_t) } }
@@ -87,11 +87,11 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.test( "unknown_type", []() {
 
-                polysync::descriptor::type desc { "unknown_type", {
-                    { "dest_guid", typeid(plog::guid) },
+                polysync::descriptor::Type desc { "unknown_type", {
+                    { "dest_guid", typeid(plog::ps_guid) },
                     { "data_type", typeid(std::uint32_t) },
                     { "time", typeid(void) } // the unknown type
-		    } 
+		    }
 		    };
 
                 std::string hexblob = "0100000000000000" "02000000" "0300000000000000";
@@ -103,14 +103,14 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "nested_type", [](auto&_) {
 
-                polysync::descriptor::type scanner_info { "scanner_info", {
+                polysync::descriptor::Type scanner_info { "scanner_info", {
                     { "device_id", typeid(std::uint8_t) },
                     { "scanner_type", typeid(std::uint8_t) } }
                 };
                 polysync::descriptor::catalog.emplace("scanner_info", scanner_info);
-                polysync::descriptor::type container { "container", {
+                polysync::descriptor::Type container { "container", {
                     { "start_time", typeid(std::uint16_t) },
-                    { "scanner_info", polysync::descriptor::nested{"scanner_info"} } }
+                    { "scanner_info", polysync::descriptor::Nested{"scanner_info"} } }
                 };
 
                 polysync::tree truth = polysync::tree("container", {
@@ -144,9 +144,9 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "terminal_array", [](auto &_) {
 
-                polysync::descriptor::type sometype { "type", {
+                polysync::descriptor::Type sometype { "type", {
                     { "time", typeid(std::uint16_t) },
-                    { "data", polysync::descriptor::array { 3, typeid(std::uint8_t) } }
+                    { "data", polysync::descriptor::Array { 3, typeid(std::uint8_t) } }
                 } };
 
                 polysync::tree truth = polysync::tree("type", {
@@ -178,15 +178,15 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "nested_array", [](auto &_) {
                 _.test("equal", [=]() {
-			polysync::descriptor::type scanner_info { "scanner_info", {
+			polysync::descriptor::Type scanner_info { "scanner_info", {
 			    { "device_id", typeid(std::uint8_t) },
-			    { "scanner_type", typeid(std::uint8_t) } 
+			    { "scanner_type", typeid(std::uint8_t) }
 			} };
 
 			polysync::descriptor::catalog.emplace("scanner_info", scanner_info);
-			polysync::descriptor::type container { "container", {
+			polysync::descriptor::Type container { "container", {
 			    { "time", typeid(std::uint16_t) },
-			    { "scanner_info", polysync::descriptor::array { 3, "scanner_info" } } }
+			    { "scanner_info", polysync::descriptor::Array { 3, "scanner_info" } } }
 			};
 
                 polysync::tree truth = polysync::tree( "container", {
@@ -219,9 +219,9 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
         _.subsuite( "dynamic_array", [](auto &_) {
 
-                polysync::descriptor::type sometype { "type", {
+                polysync::descriptor::Type sometype { "type", {
                     { "points", typeid(std::uint16_t) },
-                    { "data", polysync::descriptor::array { "points", typeid(std::uint8_t) } }
+                    { "data", polysync::descriptor::Array { "points", typeid(std::uint8_t) } }
                 } };
 
                 polysync::tree truth = polysync::tree( "type", {

@@ -4,8 +4,8 @@
 
 namespace polysync { namespace descriptor {
 
-extern std::ostream& operator<<(std::ostream& os, const field& f);
-extern std::ostream& operator<<(std::ostream& os, const type& desc);
+extern std::ostream& operator<<(std::ostream& os, const Field& f);
+extern std::ostream& operator<<(std::ostream& os, const Type& desc);
 
 }} // namespace polysync::descriptor
 

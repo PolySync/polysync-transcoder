@@ -6,15 +6,16 @@
 
 namespace polysync { namespace descriptor {
 
-struct lex : std::string {
-
+// Pretty printer for descriptors
+struct lex : std::string
+{
     template <typename T>
-    lex( const T& v ); 
+    lex( const T& v );
 
     std::string operator()( std::type_index ) const;
-    std::string operator()( nested ) const;
-    std::string operator()( skip ) const;
-    std::string operator()( array ) const;
+    std::string operator()( Nested ) const;
+    std::string operator()( Skip ) const;
+    std::string operator()( Array ) const;
     std::string operator()( std::string ) const;
     std::string operator()( size_t ) const;
 
