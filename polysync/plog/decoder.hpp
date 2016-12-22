@@ -154,8 +154,14 @@ public:
 
     template <typename T>
     void decode(T& value, std::streamoff pos) {
-        stream.seekg(pos);
-        decode<T>(value);
+        try
+        {
+            stream.seekg(pos);
+            decode<T>(value);
+        } catch ( std::ifstream::failure e)
+        {
+            throw polysync::error( "short read" );
+        }
     }
 
 

@@ -19,7 +19,7 @@ using logging::severity;
 // "msg_header".  Continue reading the stream until it ends.
 variant decoder::deep(const ps_log_record& record) {
 
-    variant result = from_hana(record, "log_record");
+    variant result = from_hana(record, "ps_log_record");
     polysync::tree& tree = *result.target<polysync::tree>();
 
     record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);

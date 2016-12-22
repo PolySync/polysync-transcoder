@@ -224,7 +224,7 @@ int catch_main( int ac, char* av[] ) {
                 if ( std::all_of(filters.begin(), filters.end(),
                             [&rec]( const ps::filter::type& pred ) { return pred(rec); }) ) {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;
-                    polysync::node top( "log_record", decoder.deep(rec) );
+                    polysync::node top( "ps_log_record", decoder.deep(rec) );
                     visit.record(top);
                 }
             }
