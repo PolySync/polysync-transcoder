@@ -8,10 +8,10 @@
 
 namespace polysync { namespace descriptor {
 
-using TypeCatalog = std::map< std::string, Type >;
+extern std::map< std::string, Type > catalog;
 
-// Global type descriptor catalogs
-extern TypeCatalog catalog;
+// Very old type catalog support. One or both of these may be able to be
+// factored out, given some time to investigate.
 extern std::map< std::type_index, Terminal > terminalTypeMap;
 extern std::map< std::string, std::type_index > terminalNameMap;
 

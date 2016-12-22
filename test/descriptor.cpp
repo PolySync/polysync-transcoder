@@ -3,7 +3,7 @@
 #include <polysync/descriptor.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/hana_descriptor.hpp>
-#include <polysync/print_descriptor.hpp>
+#include <polysync/descriptor/print.hpp>
 #include <polysync/console.hpp>
 #include <polysync/plog/core.hpp>
 
