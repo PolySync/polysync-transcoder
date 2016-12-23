@@ -5,4 +5,6 @@ gcc
 clang
 *.o
 *.swp
+.clang-format
+compile_commands.json
 
