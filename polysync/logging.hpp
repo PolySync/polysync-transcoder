@@ -1,6 +1,6 @@
 #pragma once
 
-#define BOOST_LOG_DYN_LINK 1
+// #define BOOST_LOG_DYN_LINK 1
 
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/sources/severity_channel_logger.hpp>
