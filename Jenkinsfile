@@ -1,5 +1,5 @@
 #!groovy
-node('clang') {
+node('worker') {
   stage('Checkout') {
     checkout([
       $class: 'GitSCM',
