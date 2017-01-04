@@ -180,8 +180,15 @@ log_record {
 ## PLog Encoding
 
 The first actual transcoding example will write the data back out to another
+<<<<<<< HEAD
 PLog file.  This would be pretty useless, except for the filters which makes
 PLog->Plog transcoding interesting.
+=======
+PLog file.  This is useful in combination with filters, because one truncate a
+larger PLog into a smaller one, write out a new PLog with only chosen types, or
+subsample a limited range of records, to create a smaller and more specific
+PLog file from a larger one.
+>>>>>>> devel
 
 ### Truncation
 
@@ -190,17 +197,25 @@ PLog->Plog transcoding interesting.
 ➜  polysync-transcode ibeo.2.plog --type log_record
 log_record x2
 ~~~
-So we have a new file `ibeo.2.plog` that contains a duplicate of the header
-plus first two records from `ibeo.26.plog`. This can be checked:
+The first command created a new file `ibeo.2.plog` that contains a duplicate of
+the header ps_log_header from ibeo.25.plog, plus its first two records.  This
+is because the filter argument '--slice :2' selects the records from the
+beginning of the file and stops after the second one. This can be checked with
+a binary comparison:
 ~~~
 ➜  wc -c ibeo.2.plog
 28216 ibeo.2.plog
 ➜  cmp ibeo.2.plog ibeo.25.plog --bytes 28216
 ~~~
+The first command just computes how many bytes to compare (which is the entire
+file ibeo.2.plog) and the second one is a standard command line tool to check
+binary equality.
 
 # Command Line Tool: Part II
 
-So Part I was nice and all, but you are interested in the introspection features probably because something is going wrong in your workflow.
+The Transcoder privides valuable introspection tools to create and diagnose
+sensor data models.
+>>>>>>> devel
 
 ## Model Diagnostics
 
