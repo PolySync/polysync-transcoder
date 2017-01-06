@@ -6,7 +6,6 @@
 
 namespace polysync { namespace descriptor {
 
-extern std::vector<Type> fromToml( std::shared_ptr<cpptoml::table>,
-                                   const std::string& path = std::string() );
+extern std::vector<Type> loadCatalog( const std::string&, std::shared_ptr<cpptoml::table> );
 
 }} // namespace polysync::descriptor

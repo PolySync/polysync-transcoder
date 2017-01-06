@@ -110,7 +110,7 @@ variant decoder::deep(const ps_log_record& record) {
 
     // Burn through the rest of the log record, decoding a sequence of types.
     while (stream.tellg() < record_endpos) {
-        std::string type = detect(tree->back());
+        std::string type = detector::search(tree->back());
         tree->emplace_back(type, decode(type));
     }
     return std::move(result);
