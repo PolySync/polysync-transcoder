@@ -33,7 +33,7 @@ void analyzeFile( const fs::path& filename )
         if ( type.second->is_table() )
         {
             std::vector<descriptor::Type> descriptions =
-                descriptor::fromToml( type.second->as_table(), type.first );
+                descriptor::loadCatalog( type.first, type.second->as_table() );
             for ( const descriptor::Type& desc: descriptions )
             {
                 descriptor::catalog.emplace( desc.name, desc );

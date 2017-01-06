@@ -21,7 +21,14 @@ static logger log( "detector" );
 template <typename T>
 inline T stoulCast( const std::string& value )
 {
-    return boost::numeric_cast<T>( std::stoul( value, 0, 0 ) );
+    try
+    {
+        return boost::numeric_cast<T>( std::stoul( value, 0, 0 ) );
+    }
+    catch ( boost::numeric::bad_numeric_cast )
+    {
+        throw polysync::error( "value overflow" );
+    }
 }
 
 // Type descriptions have strong type information, but TOML does not have a
@@ -30,7 +37,7 @@ inline T stoulCast( const std::string& value )
 // string (which TOML does support) using the std::type_index from the type
 // description.  It supports all integer types and floats, including hex and
 // octal notation thanks to std::stoul().
-static variant parseTerminalFromString( const std::string value, const std::type_index& type )
+variant parseTerminalFromString( const std::string& value, const std::type_index& type )
 {
     static const std::map< std::type_index,
                            std::function< variant (const std::string&) > > factory =
@@ -60,8 +67,17 @@ static variant parseTerminalFromString( const std::string value, const std::type
     auto parse = factory.find( type );
     if ( parse == factory.end() )
     {
-        throw polysync::error( "no string converter defined for terminal type" )
-            << exception::type( descriptor::terminalTypeMap.at(type).name );
+        polysync::error e( "no string converter defined for terminal type" );
+        auto it = descriptor::terminalTypeMap.find( type );
+        if ( it != descriptor::terminalTypeMap.end() )
+        {
+            e << exception::type(it->second.name);
+        }
+        else
+        {
+            e << exception::type(type.name());
+        }
+        throw e;
     }
 
     return parse->second(value);
@@ -70,25 +86,21 @@ static variant parseTerminalFromString( const std::string value, const std::type
 // Plow through the TOML list of detector descriptions and construct a
 // descriptor::Type for each one.  Return a catalog of all the detectors found
 // in this particular TOML table.
-Catalog buildDetectors( const std::string& typeName, std::shared_ptr<cpptoml::table_array> detectorList )
+Catalog buildDetectors(
+        const std::string& typeName,
+        std::shared_ptr<cpptoml::table_array> detectorList )
 {
     Catalog result;
 
-    for ( const auto& detectorTable: *detectorList )
+    for ( const auto& table: *detectorList )
     {
-        if ( !detectorTable->is_table() )
-        {
-            throw polysync::error( "detector must be a table" );
-        }
-
-        auto table = detectorTable->as_table();
         if ( !table->contains( "name" ) )
         {
             throw polysync::error( "detector requires a \"name\" field" );
         }
 
-        auto sequel = table->get_as<std::string>( "name" );
-        if ( !sequel )
+        auto nextType = table->get_as<std::string>( "name" );
+        if ( !nextType )
         {
             throw polysync::error( "detector name must be a string" );
         }
@@ -109,9 +121,8 @@ Catalog buildDetectors( const std::string& typeName, std::shared_ptr<cpptoml::ta
             // The field name did not match at all; get out of here.
             if ( it == description.end() )
             {
-                throw polysync::error( "unknown field" )
-                    << exception::detector( pair.first )
-                    << exception::field( it->name );
+                throw polysync::error( "type description lacks detector field" )
+                    << exception::field( pair.first );
             }
 
             // Disallow branching on any non-native field type.  Branching on
@@ -120,18 +131,27 @@ Catalog buildDetectors( const std::string& typeName, std::shared_ptr<cpptoml::ta
             const std::type_index* idx = it->type.target<std::type_index>();
             if ( !idx )
             {
-                throw polysync::error( "illegal branch on compound type" )
+                throw polysync::error( "illegal key on compound type" )
                     << exception::detector( pair.first )
                     << exception::field( it->name );
             }
 
-            // For this purpose, TOML numbers must be strings because TOML is
+            // For this purpose, TOML numbers might be strings because TOML is
             // not very type flexible (and does not know about hex notation).
             // Here is where we convert that string into a strong type.
-            std::string value = pair.second->as<std::string>()->get();
-            match.emplace( pair.first, parseTerminalFromString( value, *idx ) );
+            auto value = pair.second->as<std::string>();
+            if( value )
+            {
+                match.emplace( pair.first, parseTerminalFromString( value->get(), *idx ) );
+            }
+            else
+            {
+                throw polysync::error( "detector value must be represented as a string" )
+                    << exception::detector( pair.first )
+                    << exception::field( it->name );
+            }
         }
-        result.emplace_back( Type { typeName, match, *sequel } );
+        result.emplace_back( Type { typeName, match, *nextType } );
     }
     return result;
 
@@ -147,18 +167,25 @@ void loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::table> t
         // do, so recurse into each nested table.
         for ( const auto& nest: *table )
         {
-            loadCatalog( typeName + "." + nest.first, nest.second->as_table() );
+            if ( nest.second->is_table() )
+            {
+                loadCatalog( typeName + "." + nest.first, nest.second->as_table() );
+            }
         }
-        return;
     }
 
-    if ( !table->contains( "detector" ) )
+    if ( !table->contains( "detector" ) and table->contains( "description" ) )
     {
         // Missing a detector list is no big deal; it just means that the type is
         // final and always the last part of a message because no sequel will
         // ever follow.
         BOOST_LOG_SEV( log, severity::debug2 )
             << "no sequel types following \"" << typeName << "\"";
+        return;
+    }
+
+    if ( !table->contains( "detector" ) )
+    {
         return;
     }
 

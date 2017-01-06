@@ -131,7 +131,9 @@ std::string search( const node& current )
         // Too many matches. Catalog is not orthogonal and needs tweaking.
         if ( result.size() > 1 )
         {
-            throw polysync::error( "non-unique detectors: " + result[0] + " and " + result[1] );
+            std::stringstream msg;
+            msg << "non-unique detectors: " << result;
+            throw polysync::error( msg.str() );
         }
 
         // Exactly one match! Best situation, return the unique type name.

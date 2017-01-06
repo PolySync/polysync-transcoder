@@ -119,7 +119,8 @@ mettle::suite<TomlTable> description( "descriptor::Type", mettle::bind_factory(p
 
                         TomlTable table( ps_msg_header_TomlString );
 
-                        std::vector<descriptor::Type> descriptions = descriptor::fromToml( table );
+                        std::vector<descriptor::Type> descriptions =
+                            descriptor::loadCatalog( std::string(), table );
 
                         expect( descriptions.front(), equal_to(truth) );
 
