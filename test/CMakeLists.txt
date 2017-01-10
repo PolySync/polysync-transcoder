@@ -5,5 +5,3 @@ foreach ( component IN ITEMS decode_hana tree size descriptor detector
 	                    ${CMAKE_THREAD_LIBS_INIT} )
     set_target_properties ( ${component} PROPERTIES PREFIX "ut." )
 endforeach( component )
-
-configure_file( "${CONAN_BIN_DIRS_METTLE}/mettle" "${CMAKE_BINARY_DIR}/mettle" COPYONLY )

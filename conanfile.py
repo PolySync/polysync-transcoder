@@ -11,17 +11,17 @@ class Recipe(ConanFile):
     exports = ( "polysync-transcode", "share", "plugin" )
     generators = "cmake"
 
-    options = ""
-    default_options = ""
-
-    requires = ( "boost/1.63.0@polysync/boost", "mettle/1.2.12@polysync/mettle" )
-
     def build(self):
         cmake = CMake(self.settings)
 
         self.run( "CXX=clang++ cmake \"%s\"" % self.conanfile_directory )
         self.run( "cmake --build . %s" % cmake.build_config )
 
+    def requirements(self):
+        self.requires( "boost/1.63.0@polysync/boost" )
+        self.options["boost"].shared = True
+        self.requires( "mettle/1.2.12@polysync/mettle" )     
+        
     def package(self):
         self.copy( "polysync-transcode",
                    dst="bin",
