@@ -24,7 +24,7 @@ find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
 set ( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
-include_directories( . "${CMAKE_SOURCE_DIR}/deps" "${CMAKE_SOURCE_DIR}/deps/eggs/include" ${Boost_INCLUDE_DIRS} )
+include_directories( . "${CMAKE_SOURCE_DIR}/vendor" "${CMAKE_SOURCE_DIR}/vendor/eggs/include" ${Boost_INCLUDE_DIRS} )
 add_subdirectory( lib )
 add_subdirectory( cmdline )
 add_subdirectory( plugin )
