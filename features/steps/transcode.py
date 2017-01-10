@@ -3,14 +3,11 @@ from behave import *
 from hamcrest import *
 import subprocess, shlex, ctypes, os
 
-path = '../build'
-
 @given('the command line: {cmdline}')
 def step_impl(context, cmdline):
 
     # Turn off console coloring; it just interferes in the behavioral tests
     args = shlex.split(cmdline)
-    args[0] = path + '/' + args[0] 
     args.insert(1, '--plain')  # turns of color escape codes
     args.insert(1, '--plugdir=../build/plugin') # configure runtime environment
     args.insert(1, '--plugdir=..')
