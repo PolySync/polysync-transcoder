@@ -14,6 +14,11 @@ HDF5 workflow including `h5ls` and `h5dump`.
 * C++ library for users to write their own custom data science tools
 * Python extension (planned)
 
+# Install
+
+Refer to the polysync-transcoder wiki at 
+`https://github.com/PolySync/polysync-transcoder/wiki/Install`
+
 # Command Line Tool: Part I
 
 Suppose you have a PLog file `ibeo.25.plog` fresh from your latest drive, and
