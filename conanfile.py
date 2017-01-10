@@ -19,7 +19,7 @@ class Recipe(ConanFile):
     def build(self):
         cmake = CMake(self.settings)
 
-        self.run( "cmake \"%s\"" % self.conanfile_directory )
+        self.run( "CXX=clang++ cmake \"%s\"" % self.conanfile_directory )
         self.run( "cmake --build . %s" % cmake.build_config )
 
     def package(self):
