@@ -34,3 +34,8 @@ install( DIRECTORY polysync/
          DESTINATION include/polysync 
          FILES_MATCHING PATTERN "*.hpp" 
          PERMISSIONS WORLD_READ )
+     
+install( DIRECTORY share/ 
+         DESTINATION share/polysync-transcoder
+         FILES_MATCHING PATTERN "*.toml" 
+         PERMISSIONS WORLD_READ )
