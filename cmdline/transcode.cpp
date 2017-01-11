@@ -101,6 +101,10 @@ int catch_main( int ac, char* av[] ) {
     if ( libenv != nullptr )
         boost::split( plugpath, libenv, boost::is_any_of(":;") );
 
+#ifdef INSTALL_PREFIX
+    plugpath.push_back( INSTALL_PREFIX );
+#endif
+
     if ( plugpath.empty() )
         BOOST_LOG_SEV(log, severity::warn) << "plugin path unset;"
             << " use POLYSYNC_TRANSCODE_LIB or --plugdir to find them";
