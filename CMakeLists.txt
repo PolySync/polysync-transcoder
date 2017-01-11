@@ -20,8 +20,6 @@ endif()
 
 find_package(Threads)
 find_package(Boost COMPONENTS log log_setup system filesystem program_options iostreams thread )
-find_package(PythonLibs)
-find_package(HDF5 COMPONENTS HL)
 
 set ( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 include_directories( . "${CMAKE_SOURCE_DIR}/vendor" "${CMAKE_SOURCE_DIR}/vendor/eggs/include" ${Boost_INCLUDE_DIRS} )
@@ -35,3 +33,13 @@ foreach ( component IN ITEMS decode_hana tree size description detector
           encode decode )
     add_test(NAME ${component} COMMAND test_${component} )
 endforeach( component )
+
+install( DIRECTORY polysync/ 
+         DESTINATION include/polysync 
+         FILES_MATCHING PATTERN "*.hpp" 
+         PERMISSIONS WORLD_READ )
+     
+install( DIRECTORY share/ 
+         DESTINATION share/polysync-transcoder
+         FILES_MATCHING PATTERN "*.toml" 
+         PERMISSIONS WORLD_READ )
