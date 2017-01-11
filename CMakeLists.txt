@@ -1,9 +1,13 @@
 cmake_minimum_required ( VERSION 2.8 )
 project ( polysync-transcode )
 
-include( ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake )
-conan_basic_setup()
+if ( EXISTS "${CMAKE_BINARY_DIR}/conanbuildinfo.cmake" )
+    # Inside of PolySync development team, use conan to sync the dependencies
+    include( ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake )
+    conan_basic_setup()
+endif()
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_LOG_DYN_LINK")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -ferror-limit=10")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -20,7 +24,7 @@ find_package(PythonLibs)
 find_package(HDF5 COMPONENTS HL)
 
 set ( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
-include_directories( . "deps" "deps/eggs/include" ${Boost_INCLUDE_DIRS} )
+include_directories( . "${CMAKE_SOURCE_DIR}/vendor" "${CMAKE_SOURCE_DIR}/vendor/eggs/include" ${Boost_INCLUDE_DIRS} )
 add_subdirectory( lib )
 add_subdirectory( cmdline )
 add_subdirectory( plugin )

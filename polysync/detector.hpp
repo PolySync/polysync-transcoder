@@ -5,7 +5,7 @@
 
 #include <boost/hana.hpp>
 
-#include <deps/cpptoml.h>
+#include <cpptoml.h>
 #include <polysync/tree.hpp>
 
 namespace polysync {

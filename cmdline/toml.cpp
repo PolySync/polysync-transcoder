@@ -4,7 +4,7 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <deps/cpptoml.h>
+#include <cpptoml.h>
 
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
