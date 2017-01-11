@@ -40,13 +40,15 @@ node('worker') {
       }
       echo 'Build Complete!'
     }
-    stage('Clang Test') {
-      parallel 'unit tests': {
-        sh './mettle ut.*'     
-        echo 'Unit Tests Complete!'
-      }, 'acceptance tests': {
-        sh 'behave features/*.feature'
-        echo 'Acceptance Tests Complete!'
+    stage('Test') {
+      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE']) {
+        parallel 'unit tests': {
+          sh 'mettle ut.*'     
+          echo 'Unit Tests Complete!'
+        }, 'acceptance tests': {
+          sh 'behave features'
+          echo 'Acceptance Tests Complete!'
+        }
       }
     }
     stage('Release') {

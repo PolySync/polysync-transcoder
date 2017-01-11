@@ -99,7 +99,7 @@ int catch_main( int ac, char* av[] ) {
         cmdline_args["plugdir"].as< std::vector<fs::path> >();
     char* libenv = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
     if ( libenv != nullptr )
-        boost::split( plugpath, libenv, boost::is_any_of(";") );
+        boost::split( plugpath, libenv, boost::is_any_of(":;") );
 
     if ( plugpath.empty() )
         BOOST_LOG_SEV(log, severity::warn) << "plugin path unset;"
