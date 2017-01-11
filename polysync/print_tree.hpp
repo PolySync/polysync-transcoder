@@ -37,7 +37,8 @@ inline std::ostream& operator<<( std::ostream& os, const variant& n )
     return os;
 }
 
-inline std::ostream& operator<<( std::ostream& os, const node& n ) {
+inline std::ostream& operator<<( std::ostream& os, const node& n ) 
+{
     if ( n.format ) 
     {
         return os << n.format(n);
@@ -50,7 +51,6 @@ inline std::ostream& operator<<( std::ostream& os, const node& n ) {
     }
 
     return os << static_cast<variant>(n);
-
 }
 
 } // namespace polysync

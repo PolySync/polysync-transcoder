@@ -116,7 +116,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 	std::vector<std::string> pathmsg;
 	std::transform( plugpath.begin(), plugpath.end(), 
 			std::back_inserter(pathmsg),
-			[]( const fs::path& p ) { return p.string(); });
+			[]( const fs::path& p ) { return p.string() + "/share"; });
 
 	BOOST_LOG_SEV( log, severity::warn )
 	    << "no type descriptions found; searched "
