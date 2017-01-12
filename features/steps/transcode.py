@@ -9,6 +9,8 @@ def step_impl(context, cmdline):
     # Turn off console coloring; it just interferes in the behavioral tests
     args = shlex.split(cmdline)
     args.insert(1, '--plain')  # turns of color escape codes
+    args.insert(1, '--plugdir=.') # points to local share/ for TOML descriptions
+    args.insert(1, '--plugdir=./build/plugin') # points to local plugins 
     if 'loglevel' in context.config.userdata:
         args.insert(1, '--loglevel=' + context.config.userdata['loglevel'])
 
@@ -32,7 +34,7 @@ def step_impl(context, stderr):
 
 @then('stdout is empty')
 def step_impl(context):
-    assert_that(context.stdout, empty())
+    assert_that(context.stdout.decode('ascii'), empty())
 
 @then('stderr is empty')
 def step_impl(context):
