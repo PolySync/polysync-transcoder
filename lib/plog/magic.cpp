@@ -21,12 +21,17 @@ bool checkMagic( std::ifstream& stream )
         stream.seekg( startPosition );
 
         // These are just guesses of the future, but are way better than checking nothing.
+        if ( version_major == 0 and version_minor == 0 and version_subminor == 0)
+        {
+            return false;
+        }
         return version_major < 3 and
                version_minor < 10 and
                version_subminor < 100;
     }
     catch ( polysync::error )
     {
+        stream.seekg( startPosition );
         return false;
     }
 }
