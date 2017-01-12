@@ -20,35 +20,40 @@ namespace polysync { namespace toml {
 using logging::severity;
 using logging::logger;
 
-static logger log( "toml" );
+static logger log( "typesupport" );
 
-po::options_description load( const std::vector<fs::path>& plugpath ) {
-
-    for ( fs::path descdir: plugpath ) 
+po::options_description load( const std::vector<fs::path>& plugpath )
+{
+    for ( fs::path descdir: plugpath )
     {
         descdir = descdir / "share";
-        if ( !fs::exists( descdir ) ) 
-	{
+        if ( fs::exists( descdir / "polysync-transcoder" ) )
+        {
+            descdir = descdir / "polysync-transcoder";
+        }
+        if ( !fs::exists( descdir ) )
+        {
             BOOST_LOG_SEV( log, severity::debug1 )
                 << "skipping description path " << descdir
                 << " because it does not exist";
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) 
-		<< "searching " << descdir << " for type descriptions";
+        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << descdir;
+
         static std::regex is_description( R"((.+)\.toml)" );
-        for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) ) 
-	{
+        for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) )
+        {
             std::cmatch match;
             std::regex_match( tofl.path().string().c_str(), match, is_description );
-            if (match.size()) {
-                BOOST_LOG_SEV( log, severity::debug1 ) 
-			<< "loading descriptions from " << tofl;
-                try 
-		{
-                    std::shared_ptr<cpptoml::table> descfile = 
-			    cpptoml::parse_file( tofl.path().string() );
+            if (match.size())
+            {
+                BOOST_LOG_SEV( log, severity::debug1 ) << "loading " << tofl;
+
+                try
+                {
+                    std::shared_ptr<cpptoml::table> descfile =
+                        cpptoml::parse_file( tofl.path().string() );
 
                     // Parse the file in two passes, so the detectors have
                     // access to the descriptor's types
@@ -57,52 +62,52 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                         if ( type.second->is_table() )
                         {
                             std::vector<descriptor::Type> descriptions =
-                                descriptor::fromToml( type.second->as_table(), 
-						      type.first );
-                            for ( const descriptor::Type& desc: descriptions ) 
-			    {
+                                descriptor::fromToml( type.second->as_table(),
+                                        type.first );
+                            for ( const descriptor::Type& desc: descriptions )
+                            {
                                 descriptor::catalog.emplace( desc.name, desc );
                             }
                         }
 
-                        else if ( type.second->is_value() ) 
-			{
+                        else if ( type.second->is_value() )
+                        {
                             auto val = type.second->as<std::string>();
                             if ( !descriptor::terminalNameMap.count(val->get()) )
-			    {
+                            {
                                 throw error( "unknown type alias" )
                                     << exception::type(type.first);
-			    }
-                            std::type_index idx = 
-				    descriptor::terminalNameMap.at(val->get());
+                            }
+                            std::type_index idx =
+                                descriptor::terminalNameMap.at(val->get());
                             descriptor::terminalNameMap.emplace( type.first, idx );
                             BOOST_LOG_SEV( log, severity::debug2 )
-                                << "loaded type alias " << type.first 
-				<< " = " << val->get();
-                        } 
-			else
-			{
-                            BOOST_LOG_SEV( log, severity::warn ) 
-				    << "unused description: " << type.first;
-			}
+                                << "loaded type alias " << type.first
+                                << " = " << val->get();
+                        }
+                        else
+                        {
+                            BOOST_LOG_SEV( log, severity::warn )
+                                << "unused description: " << type.first;
+                        }
                     }
                     for ( const auto& type: *descfile )
-		    {
+                    {
                         if ( type.second->is_table() )
-			{
-                            detector::load( type.first, type.second->as_table(), 
-					    detector::catalog );
-			}
-		    }
-                } 
-		catch ( error& e ) 
-		{
+                        {
+                            detector::load( type.first, type.second->as_table(),
+                                    detector::catalog );
+                        }
+                    }
+                }
+                catch ( error& e )
+                {
                     e << status::description_error;
                     e << exception::path( tofl.path().string() );
                     throw;
-                } 
-		catch ( cpptoml::parse_exception& e ) 
-		{
+                }
+                catch ( cpptoml::parse_exception& e )
+                {
                     throw polysync::error( e.what() )
                         << status::description_error
                         << exception::path( tofl.path().string() );
@@ -113,14 +118,14 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
     if ( descriptor::catalog.empty() )
     {
-	std::vector<std::string> pathmsg;
-	std::transform( plugpath.begin(), plugpath.end(), 
-			std::back_inserter(pathmsg),
-			[]( const fs::path& p ) { return p.string() + "/share"; });
+        std::vector<std::string> pathmsg;
+        std::transform( plugpath.begin(), plugpath.end(),
+                std::back_inserter(pathmsg),
+                []( const fs::path& p ) { return p.string() + "/share"; });
 
-	BOOST_LOG_SEV( log, severity::warn )
-	    << "no type descriptions found; searched "
-	    << pathmsg;
+        BOOST_LOG_SEV( log, severity::warn )
+            << "no type descriptions found; searched "
+            << pathmsg;
     }
 
     po::options_description opts("Type Description Options");
