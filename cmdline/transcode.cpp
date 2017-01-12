@@ -10,6 +10,7 @@
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/decoder.hpp>
+#include <polysync/plog/magic.hpp>
 #include <polysync/plugin.hpp>
 #include <polysync/toml.hpp>
 #include <polysync/descriptor.hpp>
@@ -212,6 +213,11 @@ int catch_main( int ac, char* av[] ) {
             std::ifstream st( path.c_str(), std::ifstream::binary );
             if ( !st )
                 throw polysync::error( "cannot open file" );
+
+            if ( !plog::checkMagic( st ) )
+            {
+                throw polysync::error( "input file not a plog" );
+            }
 
             // Construct the next reader in the file list
             plog::decoder decoder( st );
