@@ -36,7 +36,7 @@ def step_impl(context):
 
 @then('stderr is empty')
 def step_impl(context):
-    assert_that(context.stdout, empty())
+    assert_that(context.stderr, empty())
 
 @then('stdout does not contain: {stdout}')
 def step_impl(context, stdout):
