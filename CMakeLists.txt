@@ -21,6 +21,11 @@ endif()
 find_package(Threads)
 find_package(Boost COMPONENTS log log_setup system filesystem program_options iostreams thread )
 
+set( CMAKE_SKIP_BUILD_RPATH FALSE )
+set( CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+set( CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set( CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 set ( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 include_directories( . "${CMAKE_SOURCE_DIR}/vendor" "${CMAKE_SOURCE_DIR}/vendor/eggs/include" ${Boost_INCLUDE_DIRS} )
 add_subdirectory( lib )
