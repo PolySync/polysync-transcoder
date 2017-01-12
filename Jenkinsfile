@@ -41,9 +41,9 @@ node('worker') {
       echo 'Build Complete!'
     }
     stage('Test') {
-      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE']) {
+      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE', 'PATH=.:$PATH']) {
         parallel 'unit tests': {
-          // sh 'bin/mettle ut.*'     
+          sh 'cd build && make run-unit-tests' 
           echo 'Unit Tests Complete!'
         }, 'acceptance tests': {
           sh 'behave features'

@@ -43,3 +43,5 @@ install( DIRECTORY share/
          DESTINATION share/polysync-transcoder
          FILES_MATCHING PATTERN "*.toml" 
          PERMISSIONS WORLD_READ )
+
+add_custom_target( run-unit-tests COMMAND mettle )
