@@ -44,4 +44,4 @@ install( DIRECTORY share/
          FILES_MATCHING PATTERN "*.toml" 
          PERMISSIONS WORLD_READ )
 
-add_custom_target( run-unit-tests COMMAND mettle )
+add_custom_target( run-unit-tests COMMAND ${CONAN_BIN_DIRS_METTLE}/mettle ./ut.* )

@@ -41,7 +41,7 @@ node('worker') {
       echo 'Build Complete!'
     }
     stage('Test') {
-      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE', 'PATH=.:$PATH']) {
+      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE', 'PATH=$WORKSPACE/build:$PATH']) {
         parallel 'unit tests': {
           sh 'cd build && make run-unit-tests' 
           echo 'Unit Tests Complete!'
