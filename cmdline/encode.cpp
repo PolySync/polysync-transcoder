@@ -44,8 +44,13 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
-    for ( fs::path plugdir: plugpath ) {
-
+    for ( fs::path plugdir: plugpath )
+    {
+        plugdir = plugdir / "lib";
+        if ( fs::exists( plugdir / "polysync-transcoder" ) )
+        {
+            plugdir = plugdir / "polysync-transcoder";
+        }
         plugdir = plugdir / "plugin" / "encode";
 
         if ( !fs::exists( plugdir ) ) {
