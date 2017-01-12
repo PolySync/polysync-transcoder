@@ -46,14 +46,16 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
     // that path.  Add options to parser.
     for ( fs::path plugdir: plugpath )
     {
-        plugdir = plugdir / "lib";
-        if ( fs::exists( plugdir / "polysync-transcoder" ) )
+        for ( std::string subdir: { "lib", "polysync-transcoder", "plugin", "encode" } )
         {
-            plugdir = plugdir / "polysync-transcoder";
+            if ( fs::exists( plugdir / subdir ) )
+            {
+                plugdir /= subdir;         
+            }
         }
-        plugdir = plugdir / "plugin" / "encode";
 
-        if ( !fs::exists( plugdir ) ) {
+        if ( !fs::exists( plugdir ) ) 
+        {
             BOOST_LOG_SEV( log, severity::debug1 )
                 << "skipping non-existing plugin path " << plugdir;
             continue;
@@ -61,6 +63,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
         BOOST_LOG_SEV( log, severity::debug1 )
             << "searching " << plugdir << " for encoder plugins";
+
         static std::regex is_plugin( R"(.*encode\.(.+)\.so)" );
         for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
             std::cmatch match;

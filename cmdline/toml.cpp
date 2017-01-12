@@ -20,7 +20,7 @@ namespace polysync { namespace toml {
 using logging::severity;
 using logging::logger;
 
-static logger log( "toml" );
+static logger log( "typesupport" );
 
 po::options_description load( const std::vector<fs::path>& plugpath )
 {
@@ -39,8 +39,8 @@ po::options_description load( const std::vector<fs::path>& plugpath )
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 )
-            << "searching " << descdir << " for type descriptions";
+        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << descdir;
+
         static std::regex is_description( R"((.+)\.toml)" );
         for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) )
         {
@@ -48,8 +48,7 @@ po::options_description load( const std::vector<fs::path>& plugpath )
             std::regex_match( tofl.path().string().c_str(), match, is_description );
             if (match.size())
             {
-                BOOST_LOG_SEV( log, severity::debug1 )
-                    << "loading descriptions from " << tofl;
+                BOOST_LOG_SEV( log, severity::debug1 ) << "loading " << tofl;
 
                 try
                 {

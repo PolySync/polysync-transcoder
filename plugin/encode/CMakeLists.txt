@@ -4,5 +4,5 @@
 add_library( plog MODULE plog.cpp )
 target_link_libraries ( plog transcode dl )
 set_target_properties( plog PROPERTIES PREFIX "encode." )
-install( TARGETS plog DESTINATION lib/plugin/encode )
+install( TARGETS plog DESTINATION lib/polysync-transcoder/plugin )
 
