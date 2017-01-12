@@ -46,5 +46,4 @@ install( DIRECTORY polysync/
      
 install( DIRECTORY share/ 
          DESTINATION share/polysync-transcoder
-         FILES_MATCHING PATTERN "*.toml" 
-         PERMISSIONS WORLD_READ )
+         FILES_MATCHING PATTERN "*.toml" )

@@ -46,7 +46,7 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
     // that path.  Add options to parser.
     for ( fs::path plugdir: plugpath ) {
 
-        plugdir = plugdir / "encode";
+        plugdir = plugdir / "plugin" / "encode";
 
         if ( !fs::exists( plugdir ) ) {
             BOOST_LOG_SEV( log, severity::debug1 )
