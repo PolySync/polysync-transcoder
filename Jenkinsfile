@@ -6,16 +6,8 @@ node('master') {
       clean_checkout()
     }
     stage('Fetch Dependencies') {
-      build_conan_package_cach()
+      build_conan_package_cache()
     }
-      //set conan user home env var
-      //make build directory
-      // sh 'mkdir build'
-      // withEnv(['CONAN_USER_HOME=$WORKSPACE/deps']) {
-        //run conan install
-        // sh 'cd build && env && PATH=/sbin:$PATH conan install --profile=debug --build=outdated -g env -g txt .. -s compiler=clang -s compiler.version=3.8'
-      // }
-    // }
     stage('Build') {
       //run conan build
       withEnv(['CONAN_USER_HOME=$WORKSPACE/deps']) {
