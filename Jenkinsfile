@@ -1,6 +1,6 @@
 #!groovy
 
-node('master') {
+node('worker') {
   try {
     stage('Checkout') {
       clean_checkout()
