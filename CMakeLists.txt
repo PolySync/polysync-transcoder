@@ -46,4 +46,8 @@ install( DIRECTORY polysync/
      
 install( DIRECTORY share/ 
          DESTINATION share/polysync-transcoder
-         FILES_MATCHING PATTERN "*.toml" )
+         FILES_MATCHING PATTERN "*.toml" 
+         PERMISSIONS WORLD_READ )
+
+add_custom_target( run-unit-tests COMMAND ${CONAN_BIN_DIRS_METTLE}/mettle ./ut.* )
+
