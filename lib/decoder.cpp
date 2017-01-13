@@ -76,23 +76,6 @@ decoder::decoder( std::istream& st ) : stream( st )
     stream.exceptions( std::ifstream::failbit );
 }
 
-iterator decoder::begin()
-{
-    return iterator ( this, stream.tellg() );
-}
-
-iterator decoder::end()
-{
-    // Find the last byte of the file
-    std::streamoff current = stream.tellg();
-    stream.seekg( 0, std::ios_base::end );
-    std::streamoff end = stream.tellg();
-    stream.seekg( current );
-
-    return iterator ( end );
-}
-
-
 // Kick off a decode with an implict type "log_record" and starting type
 // "msg_header".  Continue reading the stream until it ends.
 variant decoder::deep(const ps_log_record& record) {

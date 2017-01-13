@@ -187,7 +187,7 @@ int catch_main( int ac, char* av[] ) {
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
-    ps::encode::visitor visit;
+    ps::encode::Visitor visit;
 
     // PLogs key each message type by a number, but the number is generally
     // different in every plog.  Constant names are provided in the header in
@@ -220,25 +220,25 @@ int catch_main( int ac, char* av[] ) {
             }
 
             // Construct the next reader in the file list
-            plog::decoder decoder( st );
+            Sequencer<plog::ps_log_header> sequencer( st );
 
-            visit.open( decoder );
+            visit.open( sequencer );
 
             plog::ps_log_header head;
 
-            decoder.decode( head );
+            sequencer.decode( head );
             visit.log_header( head );
             for ( const plog::ps_type_support& type: head.type_supports )
                 visit.type_support( type );
-            for ( const plog::ps_log_record& rec: decoder ) {
+            for ( const plog::ps_log_record& rec: sequencer ) {
                 if ( std::all_of(filters.begin(), filters.end(),
                             [&rec]( const ps::filter::type& pred ) { return pred(rec); }) ) {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;
-                    polysync::node top( "ps_log_record", decoder.deep(rec) );
+                    polysync::node top( "ps_log_record", sequencer.deep(rec) );
                     visit.record(top);
                 }
             }
-            visit.cleanup( decoder );
+            visit.cleanup( sequencer );
         } catch ( polysync::error& e ) {
             e << ps::exception::path( path.c_str() );
             e << polysync::status::bad_input;

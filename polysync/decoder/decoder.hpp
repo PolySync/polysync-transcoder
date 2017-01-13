@@ -7,21 +7,15 @@
 #include <polysync/tree.hpp>
 #include <polysync/descriptor.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/plog/iterator.hpp>
+#include <polysync/decoder/iterator.hpp>
 
-namespace polysync { namespace plog {
+namespace polysync {
 
-class decoder {
+class Decoder
+{
 public:
 
-    decoder( std::istream& st );
-
-    // Construct STL compatible iterators
-    iterator begin();
-    iterator end();
-
-    // Decode an entire record and return a parse tree.
-    variant deep( const ps_log_record& );
+    Decoder( std::istream& st );
 
     variant operator()( const descriptor::Type& );
 
@@ -74,13 +68,12 @@ public:
 
 protected:
 
-    using parser = std::function<variant (decoder&)>;
-    static std::map<std::string, parser> parse_map;
+    using Parser = std::function<variant ( Decoder& )>;
+    static std::map<std::string, Parser> parse_map;
 
-    logging::logger log { "plog::decoder" };
+    logging::logger log { "decoder" };
 
     friend struct branch_builder;
-    friend struct iterator;
 
     std::istream& stream;
 
@@ -170,5 +163,16 @@ T decoder::decode( std::streamoff pos )
     return decode<T>();
 }
 
+template <typename Header>
+struct Sequencer : Decoder
+{
+    // Construct STL compatible iterators
+    Iterator<Header> begin();
+    Iterator<Header> end();
 
-}} // namespace polysync::plog
+    // Decode an entire record and return a parse tree.
+    variant deep( const Header& );
+
+    friend struct Iterator<Header>;
+
+} // namespace polysync
