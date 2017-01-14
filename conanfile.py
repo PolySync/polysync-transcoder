@@ -26,4 +26,39 @@ class Recipe(ConanFile):
         self.copy( "polysync-transcode",
                    dst="bin",
                    src="bin" )
+        self.parse_reqs()
+
+    def parse_reqs( self ):
+
+        reqs = str( self.requires )
+
+        if reqs:
+            reqs_list = reqs.split("\n")
+
+            for req in reqs_list:
+                name = req.split("@")[0].split("/")[0]
+                version = req.split("@")[0].split("/")[1]
+                user = req.split("@")[1].split("/")[0]
+                channel = req.split("@")[1].split("/")[1]
+
+                try:
+                    repos_dir = os.path.join( os.environ["CONAN_USER_HOME"], "repos" )
+                except:
+                    self.output.error( "CONAN_USER_HOME environment variable not set" )
+                    sys.exit(1)
+
+                if not os.path.exists( repos_dir ):
+                    os.makedirs( repos_dir )
+
+                package_dir = os.path.join( repos_dir, name, version )
+
+                if os.path.exists( package_dir ):
+                    self.output.info( "package repo %s/%s found - updating" % (name, version) )
+                    self.run( "git -C %s pull origin %s" % (package_dir, version) )
+                else:
+                    self.output.info( "package repo %s/%s not found - cloning" % (name, version) )
+                    self.run( "git lfs clone --depth=1 --branch=%s git@bitbucket.org:PolySync/%s %s" % (version, name, package_dir) )
+
+                self.run( "conan export %s/%s --path %s" % (user, channel, package_dir) )
+
 
