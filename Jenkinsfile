@@ -6,7 +6,7 @@ node('worker') {
       clean_checkout()
     }
     stage('Fetch Dependencies') {
-      build_conan_package_cache()
+      build_conan_package_cache('debug', './targets/x86_64/Ubuntu-16.04', ' -s compiler=clang -s compiler.version=3.8')
     }
     stage('Build') {
       //run conan build
