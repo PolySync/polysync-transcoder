@@ -23,3 +23,8 @@ Feature: Invalid parameters are handled gracefully
         And stdout is empty
         And stderr contains: cannot open file
 
+    Scenario: Input file is not plog
+        Given the command line: polysync-transcode /proc/cpuinfo
+        Then the return value is -2
+        And stdout is empty
+        And stderr contains: not a plog

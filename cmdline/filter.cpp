@@ -42,16 +42,26 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
 
     // Iterate the plugin path, and for each path load every valid entry in
     // that path.  Add options to parser.
-    for ( fs::path plugdir: plugpath ) {
+    for ( fs::path plugdir: plugpath )
+    {
+        for ( std::string subdir: { "lib", "polysync-transcoder", "plugin", "filter" } )
+        {
+            if ( fs::exists( plugdir / subdir ) )
+            {
+                plugdir /= subdir;         
+            }
+        }
 
-        plugdir = plugdir / "filter";
-
-        if ( !fs::exists( plugdir ) ) {
-            BOOST_LOG_SEV( log, severity::debug1 ) << "skipping non-existing plugin path " << plugdir;
+        if ( !fs::exists( plugdir ) ) 
+        {
+            BOOST_LOG_SEV( log, severity::debug1 ) 
+                << "skipping non-existing plugin path " << plugdir;
             continue;
         }
 
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << plugdir << " for filter plugins";
+        BOOST_LOG_SEV( log, severity::debug1 ) 
+            << "searching " << plugdir << " for filter plugins";
+
         static std::regex is_plugin( R"(.*filter\.(.+)\.so)" );
         for ( fs::directory_entry& lib: fs::directory_iterator(plugdir) ) {
             std::cmatch match;
@@ -60,7 +70,8 @@ po::options_description load( const std::vector<fs::path>& plugpath ) {
                 std::string plugname = match[1];
 
                 if ( encode::map.count(plugname) ) {
-                    BOOST_LOG_SEV( log, severity::debug2 ) << "filter \"" << plugname << "\"already loaded";
+                    BOOST_LOG_SEV( log, severity::debug2 ) 
+                        << "filter \"" << plugname << "\"already loaded";
                     continue;
                 }
 

@@ -16,12 +16,14 @@ node('worker') {
       echo 'Build Complete!'
     }
     stage('Test') {
-      parallel 'unit tests': {
-        sh './mettle ut.*'     
-        echo 'Unit Tests Complete!'
-      }, 'acceptance tests': {
-        sh 'behave features/*.feature'
-        echo 'Acceptance Tests Complete!'
+      withEnv(['POLYSYNC_TRANSCODE_LIB=$WORKSPACE/build/plugin:$WORKSPACE', 'PATH=$WORKSPACE/build:$PATH']) {
+        parallel 'unit tests': {
+          sh 'cd build && make run-unit-tests'
+          echo 'Unit Tests Complete!'
+        }, 'acceptance tests': {
+          sh 'behave features'
+          echo 'Acceptance Tests Complete!'
+        }
       }
     }
     stage('Release') {
@@ -39,5 +41,5 @@ node('worker') {
   }
   finally {
     deleteDir()
-  } 
+  }
 }
