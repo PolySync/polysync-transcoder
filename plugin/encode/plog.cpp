@@ -1,10 +1,10 @@
-#include <polysync/plugin.hpp>
-#include <polysync/logging.hpp>
-#include <polysync/plog/encoder.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/dll/alias.hpp>
 #include <boost/filesystem.hpp>
 
+#include <polysync/plugin.hpp>
+#include <polysync/logging.hpp>
+#include <polysync/plog/encoder.hpp>
 #include <polysync/print_hana.hpp>
 
 namespace polysync { namespace plugin {

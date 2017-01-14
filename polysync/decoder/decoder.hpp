@@ -9,9 +9,8 @@
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
+#include <polysync/decoder/types.hpp>
 #include <polysync/decoder/iterator.hpp>
-
-#include <polysync/plog/core.hpp>
 
 namespace polysync {
 
@@ -33,7 +32,6 @@ public:
     variant decode( const std::string& type );
 
     // Factory functions of any supported type
-
     template <typename T>
     T decode( std::streamoff pos );
 
@@ -58,10 +56,11 @@ public:
 
     // PolySync sequences (integer size, followed by that many bytes)
     template <typename LenType, typename T>
-    void decode( plog::sequence<LenType, T>& );
+    void decode( sequence<LenType, T>& );
 
     // PolySync name type is specialized as std::string
-    void decode( plog::ps_name_type& name );
+    template <typename LenType>
+    void decode( sequence<LenType, std::uint8_t>& name );
 
     // Raw, uninterpreted bytes used when type description is unavailable
     void decode( bytes& raw );
@@ -116,7 +115,7 @@ void Decoder::decode( S& record )
 // might be a flat (arithmetic) type or a nested structure.  Either way,
 // iterate the fields and serialize each one using the specialized decode().
 template <typename LenType, typename T>
-void Decoder::decode( plog::sequence<LenType, T>& seq )
+void Decoder::decode( sequence<LenType, T>& seq )
 {
     LenType len;
     stream.read( reinterpret_cast< char* >( &len ), sizeof( len ) );
@@ -124,6 +123,19 @@ void Decoder::decode( plog::sequence<LenType, T>& seq )
     std::for_each(seq.begin(), seq.end(), [this]( auto& val ) mutable
             { this->decode(val); });
 }
+
+// Specialize name_type because the underlying std::string type needs special
+// handling.  It resembles a Pascal string (length first, no trailing zero
+// as a C string would have)
+template <typename LenType>
+void Decoder::decode( sequence<LenType, std::uint8_t>& name )
+{
+    std::uint16_t len;
+    stream.read( (char*)( &len ), sizeof(len) );
+    name.resize( len );
+    stream.read( (char*)( name.data() ), len );
+}
+
 
   // Factory function of any supported type, for convenience
 template <typename T>
@@ -188,26 +200,25 @@ struct Sequencer : Decoder
         return Iterator<Header> ( end );
     }
 
-    // Kick off a decode with an implict type "log_record" and starting type
-    // "msg_header".  Continue reading the stream until it ends.
+    // Kick off a decode with the header type. Continue reading the stream until it ends.
+    template <typename T>
     variant deep( const Header& record )
     {
-        variant result = from_hana(record, "ps_log_record");
+        variant result = from_hana(record, descriptor::terminalTypeMap.at(typeid(Header)).name);
         polysync::tree& tree = *result.target<polysync::tree>();
 
         record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
 
-        // There is no simple way to detect and enforce that a blob starts with a
-        // msg_header.  Hence, we must just assume that every message is well
-        // formed and starts with a msg_header.  In that case, might as well do a
-        // static parse on msg_header and dynamic parse the rest.
-        tree->emplace_back(from_hana(decode<plog::ps_msg_header>(), "ps_msg_header"));
+        // Decode a sequence of static types, if given.  No detectors or
+        // branching is possible with static types, but decoding is much faster.
+        tree->emplace_back(from_hana( decode<T>(), descriptor::terminalTypeMap.at(typeid(T)).name ) );
 
-        // Burn through the rest of the log record, decoding a sequence of types.
-        while (stream.tellg() < record_endpos)
+        // Burn through the rest of the log record, decoding a sequence of
+        // dynamic types, for which detectors and descriptors must exist.
+        while ( stream.tellg() < record_endpos )
         {
-            std::string type = detect(tree->back());
-            tree->emplace_back(type, decode(type));
+            std::string type = detect( tree->back() );
+            tree->emplace_back( type, decode(type) );
         }
         return std::move(result);
     }

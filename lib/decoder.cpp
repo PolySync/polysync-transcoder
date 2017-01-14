@@ -91,7 +91,7 @@ variant Decoder::decode( const std::string& type )
     {
         throw polysync::error( "no decoder" )
            << exception::type( type )
-           << exception::module( "plog::decoder" )
+           << exception::module( "decoder" )
            << status::description_error;
     }
 
@@ -249,7 +249,7 @@ polysync::variant Decoder::decode(const descriptor::Type& desc)
     }
     catch (polysync::error& e)
     {
-        e << exception::module("plog::decoder");
+        e << exception::module("decoder");
         e << exception::type(desc.name);
         e << exception::tree(child);
         throw;
@@ -257,7 +257,7 @@ polysync::variant Decoder::decode(const descriptor::Type& desc)
     catch ( std::ios_base::failure )
     {
         throw polysync::error("read error")
-            << exception::module("plog::decoder")
+            << exception::module("decoder")
             << exception::type(desc.name);
     }
 
@@ -273,17 +273,6 @@ void Decoder::decode(boost::multiprecision::cpp_int& value)
     bytes buf( 16 );
     stream.read( (char*)buf.data(), buf.size() );
     boost::multiprecision::import_bits( value, buf.begin(), buf.end(), 8 );
-}
-
-// Specialize name_type because the underlying std::string type needs special
-// handling.  It resembles a Pascal string (length first, no trailing zero
-// as a C string would have)
-void Decoder::decode( plog::ps_name_type& name )
-{
-    std::uint16_t len;
-    stream.read( (char*)( &len ), sizeof(len) );
-    name.resize( len );
-    stream.read( (char*)( name.data() ), len );
 }
 
 void Decoder::decode(bytes& raw)

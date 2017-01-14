@@ -28,6 +28,7 @@
 
 #include <polysync/exception.hpp>
 #include <polysync/tree.hpp>
+#include <polysync/decoder/types.hpp>
 
 namespace polysync { namespace plog {
 
@@ -45,12 +46,6 @@ using ps_hash_type = multiprecision::cpp_int;
     // PSYNC_MODULE_VERIFY_HASH_LEN*8,
     // multiprecision::unsigned_magnitude>>;
 
-// a sequence<LenType, T> is just a vector<T> that knows to read it's length as a LenType
-template <typename LenType, typename T>
-struct sequence : std::vector<T> {
-    using length_type = LenType;
-};
-
 template <typename LenType, typename T>
 bool operator==(const sequence<LenType, T>& lhs, const sequence<LenType, T>& rhs) {
     if (lhs.size() != rhs.size())
@@ -58,26 +53,12 @@ bool operator==(const sequence<LenType, T>& lhs, const sequence<LenType, T>& rhs
     return std::equal(lhs.begin(), lhs.end(), rhs.begin(), boost::hana::equal);
 }
 
-// specialize the std::uint8_t sequences because they are actually strings
-template <typename LenType>
-struct sequence<LenType, std::uint8_t> : std::string {
-    using std::string::string;
-    using length_type = LenType;
-};
-
 using ps_name_type = sequence<std::uint16_t, std::uint8_t>;
 using ps_msg_type = std::uint32_t;
 using ps_guid = std::uint64_t;
 using ps_timestamp = std::uint64_t;
 using ps_identifier = std::uint32_t;
 using ps_sensor_kind = std::uint32_t;
-
-// struct message {
-//     struct {
-//         boost::optional<std::streamoff> begin;
-//         boost::optional<std::streamoff> end;
-//     } offset;
-// };
 
 struct ps_log_module {
     std::uint8_t version_major;
