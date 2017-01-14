@@ -21,12 +21,12 @@ class Recipe(ConanFile):
         self.requires( "boost/1.63.0@polysync/boost" )
         self.options["boost"].shared = True
         self.requires( "mettle/1.2.12@polysync/mettle" )
+        self.parse_reqs()
 
     def package(self):
         self.copy( "polysync-transcode",
                    dst="bin",
                    src="bin" )
-        self.parse_reqs()
 
     def parse_reqs( self ):
 
