@@ -3,10 +3,9 @@
 #include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/hana.hpp>
+#include <polysync/decoder/decoder.hpp>
 
-#include <polysync/plog/decoder.hpp>
-
-namespace polysync { namespace plog {
+namespace polysync {
 
 using logging::severity;
 
@@ -15,52 +14,52 @@ using logging::severity;
 // however, needs the C++ type, not a string representation of the type.  Here,
 // we have a grand old mapping of the string type names (from TOML) to the type
 // specific decode function.
-std::map<std::string, decoder::parser> decoder::parse_map =
+std::map<std::string, Decoder::Parser> Decoder::parseMap =
 {
    // Native integers
-   { "uint8", [](decoder& r) { return r.decode<std::uint8_t>(); } },
-   { "uint16", [](decoder& r) { return r.decode<std::uint16_t>(); } },
-   { "uint32", [](decoder& r) { return r.decode<std::uint32_t>(); } },
-   { "uint64", [](decoder& r) { return r.decode<std::uint64_t>(); } },
-   { "int8", [](decoder& r) { return r.decode<std::int8_t>(); } },
-   { "int16", [](decoder& r) { return r.decode<std::int16_t>(); } },
-   { "int32", [](decoder& r) { return r.decode<std::int32_t>(); } },
-   { "int64", [](decoder& r) { return r.decode<std::int64_t>(); } },
+   { "uint8", [](Decoder& r) { return r.decode<std::uint8_t>(); } },
+   { "uint16", [](Decoder& r) { return r.decode<std::uint16_t>(); } },
+   { "uint32", [](Decoder& r) { return r.decode<std::uint32_t>(); } },
+   { "uint64", [](Decoder& r) { return r.decode<std::uint64_t>(); } },
+   { "int8", [](Decoder& r) { return r.decode<std::int8_t>(); } },
+   { "int16", [](Decoder& r) { return r.decode<std::int16_t>(); } },
+   { "int32", [](Decoder& r) { return r.decode<std::int32_t>(); } },
+   { "int64", [](Decoder& r) { return r.decode<std::int64_t>(); } },
 
    // Bigendian integers
-   { "uint16.be", [](decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
-   { "uint32.be", [](decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
-   { "uint64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
-   { "int16.be", [](decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
-   { "int32.be", [](decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
-   { "int64.be", [](decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
+   { "uint16.be", [](Decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
+   { "uint32.be", [](Decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
+   { "uint64.be", [](Decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
+   { "int16.be", [](Decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
+   { "int32.be", [](Decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
+   { "int64.be", [](Decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
 
    // Floating point types and aliases
-   { "float", [](decoder& r) { return r.decode<float>(); } },
-   { "float32", [](decoder& r) { return r.decode<float>(); } },
-   { "double", [](decoder& r) { return r.decode<double>(); } },
-   { "float64", [](decoder& r) { return r.decode<double>(); } },
+   { "float", [](Decoder& r) { return r.decode<float>(); } },
+   { "float32", [](Decoder& r) { return r.decode<float>(); } },
+   { "double", [](Decoder& r) { return r.decode<double>(); } },
+   { "float64", [](Decoder& r) { return r.decode<double>(); } },
 
    // Bigendian floats: first byteswap as uint, then emplacement new to float.
-   { "float.be", [](decoder& r) {
+   { "float.be", [](Decoder& r) {
            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "float32.be", [](decoder& r) {
+   { "float32.be", [](Decoder& r) {
            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "double.be", [](decoder& r) {
+   { "double.be", [](Decoder& r) {
            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "float64.be", [](decoder& r) {
+   { "float64.be", [](Decoder& r) {
            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
            return *(new ((void *)&swap) float);
        } },
 
    // Fallback bytes buffer
-   { "raw", [](decoder& r)
+   { "raw", [](Decoder& r)
        {
            std::streampos rem = r.record_endpos - r.stream.tellg();
            polysync::bytes raw(rem);
@@ -70,44 +69,20 @@ std::map<std::string, decoder::parser> decoder::parse_map =
 };
 
 
-decoder::decoder( std::istream& st ) : stream( st )
+Decoder::Decoder( std::istream& st ) : stream( st )
 {
     // Enable exceptions for all reads
     stream.exceptions( std::ifstream::failbit );
 }
 
-// Kick off a decode with an implict type "log_record" and starting type
-// "msg_header".  Continue reading the stream until it ends.
-variant decoder::deep(const ps_log_record& record) {
-
-    variant result = from_hana(record, "ps_log_record");
-    polysync::tree& tree = *result.target<polysync::tree>();
-
-    record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
-
-    // There is no simple way to detect and enforce that a blob starts with a
-    // msg_header.  Hence, we must just assume that every message is well
-    // formed and starts with a msg_header.  In that case, might as well do a
-    // static parse on msg_header and dynamic parse the rest.
-    tree->emplace_back(from_hana(decode<ps_msg_header>(), "ps_msg_header"));
-
-    // Burn through the rest of the log record, decoding a sequence of types.
-    while (stream.tellg() < record_endpos) {
-        std::string type = detect(tree->back());
-        tree->emplace_back(type, decode(type));
-    }
-    return std::move(result);
-}
-
 // Read a field, described by looking up thef type by string.  The type strings can
 // be compound types described in the TOML description, primitive types known
 // by parse_map, or strings generated by boost::hana from compile time structs.
-variant decoder::decode( const std::string& type )
+variant Decoder::decode( const std::string& type )
 {
+    auto parse = parseMap.find( type );
 
-    auto parse = parse_map.find( type );
-
-    if ( parse != parse_map.end() )
+    if ( parse != parseMap.end() )
     {
         return parse->second( *this );
     }
@@ -131,7 +106,7 @@ struct branch_builder
 {
     polysync::tree branch;
     const descriptor::Field& fieldDescriptor;
-    decoder* d;
+    Decoder* d;
 
     // Terminal types
     void operator()( const std::type_index& idx ) const
@@ -262,7 +237,7 @@ struct branch_builder
 
 };
 
-polysync::variant decoder::decode(const descriptor::Type& desc)
+polysync::variant Decoder::decode(const descriptor::Type& desc)
 {
     polysync::tree child(desc.name);
 
@@ -289,7 +264,7 @@ polysync::variant decoder::decode(const descriptor::Type& desc)
     return std::move(node(desc.name, child));
 }
 
-void decoder::decode(boost::multiprecision::cpp_int& value)
+void Decoder::decode(boost::multiprecision::cpp_int& value)
 {
     // 16 is correct for ps_hash_type, but this needs to be flexible if other
     // types come along that are not 128 bits.  I have not been able to
@@ -297,13 +272,13 @@ void decoder::decode(boost::multiprecision::cpp_int& value)
     // actually needs.
     bytes buf( 16 );
     stream.read( (char*)buf.data(), buf.size() );
-    multiprecision::import_bits( value, buf.begin(), buf.end(), 8 );
+    boost::multiprecision::import_bits( value, buf.begin(), buf.end(), 8 );
 }
 
 // Specialize name_type because the underlying std::string type needs special
 // handling.  It resembles a Pascal string (length first, no trailing zero
 // as a C string would have)
-void decoder::decode( ps_name_type& name )
+void Decoder::decode( plog::ps_name_type& name )
 {
     std::uint16_t len;
     stream.read( (char*)( &len ), sizeof(len) );
@@ -311,14 +286,14 @@ void decoder::decode( ps_name_type& name )
     stream.read( (char*)( name.data() ), len );
 }
 
-void decoder::decode(bytes& raw)
+void Decoder::decode(bytes& raw)
 {
     stream.read( (char*)raw.data(), raw.size() );
 }
 
-variant decoder::operator()( const descriptor::Type& type )
+variant Decoder::operator()( const descriptor::Type& type )
 {
     return decode( type );
 }
 
-}}  // polysync::plog
+}  // polysync

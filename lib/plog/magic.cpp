@@ -1,7 +1,7 @@
 #include <fstream>
 
+#include <polysync/decoder/decoder.hpp>
 #include <polysync/plog/core.hpp>
-#include <polysync/plog/decoder.hpp>
 #include <polysync/plog/magic.hpp>
 
 namespace polysync { namespace plog {
@@ -10,7 +10,7 @@ bool checkMagic( std::ifstream& stream )
 {
     std::streamoff startPosition = stream.tellg();
 
-    plog::decoder decoder( stream );
+    Decoder decoder( stream );
 
     try
     {

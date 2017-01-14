@@ -19,7 +19,10 @@ static std::ofstream out;
 static std::shared_ptr<plog::encoder> writer;
 static logging::logger log { "plog" };
 
-class plog_encode : public encode::plugin {
+using PlogSequencer = Sequencer<plog::ps_log_record>;
+
+class plog_encode : public encode::plugin
+{
 public:
 
     po::options_description options() const override {
@@ -30,7 +33,7 @@ public:
         return opt;
     }
 
-    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::Visitor& visit) override {
 
         std::string path = cmdline_args["outfile"].as<fs::path>().string();
 
@@ -43,7 +46,7 @@ public:
         // Open a new output file for each new decoder opened. Right now, this
         // only works for the first file because there is not yet a scheme to
         // generate unique filenames (FIXME).
-        visit.open.connect([path](plog::decoder& r) {
+        visit.open.connect([path]( const PlogSequencer& r) {
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
                 writer.reset(new plog::encoder(out));

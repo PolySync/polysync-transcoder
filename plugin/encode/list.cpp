@@ -61,7 +61,7 @@ struct list : encode::plugin {
 
     model_counter count;
 
-    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::Visitor& visit) override {
 
         std::set<std::string> typefilter;
         for (std::string type: cmdline_args["type"].as<std::vector<std::string>>())
@@ -73,7 +73,7 @@ struct list : encode::plugin {
         visit.record.connect(std::ref(count));
 
         // At cleanup, we finally print, because now we know how many instances we saw.
-        visit.cleanup.connect([this, detail, typefilter](const plog::decoder& decode) {
+        visit.cleanup.connect([this, detail, typefilter](const Decoder& decode) {
 
                 // Iterate all the found types and print them.
                 for (auto pair: count.types) {

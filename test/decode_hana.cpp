@@ -4,7 +4,7 @@
 
 #include <polysync/size.hpp>
 #include <polysync/byteswap.hpp>
-#include <polysync/plog/decoder.hpp>
+#include <polysync/decoder/decoder.hpp>
 #include <polysync/plog/encoder.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/print_tree.hpp>
@@ -62,7 +62,7 @@ decode("number", number_factory {}, [](auto& _) {
             std::stringstream stream;
             stream.write((char *)&value, polysync::size<T>::value());
 
-            expect(plog::decoder(stream).decode<T>(), equal_to(42));
+            expect(ps::Decoder(stream).decode<T>(), equal_to(42));
             });
 
     _.test("encode", [](auto value) {
@@ -80,7 +80,7 @@ decode("number", number_factory {}, [](auto& _) {
 
             std::stringstream stream;
             plog::encoder encode(stream);
-            plog::decoder decode(stream);
+            ps::Decoder decode(stream);
             encode.encode(value);
             expect(decode.decode<T>(), equal_to(42));
             });
@@ -105,7 +105,7 @@ hash("hash_type", [](auto& _) {
             std::stringstream stream;
             multiprecision::cpp_int src("0xDEADBEEF01234567" "F0E1D2C3B4A59687");
             multiprecision::export_bits(src, std::ostream_iterator<std::uint8_t>(stream), 8);
-            expect(plog::decoder(stream).decode<multiprecision::cpp_int>(), equal_to(src));
+            expect(ps::Decoder(stream).decode<multiprecision::cpp_int>(), equal_to(src));
             });
 
     _.test("encode", []() {
@@ -124,7 +124,7 @@ hash("hash_type", [](auto& _) {
 
             std::stringstream stream;
             plog::encoder encode(stream);
-            plog::decoder decode(stream);
+            ps::Decoder decode(stream);
 
             encode.encode(value);
             expect(decode.decode<multiprecision::cpp_int>(), equal_to(value));
@@ -139,7 +139,7 @@ structures("structures", hana_factory {}, [](auto& _) {
 
                 std::stringstream stream;
                 plog::encoder encode(stream);
-                plog::decoder decode(stream);
+                ps::Decoder decode(stream);
 
                 encode.encode(value);
                 expect(decode.decode<T>(), hana_equal(value));
@@ -185,7 +185,7 @@ mettle::suite<> structures2("structures2", [](auto& _) {
                         mp::export_bits(mp::cpp_int("0x" + hex), std::back_inserter(blob), 8);
 
                         std::stringstream stream(blob);
-                        plog::decoder decode(stream);
+                        ps::Decoder decode(stream);
                         plog::ps_log_module record;
                         decode.decode(record);
 

@@ -5,9 +5,13 @@
 #include <boost/endian/arithmetic.hpp>
 
 #include <polysync/tree.hpp>
+#include <polysync/hana.hpp>
 #include <polysync/descriptor.hpp>
+#include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/decoder/iterator.hpp>
+
+#include <polysync/plog/core.hpp>
 
 namespace polysync {
 
@@ -54,10 +58,10 @@ public:
 
     // PolySync sequences (integer size, followed by that many bytes)
     template <typename LenType, typename T>
-    void decode( sequence<LenType, T>& );
+    void decode( plog::sequence<LenType, T>& );
 
     // PolySync name type is specialized as std::string
-    void decode( ps_name_type& name );
+    void decode( plog::ps_name_type& name );
 
     // Raw, uninterpreted bytes used when type description is unavailable
     void decode( bytes& raw );
@@ -69,7 +73,7 @@ public:
 protected:
 
     using Parser = std::function<variant ( Decoder& )>;
-    static std::map<std::string, Parser> parse_map;
+    static std::map<std::string, Parser> parseMap;
 
     logging::logger log { "decoder" };
 
@@ -82,14 +86,14 @@ protected:
 
 template <typename Number>
 typename std::enable_if_t< std::is_arithmetic<Number>::value >
-decoder::decode( Number& value )
+Decoder::decode( Number& value )
 {
     stream.read( (char *)(&value), sizeof(Number) );
 }
 
 // Endian swapped types
 template <typename T, size_t N>
-void decoder::decode( boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value )
+void Decoder::decode( boost::endian::endian_arithmetic<boost::endian::order::big, T, N>& value )
 {
     stream.read( (char *)value.data(), sizeof(T) );
 }
@@ -100,7 +104,7 @@ void decoder::decode( boost::endian::endian_arithmetic<boost::endian::order::big
 // which would make this simpler, but sadly members() cannot return
 // non-const references which we need here (we are setting the value).
 template <typename S, class>
-void decoder::decode( S& record )
+void Decoder::decode( S& record )
 {
     namespace hana = boost::hana;
     hana::for_each( hana::keys(record), [this, &record](auto&& key) mutable {
@@ -112,7 +116,7 @@ void decoder::decode( S& record )
 // might be a flat (arithmetic) type or a nested structure.  Either way,
 // iterate the fields and serialize each one using the specialized decode().
 template <typename LenType, typename T>
-void decoder::decode( sequence<LenType, T>& seq )
+void Decoder::decode( plog::sequence<LenType, T>& seq )
 {
     LenType len;
     stream.read( reinterpret_cast< char* >( &len ), sizeof( len ) );
@@ -123,7 +127,7 @@ void decoder::decode( sequence<LenType, T>& seq )
 
   // Factory function of any supported type, for convenience
 template <typename T>
-T decoder::decode()
+T Decoder::decode()
 {
     try
     {
@@ -133,8 +137,7 @@ T decoder::decode()
     }
     catch ( std::ios_base::failure )
     {
-        throw polysync::error("read error")
-            << exception::module("plog::decoder");
+        throw polysync::error("read error") << exception::module("decoder");
     }
 }
 
@@ -143,7 +146,7 @@ T decoder::decode()
 // of a particular record.  We have both a factory function version and set by
 // reference.
 template <typename T>
-void decoder::decode( T& value, std::streamoff pos )
+void Decoder::decode( T& value, std::streamoff pos )
 {
     try
     {
@@ -157,7 +160,7 @@ void decoder::decode( T& value, std::streamoff pos )
 }
 
 template <typename T>
-T decoder::decode( std::streamoff pos )
+T Decoder::decode( std::streamoff pos )
 {
     stream.seekg(pos);
     return decode<T>();
@@ -166,13 +169,50 @@ T decoder::decode( std::streamoff pos )
 template <typename Header>
 struct Sequencer : Decoder
 {
-    // Construct STL compatible iterators
-    Iterator<Header> begin();
-    Iterator<Header> end();
+    using Decoder::Decoder;
 
-    // Decode an entire record and return a parse tree.
-    variant deep( const Header& );
+    // Construct STL compatible iterators
+    Iterator<Header> begin()
+    {
+        return Iterator<Header>( this, stream.tellg() );
+    }
+
+    Iterator<Header> end()
+    {
+        // Find the last byte of the file
+        std::streamoff current = stream.tellg();
+        stream.seekg( 0, std::ios_base::end );
+        std::streamoff end = stream.tellg();
+        stream.seekg( current );
+
+        return Iterator<Header> ( end );
+    }
+
+    // Kick off a decode with an implict type "log_record" and starting type
+    // "msg_header".  Continue reading the stream until it ends.
+    variant deep( const Header& record )
+    {
+        variant result = from_hana(record, "ps_log_record");
+        polysync::tree& tree = *result.target<polysync::tree>();
+
+        record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
+
+        // There is no simple way to detect and enforce that a blob starts with a
+        // msg_header.  Hence, we must just assume that every message is well
+        // formed and starts with a msg_header.  In that case, might as well do a
+        // static parse on msg_header and dynamic parse the rest.
+        tree->emplace_back(from_hana(decode<plog::ps_msg_header>(), "ps_msg_header"));
+
+        // Burn through the rest of the log record, decoding a sequence of types.
+        while (stream.tellg() < record_endpos)
+        {
+            std::string type = detect(tree->back());
+            tree->emplace_back(type, decode(type));
+        }
+        return std::move(result);
+    }
 
     friend struct Iterator<Header>;
+};
 
 } // namespace polysync

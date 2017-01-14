@@ -1,13 +1,13 @@
 #include <mettle.hpp>
 
-#include <polysync/plog/decoder.hpp>
+#include <polysync/decoder/decoder.hpp>
 
 using namespace mettle;
 namespace plog = polysync::plog;
 
 polysync::tree decode_hex( const polysync::descriptor::Type& desc,
-		           const std::string& hexblob ) {
-
+		                   const std::string& hexblob )
+{
     // Form a binary blob from a hex string with the help of boost::multiprecision
     namespace mp = boost::multiprecision;
     std::string blob;
@@ -15,11 +15,12 @@ polysync::tree decode_hex( const polysync::descriptor::Type& desc,
 
     // decode a polysync::tree from the description
     std::stringstream stream(blob);
-    plog::decoder serializer(stream);
+    polysync::Decoder serializer(stream);
     polysync::tree result = *serializer(desc).target<polysync::tree>();
 
     // Augment the result with any extra undecoded bits in the blob
-    if ( stream.tellg() < blob.size() ) {
+    if ( stream.tellg() < blob.size() )
+    {
         result->emplace_back("raw", serializer.decode<polysync::bytes>());
     }
 

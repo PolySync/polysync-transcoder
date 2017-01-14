@@ -7,7 +7,7 @@
 #include <boost/filesystem.hpp>
 
 #include <polysync/tree.hpp>
-#include <polysync/plog/decoder.hpp>
+#include <polysync/decoder/decoder.hpp>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -22,7 +22,7 @@ struct Visitor
     template <typename T>
     using callback = boost::signals2::signal<void (T)>;
 
-    using Seq = Sequencer<plog::ps_log_header>;
+    using Seq = Sequencer<plog::ps_log_record>;
 
     callback< const Seq& > open; // New plog file was opened.
     callback< plog::ps_log_header& > log_header; // New plog file was opened and log_header read.
@@ -37,7 +37,7 @@ struct plugin {
     virtual po::options_description options() const = 0;
 
     // Every plugin must register the callbacks it needs.
-    virtual void connect( const po::variables_map&, visitor& ) = 0;
+    virtual void connect( const po::variables_map&, Visitor& ) = 0;
 };
 
 extern po::options_description load( const std::vector<fs::path>& );
