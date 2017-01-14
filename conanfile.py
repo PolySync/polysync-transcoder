@@ -1,8 +1,60 @@
 from conans import ConanFile, CMake
+import sys, os, subprocess
+
+# Conan evaluates the conanfile's "version" attribute twice: once when
+# doing "conan export" and again after the conanfile has been copied over
+# to the Conan package store. When it happens the second time, the conanfile
+# is no longer in a git repo, so the call to "git describe" to get the version
+# through the git tag doesn't work.
+#
+# This function detects whether or not the conanfile is being evaluated from
+# a repo (the first time) or the package store (the second time). If from a repo,
+# it gets the version via "git describe" and writes the version to a VERSION file.
+# If from the package store, it checks the VERSION file.
+#
+def get_version():
+
+    try:
+        conan_data_dir = os.path.join( os.environ["CONAN_USER_HOME"], ".conan" )
+    except:
+        print( "CONAN_USER_HOME environment variable not set" )
+        sys.exit(1)
+
+    conanfile_dir = os.path.dirname( os.path.realpath(__file__) )
+
+    # version being evaluated from cache -- check VERSION file
+    if conan_data_dir in conanfile_dir:
+        try:
+            version_file = os.path.join( conanfile_dir, "VERSION" )
+            f = open( version_file, "r" )
+            version = f.read()
+            f.close()
+
+            print( "Version read from VERSION file" )
+        except:
+            print( "ERROR - cannot read version from VERSION file" )
+            exit(1)
+
+    # version being evaluated from repo -- use 'git describe'
+    else:
+        try:
+            version = subprocess.check_output(["git", "-C", conanfile_dir, "describe"]).strip("\n")
+
+            version_file = os.path.join( conanfile_dir, "VERSION" )
+            f = open( version_file, "w+" )
+            f.write( version )
+            f.close()
+
+            print( "Version read from 'git describe'" )
+        except:
+            print( "ERROR - cannot read version from 'git describe'" )
+            exit(1)
+
+    return version
 
 class Recipe(ConanFile):
     name = "polysync-transcoder"
-    version = "0.1"
+    version = get_version()
     author = "PolySync"
     license = "MIT"
     url = "https://github.com/PolySync/polysync-transcoder"
