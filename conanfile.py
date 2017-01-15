@@ -33,7 +33,7 @@ def get_version():
             print( "Version read from VERSION file" )
         except:
             print( "ERROR - cannot read version from VERSION file" )
-            exit(1)
+            sys.exit(1)
 
     # version being evaluated from repo -- use 'git describe'
     else:
@@ -48,7 +48,7 @@ def get_version():
             print( "Version read from 'git describe'" )
         except:
             print( "ERROR - cannot read version from 'git describe'" )
-            exit(1)
+            sys.exit(1)
 
     return version
 
