@@ -5,21 +5,22 @@
 #include <boost/hana.hpp>
 #include <boost/endian/arithmetic.hpp>
 
-#include <polysync/plog/core.hpp>
 #include <polysync/descriptor.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/exception.hpp>
+#include <polysync/compound_types.hpp>
 
-namespace polysync { namespace plog {
+namespace polysync {
 
 namespace hana = boost::hana;
 namespace endian = boost::endian;
 using logging::severity;
 
-class encoder {
+class Encoder
+{
 public:
 
-    encoder(std::ostream& st) : stream(st) {}
+    Encoder(std::ostream& st) : stream(st) {}
 
     // Expose the encode() members as operator(), for convenience.
     template <typename... Args>
@@ -75,25 +76,28 @@ public:
         stream.write((char *)array.data(), array.size()*sizeof(decltype(array)::value_type));
     }
 
-    // plog::hash_type is multiprecision; other very long ints may come along someday
-    void encode(const ps_hash_type& value) {
+    // Integers longer than 64 bits (like ps_hash_type)
+    void encode( const boost::multiprecision::cpp_int& value )
+    {
         bytes buf(16);
-        multiprecision::export_bits(value, buf.begin(), 8);
+        boost::multiprecision::export_bits( value, buf.begin(), 8 );
 
         // export_bits helpfully omits the zero high order bits.  This is not what I want.
-        while (buf.size() < PSYNC_MODULE_VERIFY_HASH_LEN)
-            buf.insert(buf.begin(), 0);
-        stream.write((char *)buf.data(), buf.size());
+        while ( buf.size() < 16 )
+        {
+            buf.insert( buf.begin(), 0 );
+        }
+        stream.write( (char *)buf.data(), buf.size() );
     }
 
     // Specialize name_type because the underlying std::string type needs special
     // handling.  It resembels a Pascal string (length first, no trailing zero
     // as a C string would have)
-    void encode(const ps_name_type& name) {
-        ps_name_type::length_type len = name.size();
-        stream.write((char *)(&len), sizeof(len));
-        stream.write((char *)(name.data()), len);
-    }
+    // void encode(const ps_name_type& name) {
+    //     ps_name_type::length_type len = name.size();
+    //     stream.write((char *)(&len), sizeof(len));
+    //     stream.write((char *)(name.data()), len);
+    // }
 
     void encode( const polysync::tree&, const descriptor::Type& );
 
@@ -112,15 +116,15 @@ public:
 
 public:
 
-    logging::logger log { "plog::encoder" };
+    logging::logger log { "encoder" };
 
 protected:
     friend class branch;
 
     std::ostream& stream;
-    std::map<plog::ps_msg_type, std::string> msg_type_map;
+    // std::map<plog::ps_msg_type, std::string> msg_type_map;
 
 };
 
 
-}} // namespace polysync::plog
+} // namespace polysync

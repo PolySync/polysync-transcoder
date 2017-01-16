@@ -2,12 +2,12 @@
 
 #include <polysync/print_tree.hpp>
 #include <polysync/byteswap.hpp>
-#include <polysync/plog/encoder.hpp>
+#include <polysync/encoder.hpp>
 
-namespace polysync { namespace plog {
+namespace polysync {
 
 struct branch {
-    encoder* enc;
+    Encoder* enc;
     const polysync::node& node;
     const polysync::tree tree;
     const descriptor::Field& field;
@@ -62,7 +62,7 @@ struct branch {
     }
 
     template <typename T>
-    static void array(encoder* enc, const polysync::node& node, size_t size) {
+    static void array(Encoder* enc, const polysync::node& node, size_t size) {
         const std::vector<T>* arr = node.target<std::vector<T>>();
         if (arr == nullptr)
             throw polysync::error("mismatched type in field \"" + node.name + "\"");
@@ -73,7 +73,7 @@ struct branch {
         std::for_each(arr->begin(), arr->end(), [enc](const auto& val) { enc->encode(val); });
     }
 
-    static std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>> array_func;
+    static std::map<std::type_index, std::function<void (Encoder*, const polysync::node&, size_t)>> array_func;
     void operator()(const descriptor::Array& desc) const {
         auto sizefield = desc.size.target<std::string>();
         auto fixedsize = desc.size.target<size_t>();
@@ -123,7 +123,7 @@ struct branch {
 
 };
 
-std::map<std::type_index, std::function<void (encoder*, const polysync::node&, size_t)>>
+std::map<std::type_index, std::function<void (Encoder*, const polysync::node&, size_t)>>
     branch::array_func {
         { typeid(float), branch::array<float> },
         { typeid(double), branch::array<double> },
@@ -137,7 +137,7 @@ std::map<std::type_index, std::function<void (encoder*, const polysync::node&, s
         { typeid(std::uint64_t), branch::array<std::uint64_t> },
     };
 
-void encoder::encode( const tree& t, const descriptor::Type& desc ) {
+void Encoder::encode( const tree& t, const descriptor::Type& desc ) {
 
     std::set<std::string> done;
 
@@ -194,4 +194,4 @@ void encoder::encode( const tree& t, const descriptor::Type& desc ) {
 }
 
 
-}} // namespace polysync::plog
+} // namespace polysync

@@ -1,6 +1,6 @@
 #include <mettle.hpp>
 
-#include <polysync/plog/encoder.hpp>
+#include <polysync/encoder.hpp>
 #include <polysync/console.hpp>
 #include "types.hpp"
 
@@ -10,7 +10,7 @@ namespace mp = boost::multiprecision;
 
 std::string encode_tree(polysync::tree tree, const polysync::descriptor::Type& desc) {
     std::stringstream stream;
-    plog::encoder encode(stream);
+    polysync::Encoder encode(stream);
     encode(tree, desc);
 
     mp::cpp_int blob;
@@ -298,7 +298,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 });
 
                         std::stringstream stream;
-                        plog::encoder encode(stream);
+                        polysync::Encoder encode(stream);
                         encode(tree, descriptor::ps_byte_array_msg);
 
                         expect(stream.str(), bits("0100000000000000" "02000000" "03000000"));
@@ -312,7 +312,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 });
 
                         std::stringstream stream;
-                        plog::encoder encode(stream);
+                        polysync::Encoder encode(stream);
                         encode(tree, descriptor::ps_byte_array_msg);
 
                         expect(stream.str(), bits("0100000000000000" "02000000" "03000000"));
@@ -331,7 +331,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 });
 
                         std::stringstream stream;
-                        plog::encoder encode(stream);
+                        polysync::Encoder encode(stream);
                         encode(tree, descriptor::ibeo_header);
 
                         expect(stream.str(),
@@ -353,7 +353,7 @@ mettle::suite<> encode("plog::encode", [](auto& _) {
                                 });
 
                         std::stringstream stream;
-                        plog::encoder encode(stream);
+                        polysync::Encoder encode(stream);
                         encode(tree, descriptor::ibeo_header);
 
                         expect(stream.str(),

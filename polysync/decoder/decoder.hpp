@@ -9,7 +9,7 @@
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/decoder/types.hpp>
+#include <polysync/compound_types.hpp>
 #include <polysync/decoder/iterator.hpp>
 
 namespace polysync {

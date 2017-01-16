@@ -4,7 +4,7 @@
 
 #include <polysync/plugin.hpp>
 #include <polysync/logging.hpp>
-#include <polysync/plog/encoder.hpp>
+#include <polysync/encoder.hpp>
 #include <polysync/print_hana.hpp>
 
 namespace polysync { namespace plugin {
@@ -16,7 +16,7 @@ namespace hana = boost::hana;
 using logging::severity;
 
 static std::ofstream out;
-static std::shared_ptr<plog::encoder> writer;
+static std::shared_ptr<Encoder> writer;
 static logging::logger log { "plog" };
 
 using PlogSequencer = Sequencer<plog::ps_log_record>;
@@ -49,7 +49,7 @@ public:
         visit.open.connect([path]( const PlogSequencer& r) {
                 BOOST_LOG_SEV(log, severity::verbose) << "opening " << path;
                 out.open(path, std::ios_base::out | std::ios_base::binary);
-                writer.reset(new plog::encoder(out));
+                writer.reset(new Encoder(out));
                 });
 
         // Serialize the global file header.

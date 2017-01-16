@@ -14,7 +14,8 @@ struct sequence : std::vector<T>
 
 // specialize the std::uint8_t sequences because they are actually strings
 template <typename LenType>
-struct sequence<LenType, std::uint8_t> : std::string {
+struct sequence<LenType, std::uint8_t> : std::string
+{
     using std::string::string;
     using length_type = LenType;
 };

@@ -28,7 +28,7 @@
 
 #include <polysync/exception.hpp>
 #include <polysync/tree.hpp>
-#include <polysync/decoder/types.hpp>
+#include <polysync/compound_types.hpp>
 
 namespace polysync { namespace plog {
 
