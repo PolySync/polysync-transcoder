@@ -73,7 +73,8 @@ int catch_main( int ac, char* av[] ) {
     console_opts.add_options()
         ( "help,h", "print this help message" )
         ( "loglevel,d", po::value<std::string>()
-            ->default_value("info"), "log level" )
+            ->notifier( &ps::logging::setLevel ),
+            "level or channel:level, level in { warn, info, verbose, debug1, debug2 }" )
         ( "plain,p", "remove color from console formatting" )
         ( "plugdir,P", po::value< std::vector<fs::path> >()
             ->default_value( std::vector<fs::path>() )
@@ -87,10 +88,6 @@ int catch_main( int ac, char* av[] ) {
         .run();
     po::store( stage1_parse, cmdline_args );
     po::notify( cmdline_args );
-
-    // Set the debug and console format options right away so log messages in
-    // the subsequent plugin loaders are processed correctly.
-    ps::logging::set_level( cmdline_args["loglevel"].as<std::string>() );
 
     if (cmdline_args.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();

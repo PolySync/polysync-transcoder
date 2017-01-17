@@ -82,7 +82,7 @@ mettle::suite<TomlTable> description( "descriptor::Type", mettle::bind_factory(p
         [](auto& _) {
 
         plog::load();
-        polysync::logging::set_level("debug2");
+        polysync::logging::setLevel("debug2");
 
         namespace descriptor = polysync::descriptor;
 
