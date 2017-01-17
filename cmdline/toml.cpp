@@ -4,12 +4,13 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <deps/cpptoml.h>
+#include <cpptoml.h>
 
 #include <polysync/exception.hpp>
 #include <polysync/logging.hpp>
 #include <polysync/descriptor.hpp>
 #include <polysync/detector.hpp>
+#include <polysync/print_vector.hpp>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -19,7 +20,7 @@ namespace polysync { namespace toml {
 using logging::severity;
 using logging::logger;
 
-static logger log( "toml" );
+static logger log( "typesupport" );
 
 void analyzeFile( const fs::path& filename )
 {
@@ -94,12 +95,14 @@ po::options_description load( const std::vector<fs::path>& rootPath ) {
                 {
                     analyzeFile( filename.path() );
                 }
-                catch ( error& e ) {
+                catch ( error& e )
+                {
                     e << status::description_error;
                     e << exception::path( filename.path().string() );
                     throw;
                 }
-                catch ( cpptoml::parse_exception& e ) {
+                catch ( cpptoml::parse_exception& e )
+                {
                     throw polysync::error( e.what() )
                         << status::description_error
                         << exception::path( filename.path().string() );

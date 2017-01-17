@@ -1,6 +1,6 @@
 #pragma once
 
-#include <deps/cpptoml.h>
+#include <cpptoml.h>
 
 #include <polysync/descriptor/catalog.hpp>
 
