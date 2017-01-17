@@ -18,6 +18,6 @@ struct logger : sourceType
     }
 };
 
-void setLevel( const std::string& );
+void setLevels( const std::vector<std::string>& );
 
 }} // namespace polysync::logging

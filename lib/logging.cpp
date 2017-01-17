@@ -53,25 +53,29 @@ std::map< std::string, severity > severityMap =
 static severity defaultSeverity;
 static std::map< std::string, severity > channelSeverity;
 
-void setLevel( const std::string& cmdline )
+void setLevels( const std::vector<std::string>& settings )
 {
-    std::smatch match;
-    if ( !std::regex_match( cmdline, match, std::regex( R"(([A-z0-9]+):?([A-z0-9]+)?)" ) ) )
+    for ( std::string cmdline: settings )
     {
-        throw error( "malformed loglevel argument \"" + cmdline + "\"" );
-    }
-    std::string level = match[ match.size()-1 ];
-    if ( !severityMap.count(level) )
-    {
-        throw polysync::error( "unknown debug level \"" + level + "\"" );
-    }
-    if ( match.size() > 1 )
-    {
-        channelSeverity.emplace( match[1], severityMap.at(level) );
-    }
-    else
-    {
-        defaultSeverity = severityMap.at(level);
+        std::smatch match;
+        if ( !std::regex_match( cmdline, match, std::regex( R"(([A-z0-9]+):?([A-z0-9]+)?)" ) ) )
+        {
+            throw error( "malformed loglevel argument \"" + cmdline + "\"" );
+        }
+        std::string level = match[1];
+        if ( !severityMap.count(level) )
+        {
+            throw polysync::error( "unknown debug level \"" + level + "\"" );
+        }
+        std::string channel = match[2];
+        if ( !channel.empty() )
+        {
+            channelSeverity.emplace( channel, severityMap.at(level) );
+        }
+        else
+        {
+            defaultSeverity = severityMap.at(level);
+        }
     }
 }
 

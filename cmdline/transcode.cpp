@@ -72,9 +72,10 @@ int catch_main( int ac, char* av[] ) {
     po::options_description console_opts( "General Options" );
     console_opts.add_options()
         ( "help,h", "print this help message" )
-        ( "loglevel,d", po::value<std::string>()
-            ->notifier( &ps::logging::setLevel ),
-            "level or channel:level, level in { warn, info, verbose, debug1, debug2 }" )
+        ( "loglevel,d", po::value< std::vector<std::string> >()
+            ->composing()
+            ->notifier( &ps::logging::setLevels ),
+            "level or level:channel, level in { warn, info, verbose, debug1, debug2 }" )
         ( "plain,p", "remove color from console formatting" )
         ( "plugdir,P", po::value< std::vector<fs::path> >()
             ->default_value( std::vector<fs::path>() )
