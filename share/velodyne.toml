@@ -1,0 +1,29 @@
+[velodyne.header]
+    description = [
+        { name = "blocks", type = "velodyne.firing_data", count = 12 },
+        { name = "timestamp", type = "velodyne.timestamp" }
+    ]
+    detector = [
+        { name = "ps_byte_array_msg", data_type = "70" }
+    ]
+
+[velodyne.firing_data]
+    description = [
+        { name = "LaserBlockID", type = "uint16", format = "hex" },
+        { name = "Rotational", type = "uint16", format = "hex" },
+        { name = "Lasers", type = "velodyne.laser", count=32 }
+    ]
+
+[velodyne.laser]
+    description = [
+        { name = "distance", type="uint16", format = "hex" },
+        { name = "intensity", type="uint8" }
+    ]
+
+[velodyne.timestamp]
+    description = [
+        { name = "GPS_timestamp", type="uint32", format = "hex" },
+        { name = "StatusType", type = "uint8" },
+        { name = "StatusValue", type = "uint8" }
+    ]
+
