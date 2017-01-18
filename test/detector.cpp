@@ -119,7 +119,7 @@ extern void loadCatalog( const std::string&, std::shared_ptr<cpptoml::table> );
 
 }} // namespace polysync::detector
 
-mettle::suite<> buildDetectors( "buildDetectors", [](auto& _) {
+mettle::suite<> buildDetectors( "detector::buildDetectors", [](auto& _) {
 
         _.setup([]() {
                 polysync::descriptor::catalog.clear();
@@ -165,7 +165,7 @@ mettle::suite<> buildDetectors( "buildDetectors", [](auto& _) {
                                 table->get("detector")->as_table_array()
                                 );
 
-                        }, thrown<polysync::error>( "detector name must be a string" ));
+                        }, thrown<polysync::error>( "detector precursor must be a string" ));
                 });
 
         _.test( "wrong_field", []() {
@@ -183,7 +183,7 @@ mettle::suite<> buildDetectors( "buildDetectors", [](auto& _) {
         });
 
 
-mettle::suite<> loadCatalog( "loadCatalog", [](auto& _) {
+mettle::suite<> loadCatalog( "detector::loadCatalog", [](auto& _) {
 
         _.setup([]() {
                 polysync::descriptor::catalog.clear();
@@ -246,20 +246,20 @@ mettle::suite<> loadCatalog( "loadCatalog", [](auto& _) {
                 _.test( "string_key", []() {
 
                         constexpr const char* toml = R"toml(
-                            description = [ { name = "key", type = "uint32" } ]
-                            detector = [ { name = "next", key = "42" } ]
+                            description = [ { name = "next", type = "uint32" } ]
+                            detector = [ { name = "current", key = "42" } ]
                         )toml";
 
                         TomlTable table( toml );
-                        polysync::detector::loadCatalog( "current", table );
+                        polysync::detector::loadCatalog( "next", table );
 
                         });
 
                 _.test( "integer_key", []() {
 
                         constexpr const char* toml = R"toml(
-                            description = [ { name = "key", type = "uint32" } ]
-                            detector = [ { name = "next", key = 42 } ]
+                            description = [ { name = "next", type = "uint32" } ]
+                            detector = [ { name = "current", key = 42 } ]
                         )toml";
 
                         expect([ toml ]() {
@@ -273,8 +273,8 @@ mettle::suite<> loadCatalog( "loadCatalog", [](auto& _) {
                 _.test( "nested_key", []() {
 
                         constexpr const char* toml = R"toml(
-                            description = [ { name = "key", type = "uint32" } ]
-                            detector = [ { name = "next", nest = "42" } ]
+                            description = [ { name = "next", type = "uint32" } ]
+                            detector = [ { name = "current", nest = "42" } ]
                         )toml";
 
                         expect([ toml ]() {
