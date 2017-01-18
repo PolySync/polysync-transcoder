@@ -112,13 +112,6 @@ struct TomlTable : std::shared_ptr<cpptoml::table>
     }
 };
 
-namespace polysync { namespace detector {
-
-extern Catalog buildDetectors( const std::string&, std::shared_ptr<cpptoml::table_array> );
-extern void loadCatalog( const std::string&, std::shared_ptr<cpptoml::table> );
-
-}} // namespace polysync::detector
-
 mettle::suite<> buildDetectors( "detector::buildDetectors", [](auto& _) {
 
         _.setup([]() {

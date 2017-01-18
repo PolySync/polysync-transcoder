@@ -22,60 +22,65 @@ using logging::logger;
 
 static logger log( "typesupport" );
 
-void loadDescriptions( fs::path filename )
+std::shared_ptr<cpptoml::table> parseTomlFile( const fs::path& filename )
+{
+    return cpptoml::parse_file( filename.string() );
+}
+
+void loadDescriptions( const fs::path& filename )
 {
     BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << filename;
 
-    std::shared_ptr<cpptoml::table> table =
-        cpptoml::parse_file( filename.string() );
+    auto tablePtr = parseTomlFile( filename );
 
-    // Parse the file in two passes, so the detectors have
-    // access to the descriptor's types
-    for ( const auto& type: *table )
+    for ( const auto& keyValuePair: *tablePtr )
     {
-        if ( type.second->is_table() )
+        std::string typeName;
+        std::shared_ptr<cpptoml::base> element;
+        std::tie( typeName, element ) = keyValuePair;
+
+        if ( element->is_table() )
         {
-            std::vector<descriptor::Type> descriptions =
-                descriptor::loadCatalog( type.first, type.second->as_table() );
-            for ( const descriptor::Type& desc: descriptions )
+            auto catalog = descriptor::loadCatalog( typeName, element );
+            for ( auto description: catalog )
             {
-                BOOST_LOG_SEV( log, severity::debug2 ) << "loading " << desc.name;
-                descriptor::catalog.emplace( desc.name, desc );
+                BOOST_LOG_SEV( log, severity::debug2 ) << "loading " << description.name;
+                descriptor::catalog.emplace( description.name, description );
             }
         }
 
-        else if ( type.second->is_value() )
+        else if ( element->is_value() )
         {
-            auto val = type.second->as<std::string>();
-            if ( !descriptor::terminalNameMap.count( val->get() ) )
+            std::string value = element->as<std::string>()->get();
+            auto typePtr = descriptor::terminalNameMap.find( value );
+            if ( typePtr == descriptor::terminalNameMap.end() )
             {
-                throw error( "unknown type alias" ) << exception::type(type.first);
+                throw error( "unknown type alias" ) << exception::type( typeName );
             }
-            std::type_index idx = descriptor::terminalNameMap.at( val->get() );
-            descriptor::terminalNameMap.emplace( type.first, idx );
+            descriptor::terminalNameMap.emplace( typeName, typePtr->second );
             BOOST_LOG_SEV( log, severity::debug2 )
-                << "loaded type alias " << type.first << " = " << val->get();
+                << "loaded type alias " << typeName << " = " << value;
         }
         else
         {
-            BOOST_LOG_SEV( log, severity::warn ) << "unused description: " << type.first;
+            BOOST_LOG_SEV( log, severity::warn ) << "invalid description: " << typeName;
         }
     }
 }
 
-void loadDetectors( const fs::path filename )
+void loadDetectors( const fs::path& filename )
 {
     BOOST_LOG_SEV( log, severity::debug1 ) << "loading detectors from " << filename;
 
-    std::shared_ptr<cpptoml::table> table =
-        cpptoml::parse_file( filename.string() );
+    auto tablePtr = toml::parseTomlFile( filename );
 
-    for ( const auto& type: *table )
+    for ( const auto& keyValuePair: *tablePtr )
     {
-        if ( type.second->is_table() )
-        {
-            detector::loadCatalog( type.first, type.second->as_table() );
-        }
+        std::string typeName;
+        std::shared_ptr<cpptoml::base> element;
+        std::tie( typeName, element ) = keyValuePair;
+
+        detector::loadCatalog( typeName, element );
     }
 }
 
@@ -110,7 +115,7 @@ void foldPath( fs::path descriptionPath, std::function<void (const fs::path&)> c
 
 po::options_description load( const std::vector<fs::path>& rootPaths )
 {
-    std::vector<fs::path> expandedPaths;
+    std::vector<fs::path> paths;
 
     for ( fs::path descriptionPath: rootPaths )
     {
@@ -128,20 +133,14 @@ po::options_description load( const std::vector<fs::path>& rootPaths )
                 << " because it does not exist";
             continue;
         }
-        expandedPaths.push_back( descriptionPath );
+        paths.push_back( descriptionPath );
         BOOST_LOG_SEV( log, severity::debug1 )
             << "searching " << descriptionPath << " for type descriptions";
     }
 
-    for ( fs::path descriptionPath: expandedPaths )
-    {
-        foldPath( descriptionPath, loadDescriptions );
-    }
-
-    for ( fs::path descriptionPath: expandedPaths )
-    {
-        foldPath( descriptionPath, loadDetectors );
-    }
+    // Load *all* of the descriptions first, because the detectors need the descriptors first.
+    std::for_each( paths.begin(), paths.end(), []( auto p ) { foldPath( p, loadDescriptions ); });
+    std::for_each( paths.begin(), paths.end(), []( auto p ) { foldPath( p, loadDetectors ); });
 
     // For now, there actually are not any options.
     return po::options_description("Type Description Options");

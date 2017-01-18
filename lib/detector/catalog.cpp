@@ -159,8 +159,15 @@ Catalog buildDetectors(
 
 // Load the global type detector dictionary detector::catalog with an entry
 // from a TOML table.
-void loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::table> table )
+bool loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::base> base )
 {
+    if ( !base->is_table() )
+    {
+        return false;
+    }
+
+    std::shared_ptr<cpptoml::table> table = base->as_table();
+
     if ( !table->contains( "description" ) )
     {
         // Tables lacking a description field probably have nested tables that
@@ -181,12 +188,12 @@ void loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::table> t
         // ever follow.
         BOOST_LOG_SEV( log, severity::debug2 )
             << "no sequel types following \"" << typeName << "\"";
-        return;
+        return false;
     }
 
     if ( !table->contains( "detector" ) )
     {
-        return;
+        return false;
     }
 
     auto detectorList = table->get( "detector" );
@@ -237,6 +244,7 @@ void loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::table> t
         throw e;
     }
 
+    return true;
 }
 
 }} // namespace polysync::detector

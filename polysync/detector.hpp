@@ -27,13 +27,15 @@ using Catalog = std::vector<Type>;
 // The catalog gets loaded from TOML, unit test fixtures, or hardcoding.
 extern Catalog catalog;
 
-// Given a parsed TOML table, load the catalog
-extern void loadCatalog( const std::string& name, std::shared_ptr<cpptoml::table> );
+// Given a parsed TOML table, load the catalog. Return false if the element is not a table.
+extern bool loadCatalog( const std::string&, std::shared_ptr<cpptoml::base> );
 
 // Plow through the detector catalog and search for a match against the current
 // node.  Return the matching type by it's name.  Zero or multiple matches will
 // throw.
 extern std::string search( const node& );
+
+Catalog buildDetectors( const std::string&, std::shared_ptr<cpptoml::table_array> );
 
 }} // namespace polysync::detector
 
