@@ -84,10 +84,10 @@ variant parseTerminalFromString( const std::string& value, const std::type_index
 }
 
 // Plow through the TOML list of detector descriptions and construct a
-// descriptor::Type for each one.  Return a catalog of all the detectors found
+// detector::Type for each one.  Return a catalog of all the detectors found
 // in this particular TOML table.
 Catalog buildDetectors(
-        const std::string& typeName,
+        const std::string& nextType,
         std::shared_ptr<cpptoml::table_array> detectorList )
 {
     Catalog result;
@@ -99,14 +99,14 @@ Catalog buildDetectors(
             throw polysync::error( "detector requires a \"name\" field" );
         }
 
-        auto nextType = table->get_as<std::string>( "name" );
-        if ( !nextType )
+        auto precursorName = table->get_as<std::string>( "name" );
+        if ( !precursorName )
         {
-            throw polysync::error( "detector name must be a string" );
+            throw polysync::error( "detector precursor must be a string" );
         }
 
         decltype( std::declval<detector::Type>().matchField ) match;
-        const descriptor::Type& description = descriptor::catalog.at( typeName );
+        const descriptor::Type& description = descriptor::catalog.at( *precursorName );
         for ( auto pair: *table )
         {
             if (pair.first == "name") // special field is not a match field
@@ -151,7 +151,7 @@ Catalog buildDetectors(
                     << exception::field( it->name );
             }
         }
-        result.emplace_back( Type { typeName, match, *nextType } );
+        result.emplace_back( Type { *precursorName, match, nextType } );
     }
     return result;
 

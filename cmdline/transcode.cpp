@@ -49,6 +49,16 @@ int catch_main( int ac, char* av[] ) {
     // By default, use a fancy formatter.  This can change below.
     format = std::make_shared< polysync::formatter::fancy >();
 
+    // Configure the runtime environment to find the plugins
+    std::vector<fs::path> plugpath;
+    char* libenv = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
+    if ( libenv != nullptr )
+        boost::split( plugpath, libenv, boost::is_any_of(":;") );
+
+#ifdef INSTALL_PREFIX
+    plugpath.push_back( INSTALL_PREFIX );
+#endif
+
     // The command line parse is complicated because the plugins are allowed to
     // add options.  There are three stages:
     // 1) Configure the console spew because this will affect the second stage.
@@ -79,8 +89,19 @@ int catch_main( int ac, char* av[] ) {
         ( "plain,p", "remove color from console formatting" )
         ( "plugdir,P", po::value< std::vector<fs::path> >()
             ->default_value( std::vector<fs::path>() )
-            ->composing(),
+            ->composing()
+            ->notifier( [ &plugpath ]( const std::vector<fs::path>& paths )
+                {
+                    std::copy(paths.begin(), paths.end(), std::back_inserter( plugpath ) );
+                }),
             "additional plugin directories (augments POLYSYNC_TRANSCODE_LIB")
+        ( "clearplug,C", po::value<bool>()
+            ->implicit_value( true )
+            ->notifier( [ &plugpath ]( bool )
+                {
+                    plugpath.clear();
+                }),
+            "clear plugin path (disables default paths)")
         ;
 
     po::parsed_options stage1_parse = po::command_line_parser( ac, av )
@@ -92,17 +113,6 @@ int catch_main( int ac, char* av[] ) {
 
     if (cmdline_args.count("plain"))
         format = std::make_shared<polysync::formatter::plain>();
-
-    // Configure the runtime environment to find the plugins
-    std::vector<fs::path> plugpath =
-        cmdline_args["plugdir"].as< std::vector<fs::path> >();
-    char* libenv = std::getenv( "POLYSYNC_TRANSCODER_LIB" );
-    if ( libenv != nullptr )
-        boost::split( plugpath, libenv, boost::is_any_of(":;") );
-
-#ifdef INSTALL_PREFIX
-    plugpath.push_back( INSTALL_PREFIX );
-#endif
 
     if ( plugpath.empty() )
         BOOST_LOG_SEV(log, severity::warn) << "plugin path unset;"

@@ -168,7 +168,7 @@ private:
 // Decode a TOML table into type descriptors
 std::vector<Type> loadCatalog( const std::string& name, TablePtr table )
 {
-    logger log("toml");
+    logger log("descriptor");
 
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
 

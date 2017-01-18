@@ -22,8 +22,10 @@ using logging::logger;
 
 static logger log( "typesupport" );
 
-void analyzeFile( const fs::path& filename )
+void loadDescriptions( fs::path filename )
 {
+    BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << filename;
+
     std::shared_ptr<cpptoml::table> table =
         cpptoml::parse_file( filename.string() );
 
@@ -37,6 +39,7 @@ void analyzeFile( const fs::path& filename )
                 descriptor::loadCatalog( type.first, type.second->as_table() );
             for ( const descriptor::Type& desc: descriptions )
             {
+                BOOST_LOG_SEV( log, severity::debug2 ) << "loading " << desc.name;
                 descriptor::catalog.emplace( desc.name, desc );
             }
         }
@@ -58,6 +61,15 @@ void analyzeFile( const fs::path& filename )
             BOOST_LOG_SEV( log, severity::warn ) << "unused description: " << type.first;
         }
     }
+}
+
+void loadDetectors( const fs::path filename )
+{
+    BOOST_LOG_SEV( log, severity::debug1 ) << "loading detectors from " << filename;
+
+    std::shared_ptr<cpptoml::table> table =
+        cpptoml::parse_file( filename.string() );
+
     for ( const auto& type: *table )
     {
         if ( type.second->is_table() )
@@ -67,11 +79,48 @@ void analyzeFile( const fs::path& filename )
     }
 }
 
-po::options_description load( const std::vector<fs::path>& rootPath ) {
-
-    for ( fs::path descriptionPath: rootPath )
+void foldPath( fs::path descriptionPath, std::function<void (const fs::path&)> call )
+{
+    for ( fs::directory_entry& filename: fs::directory_iterator( descriptionPath ) )
     {
-        descriptionPath = descriptionPath / "share";
+        static std::regex isDescription( R"((.+)\.toml)" );
+        std::cmatch match;
+        std::regex_match( filename.path().string().c_str(), match, isDescription );
+        if ( match.size() )
+        {
+            try
+            {
+                call( filename.path() );
+            }
+            catch ( error& e )
+            {
+                e << status::description_error;
+                e << exception::path( filename.path().string() );
+                throw;
+            }
+            catch ( cpptoml::parse_exception& e )
+            {
+                throw polysync::error( e.what() )
+                    << status::description_error
+                    << exception::path( filename.path().string() );
+            }
+        }
+    }
+}
+
+po::options_description load( const std::vector<fs::path>& rootPaths )
+{
+    std::vector<fs::path> expandedPaths;
+
+    for ( fs::path descriptionPath: rootPaths )
+    {
+        for ( std::string subdir: { "share", "polysync-transcoder" } )
+        {
+            if ( fs::exists( descriptionPath / subdir ) )
+            {
+                descriptionPath /= subdir;
+            }
+        }
         if ( !fs::exists( descriptionPath ) )
         {
             BOOST_LOG_SEV( log, severity::debug1 )
@@ -79,36 +128,19 @@ po::options_description load( const std::vector<fs::path>& rootPath ) {
                 << " because it does not exist";
             continue;
         }
-
+        expandedPaths.push_back( descriptionPath );
         BOOST_LOG_SEV( log, severity::debug1 )
             << "searching " << descriptionPath << " for type descriptions";
+    }
 
-        for ( fs::directory_entry& filename: fs::directory_iterator( descriptionPath ) )
-        {
-            static std::regex isDescription( R"((.+)\.toml)" );
-            std::cmatch match;
-            std::regex_match( filename.path().string().c_str(), match, isDescription );
-            if ( match.size() )
-            {
-                BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << filename;
-                try
-                {
-                    analyzeFile( filename.path() );
-                }
-                catch ( error& e )
-                {
-                    e << status::description_error;
-                    e << exception::path( filename.path().string() );
-                    throw;
-                }
-                catch ( cpptoml::parse_exception& e )
-                {
-                    throw polysync::error( e.what() )
-                        << status::description_error
-                        << exception::path( filename.path().string() );
-                }
-            }
-        }
+    for ( fs::path descriptionPath: expandedPaths )
+    {
+        foldPath( descriptionPath, loadDescriptions );
+    }
+
+    for ( fs::path descriptionPath: expandedPaths )
+    {
+        foldPath( descriptionPath, loadDetectors );
     }
 
     // For now, there actually are not any options.
