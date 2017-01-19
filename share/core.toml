@@ -9,9 +9,6 @@ ps_sensor_kind = "uint32"
         { name = "data_type", type = "uint32" },
         { name = "payload", type = "uint32" }
     ]
-    detector = [ 
-        { name = "ibeo.header", data_type = "160" } 
-    ] 
 
 [ps_can_frame_msg]
     description = [

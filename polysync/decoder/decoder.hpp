@@ -217,7 +217,7 @@ struct Sequencer : Decoder
         // dynamic types, for which detectors and descriptors must exist.
         while ( stream.tellg() < record_endpos )
         {
-            std::string type = detect( tree->back() );
+            std::string type = detector::search( tree->back() );
             tree->emplace_back( type, decode(type) );
         }
         return std::move(result);

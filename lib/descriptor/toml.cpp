@@ -53,7 +53,7 @@ struct NestedTableFactory
         for ( const auto& type: *table )
         {
             std::string subpath = path.empty() ? type.first : path + "." + type.first;
-            std::vector<Type> sublist = fromToml( type.second->as_table(), subpath );
+            std::vector<Type> sublist = loadCatalog( subpath, type.second );
             std::move( sublist.begin(), sublist.end(), std::back_inserter( descriptions ));
         }
 
@@ -166,12 +166,13 @@ private:
 };
 
 // Decode a TOML table into type descriptors
-std::vector<Type> fromToml( TablePtr table, const std::string& name )
+std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml::base> element )
 {
-    logger log("TOML");
+    logger log("descriptor");
 
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
 
+    TablePtr table = element->as_table();
     try {
 
         NestedTableFactory nestedTable;
@@ -202,7 +203,6 @@ std::vector<Type> fromToml( TablePtr table, const std::string& name )
             description.emplace_back( field() );
         }
 
-        BOOST_LOG_SEV(log, severity::debug2) << name << " = " << description;
         return std::vector<Type> { description };
 
     } catch (polysync::error& e) {

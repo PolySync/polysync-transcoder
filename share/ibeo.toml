@@ -9,8 +9,7 @@
         { name = "time", "type" = "uint64", endian="big", format="hex" }
     ]
     detector = [ 
-        { name = "ibeo.vehicle_state", magic = "0xAFFEC0C2", data_type = "0x2807" }, 
-        { name = "ibeo.scan_data", magic = "0xAFFEC0C2", data_type = "0x2205" }
+        { name = "ps_byte_array_msg", data_type = "160" } 
     ] 
 
 [ibeo.vehicle_state]
@@ -37,6 +36,9 @@
         { name = "steer_ratio_poly_2", type = "float32", endian="big" },
         { name = "steer_ratio_poly_3", type = "float32", endian="big" }, 
         { name = "longitudinal_acceleration", type = "float32", endian="big" } 
+    ]
+    detector = [ 
+        { name = "ibeo.header", magic = "0xAFFEC0C2", data_type = "0x2807" }
     ]
 
 [ibeo.resolution_info]
@@ -97,3 +99,6 @@
         { name = "scanner_info_list", type = "ibeo.scanner_info", count = "number_of_scanner_infos" },
         { name = "scanner_point_list", type = "ibeo.scan_point", count = "scan_points" }
     ]
+    detector = [
+        { name = "ibeo.header", magic = "0xAFFEC0C2", data_type = "0x2205" }
+    ] 
