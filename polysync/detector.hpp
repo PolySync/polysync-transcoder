@@ -8,23 +8,18 @@
 #include <cpptoml.h>
 #include <polysync/tree.hpp>
 
-namespace polysync {
+namespace polysync { namespace detector {
 
-// Plow through the detector catalog and search for a match against a parent
-// node.  Return the matching type by it's name.  Zero or multiple matches will throw.
-extern std::string detect( const node& );
+struct Type
+{
+    // Detectors look at the current node for branching values.
+    std::string currentType;
 
-namespace detector {
+    // One or more fields must match the detector by name and value.
+    std::map< std::string, variant > matchField;
 
-struct Type {
-    // Detectors all look at their parent node for branching values.
-    std::string parent;
-
-    // In the parent, one or more fields must match the detector by name and value.
-    std::map< std::string, variant > match;
-
-    // Given a successful match, the child is the name of the matched type.
-    std::string child;
+    // Given a successful match, this is the type name of the next node.
+    std::string nextType;
 };
 
 using Catalog = std::vector<Type>;
@@ -32,8 +27,15 @@ using Catalog = std::vector<Type>;
 // The catalog gets loaded from TOML, unit test fixtures, or hardcoding.
 extern Catalog catalog;
 
-// Given a parsed TOML table, load the catalog
-extern void load( const std::string& name, std::shared_ptr<cpptoml::table> table, Catalog& );
+// Given a parsed TOML table, load the catalog. Return false if the element is not a table.
+extern bool loadCatalog( const std::string&, std::shared_ptr<cpptoml::base> );
+
+// Plow through the detector catalog and search for a match against the current
+// node.  Return the matching type by it's name.  Zero or multiple matches will
+// throw.
+extern std::string search( const node& );
+
+Catalog buildDetectors( const std::string&, std::shared_ptr<cpptoml::table_array> );
 
 }} // namespace polysync::detector
 

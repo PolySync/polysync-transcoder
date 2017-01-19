@@ -9,6 +9,7 @@ def step_impl(context, cmdline):
     # Turn off console coloring; it just interferes in the behavioral tests
     args = shlex.split(cmdline)
     args.insert(1, '--plain')  # turns of color escape codes
+    args.insert(1, '--clearplug')  # remove default plugpath
     args.insert(1, '--plugdir=.') # points to local share/ for TOML descriptions
     args.insert(1, '--plugdir=./build/plugin') # points to local plugins 
     if 'loglevel' in context.config.userdata:
