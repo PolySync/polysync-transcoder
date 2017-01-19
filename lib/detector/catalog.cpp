@@ -83,6 +83,24 @@ variant parseTerminalFromString( const std::string& value, const std::type_index
     return parse->second(value);
 }
 
+template <typename T>
+T checkedTomlGet( std::shared_ptr<cpptoml::table> table, const std::string& key )
+{
+    if ( !table->contains( key ) )
+    {
+        throw polysync::error( "detector requires a \"" + key + "\" field" );
+    }
+
+    auto result = table->get_as<T>( key );
+
+    if ( !result )
+    {
+        throw polysync::error( "\"" + key + "\" invalid type" );
+    }
+
+    return *result;
+}
+
 // Plow through the TOML list of detector descriptions and construct a
 // detector::Type for each one.  Return a catalog of all the detectors found
 // in this particular TOML table.
@@ -90,39 +108,37 @@ Catalog buildDetectors(
         const std::string& nextType,
         std::shared_ptr<cpptoml::table_array> detectorList )
 {
-    Catalog result;
+    Catalog catalog;
 
-    for ( const auto& table: *detectorList )
+    for ( const auto& tomlTable: *detectorList )
     {
-        if ( !table->contains( "name" ) )
-        {
-            throw polysync::error( "detector requires a \"name\" field" );
-        }
+        std::string precursorName = checkedTomlGet<std::string>( tomlTable, "name" );
 
-        auto precursorName = table->get_as<std::string>( "name" );
-        if ( !precursorName )
-        {
-            throw polysync::error( "detector precursor must be a string" );
-        }
+        // Accumulate a set of (string, variant) pairs in "match" that must all match the
+        // precursor type's payload, in order for the detection to succeed.
+        std::map< std::string, variant> match;
 
-        decltype( std::declval<detector::Type>().matchField ) match;
-        const descriptor::Type& description = descriptor::catalog.at( *precursorName );
-        for ( auto pair: *table )
+        const descriptor::Type& description = descriptor::catalog.at( precursorName );
+        for ( auto pair: *tomlTable )
         {
-            if (pair.first == "name") // special field is not a match field
+            std::string key = pair.first;
+            std::shared_ptr<cpptoml::base> value = pair.second;
+
+            if ( key == "name") // special field is not a match field
             {
                 continue;
             }
 
             // Dig through the type description to get the type of the matching field
             auto it = std::find_if( description.begin(), description.end(),
-                    [ pair ]( auto field ) { return field.name == pair.first; });
+                    [ key ]( auto field ) { return field.name == key; });
 
             // The field name did not match at all; get out of here.
             if ( it == description.end() )
             {
                 throw polysync::error( "type description lacks detector field" )
-                    << exception::field( pair.first );
+                    << exception::detector( nextType )
+                    << exception::field( key );
             }
 
             // Disallow branching on any non-native field type.  Branching on
@@ -132,28 +148,28 @@ Catalog buildDetectors(
             if ( !idx )
             {
                 throw polysync::error( "illegal key on compound type" )
-                    << exception::detector( pair.first )
-                    << exception::field( it->name );
+                    << exception::detector( nextType )
+                    << exception::field( key );
             }
 
             // For this purpose, TOML numbers might be strings because TOML is
             // not very type flexible (and does not know about hex notation).
             // Here is where we convert that string into a strong type.
-            auto value = pair.second->as<std::string>();
-            if( value )
+            auto valueString = value->as<std::string>();
+            if( valueString )
             {
-                match.emplace( pair.first, parseTerminalFromString( value->get(), *idx ) );
+                match.emplace( key, parseTerminalFromString( valueString->get(), *idx ) );
             }
             else
             {
                 throw polysync::error( "detector value must be represented as a string" )
-                    << exception::detector( pair.first )
-                    << exception::field( it->name );
+                    << exception::detector( nextType )
+                    << exception::field( key );
             }
         }
-        result.emplace_back( Type { *precursorName, match, nextType } );
+        catalog.emplace_back( Type { precursorName, match, nextType } );
     }
-    return result;
+    return catalog;
 
 }
 

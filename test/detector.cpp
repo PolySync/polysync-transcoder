@@ -158,7 +158,7 @@ mettle::suite<> buildDetectors( "detector::buildDetectors", [](auto& _) {
                                 table->get("detector")->as_table_array()
                                 );
 
-                        }, thrown<polysync::error>( "detector precursor must be a string" ));
+                        }, thrown<polysync::error>( "\"name\" invalid type" ));
                 });
 
         _.test( "wrong_field", []() {
