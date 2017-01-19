@@ -22,114 +22,128 @@ using logging::logger;
 
 static logger log( "typesupport" );
 
-po::options_description load( const std::vector<fs::path>& plugpath )
+std::shared_ptr<cpptoml::table> parseTomlFile( const fs::path& filename )
 {
-    for ( fs::path descdir: plugpath )
+    return cpptoml::parse_file( filename.string() );
+}
+
+void loadDescriptions( const fs::path& filename )
+{
+    BOOST_LOG_SEV( log, severity::debug1 ) << "loading descriptions from " << filename;
+
+    auto tablePtr = parseTomlFile( filename );
+
+    for ( const auto& keyValuePair: *tablePtr )
     {
-        descdir = descdir / "share";
-        if ( fs::exists( descdir / "polysync-transcoder" ) )
-        {
-            descdir = descdir / "polysync-transcoder";
-        }
-        if ( !fs::exists( descdir ) )
-        {
-            BOOST_LOG_SEV( log, severity::debug1 )
-                << "skipping description path " << descdir
-                << " because it does not exist";
-            continue;
-        }
+        std::string typeName;
+        std::shared_ptr<cpptoml::base> element;
+        std::tie( typeName, element ) = keyValuePair;
 
-        BOOST_LOG_SEV( log, severity::debug1 ) << "searching " << descdir;
-
-        static std::regex is_description( R"((.+)\.toml)" );
-        for ( fs::directory_entry& tofl: fs::directory_iterator( descdir ) )
+        if ( element->is_table() )
         {
-            std::cmatch match;
-            std::regex_match( tofl.path().string().c_str(), match, is_description );
-            if (match.size())
+            auto catalog = descriptor::loadCatalog( typeName, element );
+            for ( auto description: catalog )
             {
-                BOOST_LOG_SEV( log, severity::debug1 ) << "loading " << tofl;
+                BOOST_LOG_SEV( log, severity::debug2 ) << "loading " << description.name;
+                descriptor::catalog.emplace( description.name, description );
+            }
+        }
 
-                try
-                {
-                    std::shared_ptr<cpptoml::table> descfile =
-                        cpptoml::parse_file( tofl.path().string() );
+        else if ( element->is_value() )
+        {
+            std::string value = element->as<std::string>()->get();
+            auto typePtr = descriptor::terminalNameMap.find( value );
+            if ( typePtr == descriptor::terminalNameMap.end() )
+            {
+                throw error( "unknown type alias" ) << exception::type( typeName );
+            }
+            descriptor::terminalNameMap.emplace( typeName, typePtr->second );
+            BOOST_LOG_SEV( log, severity::debug2 )
+                << "loaded type alias " << typeName << " = " << value;
+        }
+        else
+        {
+            BOOST_LOG_SEV( log, severity::warn ) << "invalid description: " << typeName;
+        }
+    }
+}
 
-                    // Parse the file in two passes, so the detectors have
-                    // access to the descriptor's types
-                    for ( const auto& type: *descfile )
-                    {
-                        if ( type.second->is_table() )
-                        {
-                            std::vector<descriptor::Type> descriptions =
-                                descriptor::fromToml( type.second->as_table(),
-                                        type.first );
-                            for ( const descriptor::Type& desc: descriptions )
-                            {
-                                descriptor::catalog.emplace( desc.name, desc );
-                            }
-                        }
+void loadDetectors( const fs::path& filename )
+{
+    BOOST_LOG_SEV( log, severity::debug1 ) << "loading detectors from " << filename;
 
-                        else if ( type.second->is_value() )
-                        {
-                            auto val = type.second->as<std::string>();
-                            if ( !descriptor::terminalNameMap.count(val->get()) )
-                            {
-                                throw error( "unknown type alias" )
-                                    << exception::type(type.first);
-                            }
-                            std::type_index idx =
-                                descriptor::terminalNameMap.at(val->get());
-                            descriptor::terminalNameMap.emplace( type.first, idx );
-                            BOOST_LOG_SEV( log, severity::debug2 )
-                                << "loaded type alias " << type.first
-                                << " = " << val->get();
-                        }
-                        else
-                        {
-                            BOOST_LOG_SEV( log, severity::warn )
-                                << "unused description: " << type.first;
-                        }
-                    }
-                    for ( const auto& type: *descfile )
-                    {
-                        if ( type.second->is_table() )
-                        {
-                            detector::load( type.first, type.second->as_table(),
-                                    detector::catalog );
-                        }
-                    }
-                }
-                catch ( error& e )
-                {
-                    e << status::description_error;
-                    e << exception::path( tofl.path().string() );
-                    throw;
-                }
-                catch ( cpptoml::parse_exception& e )
-                {
-                    throw polysync::error( e.what() )
-                        << status::description_error
-                        << exception::path( tofl.path().string() );
-                }
+    auto tablePtr = toml::parseTomlFile( filename );
+
+    for ( const auto& keyValuePair: *tablePtr )
+    {
+        std::string typeName;
+        std::shared_ptr<cpptoml::base> element;
+        std::tie( typeName, element ) = keyValuePair;
+
+        detector::loadCatalog( typeName, element );
+    }
+}
+
+void foldPath( fs::path descriptionPath, std::function<void (const fs::path&)> call )
+{
+    for ( fs::directory_entry& filename: fs::directory_iterator( descriptionPath ) )
+    {
+        static std::regex isDescription( R"((.+)\.toml)" );
+        std::cmatch match;
+        std::regex_match( filename.path().string().c_str(), match, isDescription );
+        if ( match.size() )
+        {
+            try
+            {
+                call( filename.path() );
+            }
+            catch ( error& e )
+            {
+                e << status::description_error;
+                e << exception::path( filename.path().string() );
+                throw;
+            }
+            catch ( cpptoml::parse_exception& e )
+            {
+                throw polysync::error( e.what() )
+                    << status::description_error
+                    << exception::path( filename.path().string() );
             }
         }
     }
+}
 
-    if ( descriptor::catalog.empty() )
+po::options_description load( const std::vector<fs::path>& rootPaths )
+{
+    std::vector<fs::path> paths;
+
+    for ( fs::path descriptionPath: rootPaths )
     {
-        std::vector<std::string> pathmsg;
-        std::transform( plugpath.begin(), plugpath.end(),
-                std::back_inserter(pathmsg),
-                []( const fs::path& p ) { return p.string() + "/share"; });
-
-        BOOST_LOG_SEV( log, severity::warn )
-            << "no type descriptions found; searched "
-            << pathmsg;
+        for ( std::string subdir: { "share", "polysync-transcoder" } )
+        {
+            if ( fs::exists( descriptionPath / subdir ) )
+            {
+                descriptionPath /= subdir;
+            }
+        }
+        if ( !fs::exists( descriptionPath ) )
+        {
+            BOOST_LOG_SEV( log, severity::debug1 )
+                << "skipping description path " << descriptionPath
+                << " because it does not exist";
+            continue;
+        }
+        paths.push_back( descriptionPath );
+        BOOST_LOG_SEV( log, severity::debug1 )
+            << "searching " << descriptionPath << " for type descriptions";
     }
 
-    po::options_description opts("Type Description Options");
-    return opts;
+    // Load *all* of the descriptions first, because the detectors need the descriptors first.
+    std::for_each( paths.begin(), paths.end(), []( auto p ) { foldPath( p, loadDescriptions ); });
+    std::for_each( paths.begin(), paths.end(), []( auto p ) { foldPath( p, loadDetectors ); });
+
+    // For now, there actually are not any options.
+    return po::options_description("Type Description Options");
 }
 
 }} // namespace polysync::toml
