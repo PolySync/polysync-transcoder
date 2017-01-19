@@ -212,20 +212,16 @@ bool loadCatalog( const std::string& typeName, std::shared_ptr<cpptoml::base> ba
 
         for ( Type& detect: buildDetectors( typeName, detectorList->as_table_array() ) )
         {
-            auto it = std::find_if( catalog.begin(), catalog.end(),
-                    [ typeName, detect ]( auto entry ) {
-                        return entry.currentType == detect.nextType and
-                               entry.nextType == detect.nextType;
-                    });
-
-            if ( it != catalog.end() )
+            // Ensure that the detector is unique; there can be no ambiguity
+            // about which type comes next.
+            for ( auto entry: catalog )
             {
-                BOOST_LOG_SEV( log, severity::debug2 )
-                    << "duplicate sequel \""
-                    << typeName << "\" -> \""
-                    << detect.nextType
-                    << "\" found but not installed";
-                continue;
+                if ( entry.currentType == detect.currentType and
+                        entry.nextType == detect.nextType )
+                {
+                    throw polysync::error( "ambiguous detector" )
+                        << exception::detector( typeName );
+                }
             }
 
             catalog.emplace_back( detect );

@@ -172,9 +172,7 @@ mettle::suite<> buildDetectors( "detector::buildDetectors", [](auto& _) {
 
                         }, thrown<polysync::error>( "type description lacks detector field" ));
                 });
-
-        });
-
+});
 
 mettle::suite<> loadCatalog( "detector::loadCatalog", [](auto& _) {
 
@@ -212,6 +210,28 @@ mettle::suite<> loadCatalog( "detector::loadCatalog", [](auto& _) {
                         polysync::detector::loadCatalog( "current", table );
 
                         }, thrown<polysync::error>( "detector list must be an array" ));
+                });
+
+        _.test( "ambiguity", []() {
+
+                polysync::descriptor::Type current { "current", {
+                    { "field", typeid(std::uint32_t) }
+                }};
+
+                polysync::descriptor::Type next { "next", {
+                    { "field", typeid(std::uint32_t) }
+                }};
+
+                polysync::descriptor::catalog.emplace( "current", current );
+                polysync::descriptor::catalog.emplace( "next", next );
+
+                TomlTable table( R"toml( detector = [ { name = "current", field = "42" } ])toml" );
+
+                polysync::detector::loadCatalog( "next", table );
+
+                expect( [&]() {
+                        polysync::detector::loadCatalog( "next", table );
+                        }, thrown<polysync::error>( "ambiguous detector" ));
                 });
 
         mettle::subsuite<>( _, "loaded_descriptors", [](auto& _) {
