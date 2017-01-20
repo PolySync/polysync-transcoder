@@ -173,8 +173,8 @@ Catalog buildDetectors(
                 e << exception::field( key );
                 throw e;
             }
-            catalog.emplace_back( Type { precursorName, match, nextType } );
         }
+        catalog.emplace_back( Type { precursorName, match, nextType } );
     }
     return catalog;
 
