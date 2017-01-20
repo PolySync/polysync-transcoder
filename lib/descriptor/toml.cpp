@@ -170,6 +170,11 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
 {
     logger log("descriptor");
 
+    if ( !element->is_table() )
+    {
+        return std::vector<Type>();
+    }
+
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
 
     TablePtr table = element->as_table();

@@ -7,20 +7,19 @@ ps_sensor_kind = "uint32"
     description = [
         { name = "dest_guid", type = "uint64" },
         { name = "data_type", type = "uint32" },
-        { name = "payload", type = "uint32" }
+        { name = "payload_size", type = "uint32" }
     ]
 
 [ps_can_frame_msg]
     description = [
         { name = "timestamp", type = "ps_timestamp" },
         { name = "native_timestamp", type = "ps_native_timestamp" },
-        { name = "hardware_id", type = "ps_identifier" },
+        { name = "hardware_id", type = "ps_identifier", format = "hex" },
         { name = "circuit_id", type = "uint16" },
         { name = "system_id", type = "ps_identifier" },
-        { name = "id", type = "ps_identifier" },
+        { name = "id", type = "uint32", format = "decimal_and_hex" },
         { name = "flags", type = "uint16" },
         { name = "count", type = "uint32" },
-        { name = "payload", type = "uint8", count = "count" }
     ]
 
 [ps_native_timestamp]

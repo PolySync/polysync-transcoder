@@ -1,1 +1,8 @@
-
+[mobileye.AWS_Display]
+    description = [
+        { skip = 2 },
+        { name = "Headway_measurement", type = "uint8" }
+    ]
+    detector = [
+        { name = "ps_can_frame_msg", id = "0x700" }
+    ] 
