@@ -27,7 +27,11 @@ inline T stoulCast( const std::string& value )
     }
     catch ( boost::numeric::bad_numeric_cast )
     {
-        throw polysync::error( "value overflow" );
+        throw polysync::error( "value overflow on \"" + value + "\"" );
+    }
+    catch ( std::invalid_argument )
+    {
+        throw polysync::error( "invalid integer value \"" + value + "\"" );
     }
 }
 
@@ -124,50 +128,53 @@ Catalog buildDetectors(
             std::string key = pair.first;
             std::shared_ptr<cpptoml::base> value = pair.second;
 
-            if ( key == "name") // special field is not a match field
+            try
             {
-                continue;
-            }
+                if ( key == "name") // special field is not a match field
+                {
+                    continue;
+                }
 
-            // Dig through the type description to get the type of the matching field
-            auto it = std::find_if( description.begin(), description.end(),
-                    [ key ]( auto field ) { return field.name == key; });
+                // Dig through the type description to get the type of the matching field
+                auto it = std::find_if( description.begin(), description.end(),
+                        [ key ]( auto field ) { return field.name == key; });
 
-            // The field name did not match at all; get out of here.
-            if ( it == description.end() )
-            {
-                throw polysync::error( "type description lacks detector field" )
-                    << exception::detector( nextType )
-                    << exception::field( key );
-            }
+                // The field name did not match at all; get out of here.
+                if ( it == description.end() )
+                {
+                    throw polysync::error( "type description lacks detector field" );
+                }
 
-            // Disallow branching on any non-native field type.  Branching on
-            // arrays or nested types is not supported (and hopefully never
-            // will need to be).
-            const std::type_index* idx = it->type.target<std::type_index>();
-            if ( !idx )
-            {
-                throw polysync::error( "illegal key on compound type" )
-                    << exception::detector( nextType )
-                    << exception::field( key );
-            }
+                // Disallow branching on any non-native field type.  Branching on
+                // arrays or nested types is not supported (and hopefully never
+                // will need to be).
+                const std::type_index* idx = it->type.target<std::type_index>();
+                if ( !idx )
+                {
+                    throw polysync::error( "illegal key on compound type" );
+                }
 
-            // For this purpose, TOML numbers might be strings because TOML is
-            // not very type flexible (and does not know about hex notation).
-            // Here is where we convert that string into a strong type.
-            auto valueString = value->as<std::string>();
-            if( valueString )
-            {
-                match.emplace( key, parseTerminalFromString( valueString->get(), *idx ) );
+                // For this purpose, TOML numbers might be strings because TOML is
+                // not very type flexible (and does not know about hex notation).
+                // Here is where we convert that string into a strong type.
+                auto valueString = value->as<std::string>();
+                if( valueString )
+                {
+                    match.emplace( key, parseTerminalFromString( valueString->get(), *idx ) );
+                }
+                else
+                {
+                    throw polysync::error( "detector value must be represented as a string" );
+                }
             }
-            else
+            catch ( polysync::error& e )
             {
-                throw polysync::error( "detector value must be represented as a string" )
-                    << exception::detector( nextType )
-                    << exception::field( key );
+                e << exception::detector( nextType );
+                e << exception::field( key );
+                throw e;
             }
+            catalog.emplace_back( Type { precursorName, match, nextType } );
         }
-        catalog.emplace_back( Type { precursorName, match, nextType } );
     }
     return catalog;
 
