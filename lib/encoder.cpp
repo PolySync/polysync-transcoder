@@ -45,7 +45,7 @@ struct branch
                 } }, node);
     }
 
-    void operator()(const descriptor::Bit& idx) const
+    void operator()(const descriptor::BitField& idx) const
     {
         throw polysync::error( "Bit not implemented" );
     }

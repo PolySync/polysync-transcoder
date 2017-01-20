@@ -112,10 +112,19 @@ struct Array
     );
 };
 
+struct BitField
+{
+    using type = eggs::variant< Bit, BitSkip >;
+    // std::vector< std::string, type > fields;
+    BOOST_HANA_DEFINE_STRUCT( BitField,
+        ( std::uint32_t, list )
+    );
+};
+
 struct Field
 {
     std::string name;
-    eggs::variant< std::type_index, Bit, Nested, Skip, BitSkip, Array > type;
+    eggs::variant< std::type_index, Nested, Skip, Array, BitField > type;
 
     // Optional metadata about a Field may include bigendian storage, and a
     // specialized function to pretty print the value.  Using these attributes

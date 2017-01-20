@@ -28,6 +28,11 @@ std::string lex::operator()( BitSkip idx ) const
     return "bitskip-" + std::to_string(idx.order) + "(" + std::to_string(idx.size) + ")";
 }
 
+std::string lex::operator()( BitField idx ) const
+{
+    return "BitField";
+}
+
 std::string lex::operator()( Array idx ) const
 {
     return "array<" + eggs::variants::apply(*this, idx.type) + ">("

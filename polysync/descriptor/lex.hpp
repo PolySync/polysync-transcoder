@@ -18,6 +18,7 @@ struct lex : std::string
     std::string operator()( Skip ) const;
     std::string operator()( BitSkip ) const;
     std::string operator()( Array ) const;
+    std::string operator()( BitField ) const;
     std::string operator()( std::string ) const;
     std::string operator()( size_t ) const;
 

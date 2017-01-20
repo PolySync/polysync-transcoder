@@ -35,6 +35,25 @@ struct SkipFactory
     }
 };
 
+struct BitFactory
+{
+    bool check( TablePtr table ) const
+    {
+        return table->contains( "bit" );
+    }
+};
+
+struct BitSkipFactory
+{
+    std::uint16_t skip_index { 0 };
+
+    bool check( TablePtr table ) const
+    {
+        return table->contains( "bitskip" );
+    }
+
+};
+
 struct NestedTableFactory
 {
     bool check( TablePtr table ) const
@@ -98,6 +117,33 @@ struct ArrayFactory
     }
 };
 
+struct BitFieldFactory
+{
+    TablePtr table;
+
+    BitFactory bit;
+    BitSkipFactory bitSkip;
+
+    bool check() const
+    {
+        return bit.check( table ) or
+               bitSkip.check( table );
+    }
+
+    Field operator()() const
+    {
+        Field field = construct( table );
+        return field;
+    }
+
+private:
+
+    Field construct( TablePtr table ) const
+    {
+        return Field { std::string(), BitField() };
+    }
+ };
+
 
 struct FieldFactory
 {
@@ -115,6 +161,12 @@ private:
 
     Field construct( TablePtr table ) const
     {
+        BitFieldFactory bitfield { table };
+        if ( bitfield.check() )
+        {
+            return bitfield();
+        }
+
         if ( !table->contains("name") )
         {
             throw polysync::error("missing required \"name\" field");
@@ -178,8 +230,8 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
 
     TablePtr table = element->as_table();
-    try {
-
+    try
+    {
         NestedTableFactory nestedTable;
         if ( nestedTable.check( table ) )
         {
@@ -196,27 +248,36 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
         descriptor::Type description(name);
 
         SkipFactory skip;
-        for ( TablePtr tomlElement: *descriptionTable->as_table_array() )
+        BitSkipFactory bitskip;
+        auto tableArray = descriptionTable->as_table_array();
+        for ( auto it = tableArray->begin(); it != tableArray->end(); ++it )
         {
-            if ( skip.check( tomlElement ) )
+            if ( skip.check( *it ) )
             {
-                description.emplace_back( skip( tomlElement ) );
+                description.emplace_back( skip( *it ) );
                 continue;
             }
 
-            FieldFactory field { tomlElement };
+            // if ( bitskip.check( *it ) )
+            // {
+            //     description.emplace_back( bitskip( *it ) );
+            //     continue;
+            // }
+
+            FieldFactory field { *it };
             description.emplace_back( field() );
         }
 
         return std::vector<Type> { description };
 
-    } catch (polysync::error& e) {
-
+    }
+    catch ( polysync::error& e )
+    {
         // Do not overwrite existing context, as this function is recursive.
-        if (!boost::get_error_info<exception::type>(e))
+        if ( !boost::get_error_info<exception::type>(e) )
         {
-            e << exception::type(name);
-            e << exception::module("description");
+            e << exception::type( name );
+            e << exception::module( "description" );
         }
         throw;
     }

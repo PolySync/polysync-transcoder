@@ -171,9 +171,9 @@ struct branch_builder
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
     }
 
-    void operator()(const descriptor::BitSkip& idx) const
+    void operator()(const descriptor::BitField& idx) const
     {
-        throw polysync::error( "BitSkip not implemented" );
+        throw polysync::error( "BitField not implemented" );
     }
 
     void operator()(const descriptor::Array& desc) const
