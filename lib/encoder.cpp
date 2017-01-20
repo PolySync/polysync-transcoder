@@ -45,6 +45,11 @@ struct branch
                 } }, node);
     }
 
+    void operator()(const descriptor::Bit& idx) const
+    {
+        throw polysync::error( "Bit not implemented" );
+    }
+
     void operator()(const descriptor::Nested& idx) const
     {
         const polysync::tree* nest = node.target<polysync::tree>();
@@ -72,6 +77,11 @@ struct branch
         const bytes& raw = *node.target<bytes>();
         enc->stream.write( (char *)raw.data(), raw.size() );
         BOOST_LOG_SEV(enc->log, severity::debug2) << "padded " << raw;
+    }
+
+    void operator()(const descriptor::BitSkip& idx) const
+    {
+        throw polysync::error( "BitSkip not implemented" );
     }
 
     template <typename T>

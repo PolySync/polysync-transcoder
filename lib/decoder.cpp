@@ -138,6 +138,11 @@ struct branch_builder
             << ")";
     }
 
+    void operator()(const descriptor::Bit& idx) const
+    {
+        throw polysync::error( "Bit not implemented" );
+    }
+
     // Nested described type
     void operator()(const descriptor::Nested& nest) const {
         // Type aliases sometimes appear as nested types because the alias was
@@ -164,6 +169,11 @@ struct branch_builder
         std::string name = "skip-" + std::to_string(skip.order);
         branch->emplace_back(name, raw);
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
+    }
+
+    void operator()(const descriptor::BitSkip& idx) const
+    {
+        throw polysync::error( "BitSkip not implemented" );
     }
 
     void operator()(const descriptor::Array& desc) const

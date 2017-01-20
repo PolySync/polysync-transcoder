@@ -36,13 +36,22 @@ struct Type : std::vector<Field>
 };
 
 // Describe a native terminal type like floats and integers.  This struct gets
-// instantiated when the "type" Field of TOML element is the reserved name of a
+// instantiated when the "type" field of TOML element is the reserved name of a
 // common scalar type, such as "uint16".
 struct Terminal
 {
     BOOST_HANA_DEFINE_STRUCT( Terminal,
     	( std::string, name ),
     	( std::streamoff, size )
+    );
+};
+
+// Describe a single bit terminal type for boolean fields.  This struct gets
+// instantiated when the the "type" field of a TOML element is "bit".
+struct Bit
+{
+    BOOST_HANA_DEFINE_STRUCT( Bit,
+        ( std::string, name )
     );
 };
 
@@ -73,6 +82,17 @@ struct Skip
     );
 };
 
+// Describe an arbitrary number of bits to skip, useful for "reserved" space
+// that is not byte oriented (probably a CAN message).  This struct gets
+// instantiated from the toml "bitskip" element.
+struct BitSkip
+{
+    BOOST_HANA_DEFINE_STRUCT( BitSkip,
+        ( std::uint8_t, size ),
+        ( std::uint16_t, order )
+    );
+};
+
 // Describe an array of terminal or embedded types.  Arrays get complicated,
 // because the size may either be a fixed constant in the type definition, or
 // read from one of the parent node's Fields.  If the "count" Field in the TOML
@@ -95,7 +115,7 @@ struct Array
 struct Field
 {
     std::string name;
-    eggs::variant< std::type_index, Nested, Skip, Array > type;
+    eggs::variant< std::type_index, Bit, Nested, Skip, BitSkip, Array > type;
 
     // Optional metadata about a Field may include bigendian storage, and a
     // specialized function to pretty print the value.  Using these attributes
