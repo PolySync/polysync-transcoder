@@ -173,7 +173,7 @@ struct branch_builder
 
     void operator()(const descriptor::BitField& idx) const
     {
-        throw polysync::error( "BitField not implemented" );
+        // throw polysync::error( "BitField not implemented" );
     }
 
     void operator()(const descriptor::Array& desc) const

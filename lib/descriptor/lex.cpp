@@ -1,3 +1,4 @@
+#include <polysync/console.hpp>
 #include <polysync/descriptor/lex.hpp>
 #include <polysync/descriptor/catalog.hpp>
 
@@ -28,9 +29,16 @@ std::string lex::operator()( BitSkip idx ) const
     return "bitskip-" + std::to_string(idx.order) + "(" + std::to_string(idx.size) + ")";
 }
 
-std::string lex::operator()( BitField idx ) const
+std::string lex::operator()( BitField bitField ) const
 {
-    return "BitField";
+    std::stringstream os;
+    os << format->type( "bitfield {" );
+    for ( auto pair: bitField.fields )
+    {
+        os << format->item( pair.first, lex(pair.second) );
+    }
+    os << format->type( "}" );
+    return os.str();
 }
 
 std::string lex::operator()( Array idx ) const

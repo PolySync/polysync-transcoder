@@ -4,6 +4,7 @@
 
 #include <polysync/plugin.hpp>
 #include <polysync/descriptor/lex.hpp>
+#include <polysync/descriptor/print.hpp>
 #include <polysync/print_tree.hpp>
 
 // The list plugin dumps the dataypes and the record counts for each type found in a plog.
@@ -92,11 +93,24 @@ struct list : encode::plugin {
                                 << exception::type(pair.first)
                                 << status::description_error;
 
-                        for (const descriptor::Field& d: descriptor::catalog.at(pair.first)) {
+                        for ( const descriptor::Field& field: descriptor::catalog.at(pair.first) )
+                        {
                             std::string tags;
-                            if (d.byteorder == descriptor::ByteOrder::BigEndian)
+                            if (field.byteorder == descriptor::ByteOrder::BigEndian)
+                            {
                                 tags += std::string(" bigendian ");
-                            std::cout << format->item(d.name, descriptor::lex(d.type), tags);
+                            }
+                            std::cout << format->begin_item();
+                            if ( !field.name.empty() )
+                            {
+                                std::cout << format->fieldname( field.name + ": " );
+                            }
+                            std::cout << descriptor::lex(field.type);
+                            if ( !tags.empty() )
+                            {
+                                std::cout << " (" << tags << ")";
+                            }
+                            std::cout << format->end_item();
                         }
                         std::cout << format->end_block(cmsg);
                     } else

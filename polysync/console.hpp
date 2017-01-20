@@ -56,10 +56,10 @@ struct interface {
     virtual std::string begin_block( const std::string& name, const std::string& meta = "" ) const = 0;
     virtual std::string end_block( const std::string& meta = "" ) const = 0;
     virtual std::string item( const std::string&, const std::string&, const std::string& = "" ) const = 0;
-    virtual std::string begin_ordered(size_t idx, const std::string& name) const {
-        return std::to_string(idx) + ": " + name + " {";
-    }
+    virtual std::string begin_ordered(size_t idx, const std::string& name) const = 0;
+    virtual std::string begin_item() const = 0;
     virtual std::string end_ordered() const { return std::string(); }
+    virtual std::string end_item() const { return std::string(); }
 };
 
 struct fancy : interface {
@@ -109,9 +109,17 @@ struct fancy : interface {
         return result;
     }
 
-    std::string end_ordered() const override {
+    std::string begin_item() const override
+    {
+        std::string result = tab.back();
+        tab.push_back( tab.back() + indent );
+        return result;
+    }
+
+    std::string end_item() const override
+    {
         tab.pop_back();
-        return tab.back() + "}\n";
+        return "\n";
     }
 
     std::string error( const std::string& msg ) const override { return escape::red + msg + escape::normal; }
@@ -155,9 +163,15 @@ struct plain : interface {
         return result;
     }
 
-    std::string end_ordered() const override {
+    std::string begin_item() const override {
+        std::string result = tab.back();
+        tab.push_back(tab.back() + indent);
+        return result;
+    }
+
+    std::string end_item() const override {
         tab.pop_back();
-        return tab.back() + "}\n";
+        return "\n";
     }
 
     mutable std::vector<std::string> tab { "" };

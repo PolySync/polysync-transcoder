@@ -114,10 +114,11 @@ struct Array
 
 struct BitField
 {
-    using type = eggs::variant< Bit, BitSkip >;
-    // std::vector< std::string, type > fields;
+    using Type = eggs::variant< Bit, BitSkip >;
+    using Pair = std::pair< std::string, Type >;
+
     BOOST_HANA_DEFINE_STRUCT( BitField,
-        ( std::uint32_t, list )
+        ( std::vector<Pair>, fields )
     );
 };
 
