@@ -94,7 +94,7 @@ parseTerminal( "parseTerminalFromString", [](auto& _) {
 
                     _.test( "hex", []( polysync::variant var ) {
                             expect( []() { parseTerminalFromString( "0xFFFFFFFFFFFFFFFF", typeid(T) ); },
-                                    thrown<polysync::error>( "value overflow" ) );
+                                    thrown<polysync::error>( "value overflow on \"0xFFFFFFFFFFFFFFFF\"" ) );
                             });
                     });
 
