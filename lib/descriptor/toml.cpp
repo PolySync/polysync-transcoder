@@ -39,7 +39,12 @@ struct BitFactory
 {
     bool check( TablePtr table ) const
     {
-        return table->contains( "bit" );
+        return ( "bit" == *table->get_as<std::string>( "type" ) );
+    }
+
+    Bit operator()( TablePtr table ) const
+    {
+        return Bit { *table->get_as<std::string>("name") };
     }
 };
 
@@ -52,6 +57,10 @@ struct BitSkipFactory
         return table->contains( "bitskip" );
     }
 
+    BitSkip operator()( TablePtr table )
+    {
+        return BitSkip { *table->get_as<std::uint8_t>( "bitskip" ) };
+    }
 };
 
 struct NestedTableFactory
@@ -117,34 +126,6 @@ struct ArrayFactory
     }
 };
 
-struct BitFieldFactory
-{
-    TablePtr table;
-
-    BitFactory bit;
-    BitSkipFactory bitSkip;
-
-    bool check() const
-    {
-        return bit.check( table ) or
-               bitSkip.check( table );
-    }
-
-    Field operator()() const
-    {
-        Field field = construct( table );
-        return field;
-    }
-
-private:
-
-    Field construct( TablePtr table ) const
-    {
-        return Field { std::string(), BitField() };
-    }
- };
-
-
 struct FieldFactory
 {
     TablePtr table;
@@ -161,12 +142,6 @@ private:
 
     Field construct( TablePtr table ) const
     {
-        BitFieldFactory bitfield { table };
-        if ( bitfield.check() )
-        {
-            return bitfield();
-        }
-
         if ( !table->contains("name") )
         {
             throw polysync::error("missing required \"name\" field");
@@ -217,6 +192,40 @@ private:
     }
 };
 
+struct BitFieldFactory
+{
+    BitFactory bit;
+    BitSkipFactory bitSkip;
+
+    bool check( TablePtr table ) const
+    {
+        return bit.check( table ) or bitSkip.check( table );
+    }
+
+    Field operator()( cpptoml::table_array::iterator& current, cpptoml::table_array::iterator end ) const
+    {
+        BitField bitfield;
+        BitFactory bit;
+        BitSkipFactory bitskip;
+        while ( check( *current) and current != end )
+        {
+            if ( bitskip.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bitskip( *current ) );
+            }
+            if ( bit.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bit(*current) );
+            }
+            ++current;
+        }
+        return Field { std::string(), bitfield };
+    }
+
+ };
+
+
+
 // Decode a TOML table into type descriptors
 std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml::base> element )
 {
@@ -248,8 +257,8 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
         descriptor::Type description(name);
 
         SkipFactory skip;
-        BitSkipFactory bitskip;
         auto tableArray = descriptionTable->as_table_array();
+        BitFieldFactory bitfield;
         for ( auto it = tableArray->begin(); it != tableArray->end(); ++it )
         {
             if ( skip.check( *it ) )
@@ -258,11 +267,11 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
                 continue;
             }
 
-            // if ( bitskip.check( *it ) )
-            // {
-            //     description.emplace_back( bitskip( *it ) );
-            //     continue;
-            // }
+            if ( bitfield.check( *it ) )
+            {
+                description.emplace_back( bitfield( it, tableArray->end() ) );
+                continue;
+            }
 
             FieldFactory field { *it };
             description.emplace_back( field() );

@@ -20,8 +20,12 @@ std::ostream& operator<<( std::ostream& os, const Type& desc )
 
 std::ostream& operator<<(std::ostream& os, const BitField& bitField )
 {
-    os << format->type("bitfield {");
-    return os << format->type(" }");
+    os << format->begin_block( "bitfield" );
+    for ( auto pair: bitField.fields )
+    {
+        os << format->begin_item() << lex(pair) << format->end_item();
+    }
+    return os << format->end_block();
 }
 
 }} // namespace polysync::descriptor

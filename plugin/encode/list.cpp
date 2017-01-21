@@ -74,24 +74,29 @@ struct list : encode::plugin {
         visit.record.connect(std::ref(count));
 
         // At cleanup, we finally print, because now we know how many instances we saw.
-        visit.cleanup.connect([this, detail, typefilter](const Decoder& decode) {
-
+        visit.cleanup.connect( [ this, detail, typefilter ]( const Decoder& decode )
+            {
                 // Iterate all the found types and print them.
-                for (auto pair: count.types) {
-
+                for ( auto pair: count.types )
+                {
                     // Honor the type filter
-                    if (!typefilter.count(pair.first) && !typefilter.empty())
+                    if ( !typefilter.count(pair.first) && !typefilter.empty() )
+                    {
                         continue;
+                    }
 
-                    std::string cmsg = "x" + std::to_string(count.types.at(pair.first));
+                    std::string cmsg = "x" + std::to_string( count.types.at(pair.first) );
 
-                    if (detail) {
-                        std::cout << format->begin_block(pair.first);
+                    if ( detail )
+                    {
+                        std::cout << format->begin_block( pair.first );
 
-                        if (!descriptor::catalog.count(pair.first))
-                            throw polysync::error("no type description")
-                                << exception::type(pair.first)
+                        if ( !descriptor::catalog.count( pair.first ) )
+                        {
+                            throw polysync::error( "no type description" )
+                                << exception::type( pair.first )
                                 << status::description_error;
+                        }
 
                         for ( const descriptor::Field& field: descriptor::catalog.at(pair.first) )
                         {

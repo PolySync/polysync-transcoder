@@ -115,12 +115,22 @@ struct Array
 struct BitField
 {
     using Type = eggs::variant< Bit, BitSkip >;
-    using Pair = std::pair< std::string, Type >;
 
     BOOST_HANA_DEFINE_STRUCT( BitField,
-        ( std::vector<Pair>, fields )
+        ( std::vector<Type>, fields )
     );
 };
+
+inline bool operator==( const BitField::Type& lhs, const BitField::Type& rhs )
+{
+    return lhs == rhs;
+}
+
+inline bool operator!=( const BitField::Type& lhs, const BitField::Type& rhs )
+{
+    return !operator==( lhs, rhs );
+}
+
 
 struct Field
 {
