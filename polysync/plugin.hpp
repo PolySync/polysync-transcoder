@@ -26,7 +26,7 @@ struct Visitor
 
     callback< const Seq& > open; // New plog file was opened.
     callback< plog::ps_log_header& > log_header; // New plog file was opened and log_header read.
-    callback< const node& > record; // Response to each log_record
+    callback< const Node& > record; // Response to each log_record
     callback< const Seq& > cleanup; // Decoder is destructed
     callback< const plog::ps_type_support& > type_support; // Type support name/number association
 

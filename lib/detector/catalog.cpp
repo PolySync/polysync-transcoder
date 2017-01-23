@@ -41,10 +41,10 @@ inline T stoulCast( const std::string& value )
 // string (which TOML does support) using the std::type_index from the type
 // description.  It supports all integer types and floats, including hex and
 // octal notation thanks to std::stoul().
-variant parseTerminalFromString( const std::string& value, const std::type_index& type )
+Variant parseTerminalFromString( const std::string& value, const std::type_index& type )
 {
     static const std::map< std::type_index,
-                           std::function< variant (const std::string&) > > factory =
+                           std::function< Variant (const std::string&) > > factory =
     {
         { typeid(std::int8_t),
             []( const std::string& value ) { return stoulCast<std::int8_t>( value ); } },
@@ -118,9 +118,9 @@ Catalog buildDetectors(
     {
         std::string precursorName = checkedTomlGet<std::string>( tomlTable, "name" );
 
-        // Accumulate a set of (string, variant) pairs in "match" that must all match the
+        // Accumulate a set of (string, Variant) pairs in "match" that must all match the
         // precursor type's payload, in order for the detection to succeed.
-        std::map< std::string, variant> match;
+        std::map< std::string, Variant> match;
 
         const descriptor::Type& description = descriptor::catalog.at( precursorName );
         for ( auto pair: *tomlTable )

@@ -20,16 +20,16 @@ public:
 
     Decoder( std::istream& st );
 
-    variant operator()( const descriptor::Type& );
+    Variant operator()( const descriptor::Type& );
 
 public:
     // The decode() members are public only because the unit tests call them.
 
     // Dynamic compound type from descriptor
-    variant decode( const descriptor::Type& );
+    Variant decode( const descriptor::Type& );
 
     // Dynamic compound type, but look up the description first by name
-    variant decode( const std::string& type );
+    Variant decode( const std::string& type );
 
     // Factory functions of any supported type
     template <typename T>
@@ -63,7 +63,7 @@ public:
     void decode( sequence<LenType, std::uint8_t>& name );
 
     // Raw, uninterpreted bytes used when type description is unavailable
-    void decode( bytes& raw );
+    void decode( Bytes& raw );
 
     // Decode any type, but seek to a known position first
     template <typename T>
@@ -71,8 +71,8 @@ public:
 
 protected:
 
-    using Parser = std::function<variant ( Decoder& )>;
-    static std::map<std::string, Parser> parseMap;
+    using Parser = std::function< Variant ( Decoder& ) >;
+    static std::map< std::string, Parser > parseMap;
 
     logging::logger log { "decoder" };
 
@@ -202,16 +202,16 @@ struct Sequencer : Decoder
 
     // Kick off a decode with the header type. Continue reading the stream until it ends.
     template <typename T>
-    variant deep( const Header& record )
+    Variant deep( const Header& record )
     {
-        variant result = from_hana(record, descriptor::terminalTypeMap.at(typeid(Header)).name);
-        polysync::tree& tree = *result.target<polysync::tree>();
+        Variant result = from_hana( record, descriptor::terminalTypeMap.at( typeid(Header) ).name );
+        polysync::Tree& tree = *result.target<polysync::Tree>();
 
-        record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
+        record_endpos = stream.tellg() + static_cast<std::streamoff>( record.size );
 
         // Decode a sequence of static types, if given.  No detectors or
         // branching is possible with static types, but decoding is much faster.
-        tree->emplace_back(from_hana( decode<T>(), descriptor::terminalTypeMap.at(typeid(T)).name ) );
+        tree->emplace_back( from_hana( decode<T>(), descriptor::terminalTypeMap.at(typeid(T)).name ) );
 
         // Burn through the rest of the log record, decoding a sequence of
         // dynamic types, for which detectors and descriptors must exist.

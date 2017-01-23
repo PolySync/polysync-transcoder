@@ -164,7 +164,7 @@ struct Field
     // is optional.
     descriptor::ByteOrder byteorder;
 
-    std::function< std::string ( const polysync::variant& ) > format;
+    std::function< std::string ( const polysync::Variant& ) > format;
 };
 
 template <typename T>
@@ -187,7 +187,7 @@ inline bool operator!=( const Field& lhs, const Field& rhs )
 inline bool operator==( const Type& lhs, const Type& rhs )
 {
     return lhs.name == rhs.name
-        and std::equal( lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), hana::equal);
+        and std::equal( lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), hana::equal );
 }
 
 inline bool operator!=( const Type& lhs, const Type& rhs )

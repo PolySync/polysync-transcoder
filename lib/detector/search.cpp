@@ -25,7 +25,7 @@ using Matchlist = std::vector<std::string>;
 
 struct Matcher {
 
-    const node& current;
+    const Node& current;
 
     Matchlist operator()( Matchlist& result, const detector::Type& detect )
     {
@@ -40,14 +40,14 @@ struct Matcher {
         }
 
         Matchlist mismatches;
-        polysync::tree tree = *current.target<polysync::tree>();
+        polysync::Tree tree = *current.target<polysync::Tree>();
 
         // Iterate each field in the detector looking for mismatches.
         for ( auto field: detect.matchField )
         {
             // Search the tree for matching fields by name
             auto it = std::find_if( tree->begin(), tree->end(),
-                    [ field ]( const node& n ) { return n.name == field.first; });
+                    [ field ]( const Node& n ) { return n.name == field.first; });
 
             if ( it == tree->end() )
             {
@@ -109,7 +109,7 @@ struct Matcher {
 
 };
 
-std::string search( const node& current )
+std::string search( const Node& current )
 {
     try
     {

@@ -89,7 +89,7 @@ public:
     // Integers longer than 64 bits (like ps_hash_type)
     void encode( const boost::multiprecision::cpp_int& value )
     {
-        bytes buf(16);
+        Bytes buf(16);
         boost::multiprecision::export_bits( value, buf.begin(), 8 );
 
         // export_bits helpfully omits the zero high order bits.  This is not what I want.
@@ -100,7 +100,7 @@ public:
         stream.write( (char *)buf.data(), buf.size() );
     }
 
-    void encode( const polysync::tree&, const descriptor::Type& );
+    void encode( const polysync::Tree&, const descriptor::Type& );
 
     template <typename T>
     void encode( const std::vector<T>& vec )
@@ -108,12 +108,12 @@ public:
         std::for_each(vec.begin(), vec.end(), [this](const T& val) { this->encode(val); });
     }
 
-    void encode( const polysync::tree& t )
+    void encode( const polysync::Tree& t )
     {
         return encode(*t);
     }
 
-    void encode( const polysync::variant& n )
+    void encode( const polysync::Variant& n )
     {
         eggs::variants::apply([this](auto& value) { this->encode(value); }, n);
     }

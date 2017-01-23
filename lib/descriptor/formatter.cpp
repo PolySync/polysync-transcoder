@@ -7,8 +7,9 @@
 
 namespace polysync { namespace descriptor {
 
-std::map< std::string, decltype( Field::format ) > formatFunction {
-    { "hex", []( const variant& value )
+std::map< std::string, decltype( Field::format ) > formatFunction
+{
+    { "hex", []( const Variant& value )
         {
             // The hex formatter just uses the default operator<<(), but kicks on std::hex first.
             std::stringstream os;
@@ -16,7 +17,7 @@ std::map< std::string, decltype( Field::format ) > formatFunction {
             return os.str();
         }
     },
-    { "decimal_and_hex", []( const variant& value )
+    { "decimal_and_hex", []( const Variant& value )
         {
             std::stringstream os;
             eggs::variants::apply( [ &os ]( auto v ) {
@@ -26,7 +27,7 @@ std::map< std::string, decltype( Field::format ) > formatFunction {
         }
     }
         // Add additional formatters thusly:
-    // { "NTP64", []( const variant& n )
+    // { "NTP64", []( const Variant& n )
     //     {
     //     }
     // },

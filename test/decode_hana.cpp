@@ -21,7 +21,7 @@ namespace ps = polysync;
 
 struct number_factory {
     template <typename T>
-    polysync::variant make() { return T { 42 }; }
+    polysync::Variant make() { return T { 42 }; }
 };
 
 struct hana_factory {
@@ -113,9 +113,9 @@ hash("hash_type", [](auto& _) {
             std::stringstream stream;
             ps::Encoder(stream).encode(value);
 
-            polysync::bytes result(16);
+            polysync::Bytes result(16);
             stream.read((char *)result.data(), result.size());
-            polysync::bytes truth = { 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            polysync::Bytes truth = { 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             expect(result, equal_to(truth));
             });
 

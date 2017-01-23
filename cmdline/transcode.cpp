@@ -250,7 +250,7 @@ int catch_main( int ac, char* av[] ) {
                             [&rec]( const ps::filter::type& pred ) { return pred(rec); }) )
                 {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;
-                    polysync::node top( "ps_log_record", sequencer.deep<plog::ps_msg_header>(rec) );
+                    polysync::Node top( "ps_log_record", sequencer.deep<plog::ps_msg_header>(rec) );
                     visit.record(top);
                 }
             }

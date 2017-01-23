@@ -59,8 +59,8 @@ public:
 
         // Serialize every record.
         descriptor::Type desc = descriptor::catalog.at("ps_log_record");
-        visit.record.connect([desc](const polysync::node& top) {
-                writer->encode(*top.target<tree>(), desc);
+        visit.record.connect([desc](const polysync::Node& top) {
+                writer->encode(*top.target<Tree>(), desc);
                 });
     }
 };
