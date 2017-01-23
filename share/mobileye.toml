@@ -22,8 +22,7 @@
         { bitskip = 5 },
         { bitskip = 8 },
         { name = "WarningLevel", type = "bit" },
-        { bitskip = 7 },
-        { name = "dummy", type="uint8" }
+        { bitskip = 7 }
     ]
     detector = [
         { name = "ps_can_frame_msg", id = "0x700" }

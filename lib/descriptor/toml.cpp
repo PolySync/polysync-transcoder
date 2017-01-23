@@ -228,7 +228,7 @@ struct BitFieldFactory
         BitFactory bit;
         BitsetFactory bitset;
         BitSkipFactory bitskip;
-        while ( check( *current) and current != end )
+        while ( current != end and check( *current) )
         {
             if ( bitskip.check( *current ) )
             {
@@ -295,6 +295,11 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
             if ( bitfield.check( *it ) )
             {
                 description.emplace_back( bitfield( it, tableArray->end() ) );
+                // it gets incremented as a side effect of bitfield()
+                if ( it == tableArray->end() )
+                {
+                    break;
+                }
                 continue;
             }
 

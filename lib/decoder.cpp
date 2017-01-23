@@ -1,6 +1,7 @@
 #include <bitset>
 
 #include <polysync/detector.hpp>
+#include <polysync/descriptor/formatter.hpp>
 #include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
@@ -159,11 +160,10 @@ struct branch_builder
         {
             std::uint8_t size = eggs::variants::apply( []( auto var ) { return var.size; }, field );
             const std::string& name = eggs::variants::apply( []( auto var ) { return var.name; }, field );
-            std::uint32_t value;
-            value = (blob & ((1 << size) - 1)).convert_to<std::uint32_t>();
-            std::cout << std::bitset<64>(blob.convert_to<std::uint64_t>()) << std::endl;
-            std::cout << name << " " << std::hex << value << std::endl;
+            std::uint8_t value = (blob & ((1 << size) - 1)).convert_to<std::uint8_t>();
             blob >>= size;
+            branch->emplace_back( name, value );
+            branch->back().format = descriptor::formatFunction.at( "hex" );
         }
     }
 

@@ -50,9 +50,13 @@ struct pretty_printer {
     print(const Node& n, const Number& value) const {
         std::stringstream ss;
         if (n.format)
+        {
             ss << n.format(n);
+        }
         else
+        {
             ss << value;
+        }
         std::string type = descriptor::terminalTypeMap.at(typeid(Number)).name;
         os << format->item(n.name, ss.str(), type);
     }
@@ -60,7 +64,14 @@ struct pretty_printer {
     // Specialize chars so they print as integers
     void print(const Node& n, const std::uint8_t& value) const {
         std::stringstream ss;
-        ss << static_cast<std::uint16_t>(value);
+        if (n.format)
+        {
+            ss << n.format(n);
+        }
+        else
+        {
+            ss << value;
+        }
         os << format->item(n.name, ss.str(), "uint16");
     }
 
