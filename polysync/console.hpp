@@ -84,7 +84,7 @@ struct fancy : interface {
 
     std::string begin_block( const std::string& name, const std::string& meta ) const override
     {
-        std::string result = std::string(escape::cyan) + escape::bold + name + escape::normal;
+        std::string result = tab.back() + std::string(escape::cyan) + escape::bold + name + escape::normal;
         if ( !meta.empty() )
             result += " [" + meta + "]";
         result += std::string( escape::cyan ) + escape::bold + " {\n" + escape::normal;

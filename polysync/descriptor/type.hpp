@@ -4,6 +4,7 @@
 #include <typeindex>
 #include <vector>
 #include <iostream>
+#include <numeric>
 
 #include <boost/hana.hpp>
 
@@ -53,13 +54,24 @@ struct Bit
     BOOST_HANA_DEFINE_STRUCT( Bit,
         ( std::string, name )
     );
+
+    static const std::uint8_t size = 1;
+};
+
+struct Bitset
+{
+    BOOST_HANA_DEFINE_STRUCT( Bitset,
+        ( std::string, name ),
+        ( std::uint8_t, size )
+    );
 };
 
 // Describe a nested type embedded as an element of a higher level type.  The
 // nested type must be registered separately in descriptor::catalog.  This
 // struct gets instantiated when the "type" Field of a TOML element is not a
 // native type key (like "uint16").
-struct Nested {
+struct Nested
+{
     BOOST_HANA_DEFINE_STRUCT( Nested,
     	( std::string, name )
     );
@@ -91,6 +103,8 @@ struct BitSkip
         ( std::uint8_t, size ),
         ( std::uint16_t, order )
     );
+
+    const std::string name { "skip" };
 };
 
 // Describe an array of terminal or embedded types.  Arrays get complicated,
@@ -114,11 +128,19 @@ struct Array
 
 struct BitField
 {
-    using Type = eggs::variant< Bit, BitSkip >;
+    using Type = eggs::variant< Bit, Bitset, BitSkip >;
 
     BOOST_HANA_DEFINE_STRUCT( BitField,
         ( std::vector<Type>, fields )
     );
+
+    size_t size() const // total number of bits in field
+    {
+        return std::accumulate( fields.begin(), fields.end(), 0,
+                []( size_t sum, const Type& var ) {
+                    return sum + eggs::variants::apply([]( auto desc ) -> size_t { return desc.size; }, var );
+                });
+    }
 };
 
 inline bool operator==( const BitField::Type& lhs, const BitField::Type& rhs )

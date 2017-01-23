@@ -1,7 +1,29 @@
 [mobileye.AWS_Display]
     description = [
-        { skip = 2 },
-        { name = "Headway_measurement", type = "uint8" }
+        { bitskip = 3 },
+        { name = "NightTime", type = "bit" },
+        { name = "DuskTime", type = "bit" },
+        { bitskip = 3 },
+        { bitskip = 8 },
+        { name = "HW_valid", type = "bit" },
+        { name = "Headway_measurement", type = "bit", count=7 },
+        { bitskip = 8 },
+        { name = "Lanes_on", type = "bit" },
+        { name = "LeftLDW_on", type = "bit" },
+        { name = "RightLDW_on", type = "bit" },
+        { name = "FCW_on", type = "bit" },
+        { name = "LeftCrossing", type = "bit" },
+        { name = "RightCrossing", type = "bit" },
+        { name = "Maintenance", type = "bit" },
+        { name = "Failsafe", type = "bit" },
+        { bitskip = 1 },
+        { name = "PedFCW", type = "bit" },
+        { name = "PedInDZ", type = "bit" },
+        { bitskip = 5 },
+        { bitskip = 8 },
+        { name = "WarningLevel", type = "bit" },
+        { bitskip = 7 },
+        { name = "dummy", type="uint8" }
     ]
     detector = [
         { name = "ps_can_frame_msg", id = "0x700" }

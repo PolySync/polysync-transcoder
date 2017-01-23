@@ -35,16 +35,35 @@ struct SkipFactory
     }
 };
 
+struct BitsetFactory
+{
+    bool check( TablePtr table ) const
+    {
+        return ( table->contains( "type" ) and table->contains( "count" ) and
+                "bit" == *table->get_as<std::string>( "type" ) );
+    }
+
+    Bitset operator()( TablePtr table ) const
+    {
+        std::string name = *table->get_as<std::string>( "name" );
+        std::uint8_t count = *table->get_as<std::uint8_t>( "count" );
+        return Bitset { name, count };
+    }
+};
+
 struct BitFactory
 {
     bool check( TablePtr table ) const
     {
-        return ( "bit" == *table->get_as<std::string>( "type" ) );
+        return table->contains( "type" )
+            and "bit" == *table->get_as<std::string>( "type" )
+            and !table->contains( "count" );
     }
 
     Bit operator()( TablePtr table ) const
     {
-        return Bit { *table->get_as<std::string>("name") };
+        std::string name = *table->get_as<std::string>( "name" );
+        return Bit { name };
     }
 };
 
@@ -195,17 +214,19 @@ private:
 struct BitFieldFactory
 {
     BitFactory bit;
+    BitsetFactory bitset;
     BitSkipFactory bitSkip;
 
     bool check( TablePtr table ) const
     {
-        return bit.check( table ) or bitSkip.check( table );
+        return bit.check( table ) or bitset.check( table) or bitSkip.check( table );
     }
 
     Field operator()( cpptoml::table_array::iterator& current, cpptoml::table_array::iterator end ) const
     {
         BitField bitfield;
         BitFactory bit;
+        BitsetFactory bitset;
         BitSkipFactory bitskip;
         while ( check( *current) and current != end )
         {
@@ -216,6 +237,10 @@ struct BitFieldFactory
             if ( bit.check( *current ) )
             {
                 bitfield.fields.emplace_back( bit(*current) );
+            }
+            if ( bitset.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bitset(*current) );
             }
             ++current;
         }

@@ -14,6 +14,7 @@ struct lex : std::string
 
     std::string operator()( std::type_index ) const;
     std::string operator()( Bit ) const;
+    std::string operator()( Bitset ) const;
     std::string operator()( Nested ) const;
     std::string operator()( Skip ) const;
     std::string operator()( BitSkip ) const;

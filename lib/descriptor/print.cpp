@@ -21,9 +21,16 @@ std::ostream& operator<<( std::ostream& os, const Type& desc )
 std::ostream& operator<<(std::ostream& os, const BitField& bitField )
 {
     os << format->begin_block( "bitfield" );
-    for ( auto pair: bitField.fields )
+    for ( auto field: bitField.fields )
     {
-        os << format->begin_item() << lex(pair) << format->end_item();
+        os << format->begin_item()
+           << eggs::variants::apply( []( auto f ) { return format->fieldname(f.name); }, field);
+        std::uint8_t size = eggs::variants::apply( []( auto f ) { return f.size; }, field );
+        if ( size > 1 )
+        {
+            os << "(" << (std::uint16_t)size << ")";
+        }
+        os << format->end_item();
     }
     return os << format->end_block();
 }

@@ -101,7 +101,7 @@ struct list : encode::plugin {
                         for ( const descriptor::Field& field: descriptor::catalog.at(pair.first) )
                         {
                             std::string tags;
-                            if (field.byteorder == descriptor::ByteOrder::BigEndian)
+                            if ( field.byteorder == descriptor::ByteOrder::BigEndian )
                             {
                                 tags += std::string(" bigendian ");
                             }
@@ -110,7 +110,7 @@ struct list : encode::plugin {
                             {
                                 std::cout << format->fieldname( field.name + ": " );
                             }
-                            std::cout << descriptor::lex(field.type);
+                            std::cout << descriptor::lex( field.type );
                             if ( !tags.empty() )
                             {
                                 std::cout << " (" << tags << ")";

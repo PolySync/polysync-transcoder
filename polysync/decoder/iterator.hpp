@@ -67,7 +67,7 @@ struct Iterator {
         try
         {
             stream->decode( *header, pos );
-            BOOST_LOG_SEV( stream->log, severity::debug1 )
+            BOOST_LOG_SEV( stream->log, severity::debug2 )
                 << "decoding header between " << pos << ":" << pos + recordSize;
         }
         catch ( polysync::error )

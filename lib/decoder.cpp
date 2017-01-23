@@ -1,3 +1,5 @@
+#include <bitset>
+
 #include <polysync/detector.hpp>
 #include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
@@ -138,9 +140,31 @@ struct branch_builder
             << ")";
     }
 
-    void operator()(const descriptor::Bit& idx) const
+    void operator()(const descriptor::BitField& idx) const
     {
-        throw polysync::error( "Bit not implemented" );
+        size_t size = idx.size();
+        BOOST_LOG_SEV( d->log, severity::debug1 )
+            << "buffering " << size << " bits for bitfield partition";
+        if ( size % 8 )
+        {
+            throw polysync::error( "bitfield must have total size an integral number of bytes" );
+        }
+
+        namespace mp = boost::multiprecision;
+        mp::cpp_int blob;
+        bytes buf( size/8 );
+        d->stream.read( (char*)buf.data(), buf.size() );
+        mp::import_bits( blob, buf.begin(), buf.end(), 8 );
+        for ( auto field: idx.fields )
+        {
+            std::uint8_t size = eggs::variants::apply( []( auto var ) { return var.size; }, field );
+            const std::string& name = eggs::variants::apply( []( auto var ) { return var.name; }, field );
+            std::uint32_t value;
+            value = (blob & ((1 << size) - 1)).convert_to<std::uint32_t>();
+            std::cout << std::bitset<64>(blob.convert_to<std::uint64_t>()) << std::endl;
+            std::cout << name << " " << std::hex << value << std::endl;
+            blob >>= size;
+        }
     }
 
     // Nested described type
@@ -169,11 +193,6 @@ struct branch_builder
         std::string name = "skip-" + std::to_string(skip.order);
         branch->emplace_back(name, raw);
         BOOST_LOG_SEV(d->log, severity::debug2) << name << " " << raw;
-    }
-
-    void operator()(const descriptor::BitField& idx) const
-    {
-        // throw polysync::error( "BitField not implemented" );
     }
 
     void operator()(const descriptor::Array& desc) const

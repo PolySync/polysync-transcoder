@@ -15,6 +15,11 @@ std::string lex::operator()( Bit idx ) const
     return idx.name;
 }
 
+std::string lex::operator()( Bitset idx ) const
+{
+    return idx.name;
+}
+
 std::string lex::operator()( Nested idx ) const
 {
     return idx.name;
