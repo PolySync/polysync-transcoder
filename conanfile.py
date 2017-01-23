@@ -26,6 +26,7 @@ class Recipe(ConanFile):
     def requirements(self):
 
         self.requires( "boost/1.63.0@polysync/boost" )
+        self.options["boost"].shared = True
         self.requires( "mettle/1.2.12@polysync/mettle" )
 
         parse_reqs(self)
