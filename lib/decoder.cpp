@@ -1,12 +1,14 @@
+#include <bitset>
+
 #include <polysync/detector.hpp>
+#include <polysync/descriptor/formatter.hpp>
 #include <polysync/print_tree.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/exception.hpp>
 #include <polysync/hana.hpp>
+#include <polysync/decoder/decoder.hpp>
 
-#include <polysync/plog/decoder.hpp>
-
-namespace polysync { namespace plog {
+namespace polysync {
 
 using logging::severity;
 
@@ -15,116 +17,75 @@ using logging::severity;
 // however, needs the C++ type, not a string representation of the type.  Here,
 // we have a grand old mapping of the string type names (from TOML) to the type
 // specific decode function.
-std::map<std::string, decoder::parser> decoder::parse_map =
+std::map<std::string, Decoder::Parser> Decoder::parseMap =
 {
    // Native integers
-   { "uint8", [](decoder& r) { return r.decode<std::uint8_t>(); } },
-   { "uint16", [](decoder& r) { return r.decode<std::uint16_t>(); } },
-   { "uint32", [](decoder& r) { return r.decode<std::uint32_t>(); } },
-   { "uint64", [](decoder& r) { return r.decode<std::uint64_t>(); } },
-   { "int8", [](decoder& r) { return r.decode<std::int8_t>(); } },
-   { "int16", [](decoder& r) { return r.decode<std::int16_t>(); } },
-   { "int32", [](decoder& r) { return r.decode<std::int32_t>(); } },
-   { "int64", [](decoder& r) { return r.decode<std::int64_t>(); } },
+   { "uint8", [](Decoder& r) { return r.decode<std::uint8_t>(); } },
+   { "uint16", [](Decoder& r) { return r.decode<std::uint16_t>(); } },
+   { "uint32", [](Decoder& r) { return r.decode<std::uint32_t>(); } },
+   { "uint64", [](Decoder& r) { return r.decode<std::uint64_t>(); } },
+   { "int8", [](Decoder& r) { return r.decode<std::int8_t>(); } },
+   { "int16", [](Decoder& r) { return r.decode<std::int16_t>(); } },
+   { "int32", [](Decoder& r) { return r.decode<std::int32_t>(); } },
+   { "int64", [](Decoder& r) { return r.decode<std::int64_t>(); } },
 
    // Bigendian integers
-   { "uint16.be", [](decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
-   { "uint32.be", [](decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
-   { "uint64.be", [](decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
-   { "int16.be", [](decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
-   { "int32.be", [](decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
-   { "int64.be", [](decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
+   { "uint16.be", [](Decoder& r){ return r.decode<boost::endian::big_uint16_t>(); } },
+   { "uint32.be", [](Decoder& r){ return r.decode<boost::endian::big_uint32_t>(); } },
+   { "uint64.be", [](Decoder& r){ return r.decode<boost::endian::big_uint64_t>(); } },
+   { "int16.be", [](Decoder& r){ return r.decode<boost::endian::big_int16_t>(); } },
+   { "int32.be", [](Decoder& r){ return r.decode<boost::endian::big_int32_t>(); } },
+   { "int64.be", [](Decoder& r){ return r.decode<boost::endian::big_int64_t>(); } },
 
    // Floating point types and aliases
-   { "float", [](decoder& r) { return r.decode<float>(); } },
-   { "float32", [](decoder& r) { return r.decode<float>(); } },
-   { "double", [](decoder& r) { return r.decode<double>(); } },
-   { "float64", [](decoder& r) { return r.decode<double>(); } },
+   { "float", [](Decoder& r) { return r.decode<float>(); } },
+   { "float32", [](Decoder& r) { return r.decode<float>(); } },
+   { "double", [](Decoder& r) { return r.decode<double>(); } },
+   { "float64", [](Decoder& r) { return r.decode<double>(); } },
 
    // Bigendian floats: first byteswap as uint, then emplacement new to float.
-   { "float.be", [](decoder& r) {
+   { "float.be", [](Decoder& r) {
            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "float32.be", [](decoder& r) {
+   { "float32.be", [](Decoder& r) {
            std::uint32_t swap = r.decode<boost::endian::big_uint32_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "double.be", [](decoder& r) {
+   { "double.be", [](Decoder& r) {
            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
            return *(new ((void *)&swap) float);
        } },
-   { "float64.be", [](decoder& r) {
+   { "float64.be", [](Decoder& r) {
            std::uint64_t swap = r.decode<boost::endian::big_uint64_t>().value();
            return *(new ((void *)&swap) float);
        } },
 
    // Fallback bytes buffer
-   { "raw", [](decoder& r)
+   { "raw", [](Decoder& r)
        {
            std::streampos rem = r.record_endpos - r.stream.tellg();
-           polysync::bytes raw(rem);
+           polysync::Bytes raw(rem);
            r.stream.read((char *)raw.data(), rem);
-           return node("raw", raw);
+           return Node("raw", raw);
        }},
 };
 
 
-decoder::decoder( std::istream& st ) : stream( st )
+Decoder::Decoder( std::istream& st ) : stream( st )
 {
     // Enable exceptions for all reads
     stream.exceptions( std::ifstream::failbit );
 }
 
-iterator decoder::begin()
-{
-    return iterator ( this, stream.tellg() );
-}
-
-iterator decoder::end()
-{
-    // Find the last byte of the file
-    std::streamoff current = stream.tellg();
-    stream.seekg( 0, std::ios_base::end );
-    std::streamoff end = stream.tellg();
-    stream.seekg( current );
-
-    return iterator ( end );
-}
-
-
-// Kick off a decode with an implict type "log_record" and starting type
-// "msg_header".  Continue reading the stream until it ends.
-variant decoder::deep(const ps_log_record& record) {
-
-    variant result = from_hana(record, "ps_log_record");
-    polysync::tree& tree = *result.target<polysync::tree>();
-
-    record_endpos = stream.tellg() + static_cast<std::streamoff>(record.size);
-
-    // There is no simple way to detect and enforce that a blob starts with a
-    // msg_header.  Hence, we must just assume that every message is well
-    // formed and starts with a msg_header.  In that case, might as well do a
-    // static parse on msg_header and dynamic parse the rest.
-    tree->emplace_back(from_hana(decode<ps_msg_header>(), "ps_msg_header"));
-
-    // Burn through the rest of the log record, decoding a sequence of types.
-    while (stream.tellg() < record_endpos) {
-        std::string type = detector::search(tree->back());
-        tree->emplace_back(type, decode(type));
-    }
-    return std::move(result);
-}
-
 // Read a field, described by looking up thef type by string.  The type strings can
 // be compound types described in the TOML description, primitive types known
 // by parse_map, or strings generated by boost::hana from compile time structs.
-variant decoder::decode( const std::string& type )
+Variant Decoder::decode( const std::string& type )
 {
+    auto parse = parseMap.find( type );
 
-    auto parse = parse_map.find( type );
-
-    if ( parse != parse_map.end() )
+    if ( parse != parseMap.end() )
     {
         return parse->second( *this );
     }
@@ -133,7 +94,7 @@ variant decoder::decode( const std::string& type )
     {
         throw polysync::error( "no decoder" )
            << exception::type( type )
-           << exception::module( "plog::decoder" )
+           << exception::module( "decoder" )
            << status::description_error;
     }
 
@@ -146,9 +107,9 @@ variant decoder::decode( const std::string& type )
 
 struct branch_builder
 {
-    polysync::tree branch;
+    polysync::Tree branch;
     const descriptor::Field& fieldDescriptor;
-    decoder* d;
+    Decoder* d;
 
     // Terminal types
     void operator()( const std::type_index& idx ) const
@@ -171,13 +132,39 @@ struct branch_builder
                 break;
         }
 
-        variant a = d->decode(tname);
+        Variant a = d->decode(tname);
         branch->emplace_back(fieldDescriptor.name, a);
         branch->back().format = fieldDescriptor.format;
         BOOST_LOG_SEV(d->log, severity::debug2) << fieldDescriptor.name << " = "
             << branch->back() << " (" << term->second.name
             << (fieldDescriptor.byteorder == descriptor::ByteOrder::BigEndian ? ", bigendian" : "")
             << ")";
+    }
+
+    void operator()(const descriptor::BitField& idx) const
+    {
+        size_t size = idx.size();
+        BOOST_LOG_SEV( d->log, severity::debug1 )
+            << "buffering " << size << " bits for bitfield partition";
+        if ( size % 8 )
+        {
+            throw polysync::error( "bitfield must have total size an integral number of bytes" );
+        }
+
+        namespace mp = boost::multiprecision;
+        mp::cpp_int blob;
+        Bytes buf( size/8 );
+        d->stream.read( (char*)buf.data(), buf.size() );
+        mp::import_bits( blob, buf.begin(), buf.end(), 8 );
+        for ( auto field: idx.fields )
+        {
+            std::uint8_t size = eggs::variants::apply( []( auto var ) { return var.size; }, field );
+            const std::string& name = eggs::variants::apply( []( auto var ) { return var.name; }, field );
+            std::uint8_t value = (blob & ((1 << size) - 1)).convert_to<std::uint8_t>();
+            blob >>= size;
+            branch->emplace_back( name, value );
+            branch->back().format = descriptor::formatFunction.at( "hex" );
+        }
     }
 
     // Nested described type
@@ -192,7 +179,7 @@ struct branch_builder
         if (!descriptor::catalog.count(nest.name))
             throw polysync::error("no nested descriptor for \"" + nest.name + "\"");
         const descriptor::Type& desc = descriptor::catalog.at(nest.name);
-        node a(fieldDescriptor.name, d->decode(desc));
+        Node a(fieldDescriptor.name, d->decode(desc));
         branch->emplace_back(fieldDescriptor.name, a);
         BOOST_LOG_SEV(d->log, severity::debug2) << fieldDescriptor.name << " = " << a
             << " (nested \"" << nest.name << "\")";
@@ -201,7 +188,7 @@ struct branch_builder
     // Burn off unused or reserved space
     void operator()(const descriptor::Skip& skip) const
     {
-        polysync::bytes raw(skip.size);
+        polysync::Bytes raw(skip.size);
         d->stream.read((char *)raw.data(), skip.size);
         std::string name = "skip-" + std::to_string(skip.order);
         branch->emplace_back(name, raw);
@@ -219,7 +206,7 @@ struct branch_builder
         {
             // The branch should have a previous element with name sizefield
             auto node_iter = std::find_if(branch->begin(), branch->end(),
-                    [sizefield](const node& n) { return n.name == *sizefield; });
+                    [sizefield](const Node& n) { return n.name == *sizefield; });
 
             if (node_iter == branch->end())
                 throw polysync::error("array size indicator field not found")
@@ -254,12 +241,12 @@ struct branch_builder
                 throw polysync::error("unknown nested type");
 
             const descriptor::Type& nest = descriptor::catalog.at(*nesttype);
-            std::vector<polysync::tree> array;
+            std::vector<polysync::Tree> array;
             for (size_t i = 0; i < size; ++i)
             {
                 BOOST_LOG_SEV(d->log, severity::debug2) << "decoding " << nest.name
                     <<  " #" << i + 1 << " of " << size;
-                array.push_back(*(d->decode(nest).target<polysync::tree>()));
+                array.push_back(*(d->decode(nest).target<polysync::Tree>()));
             }
             branch->emplace_back(fieldDescriptor.name, array);
             BOOST_LOG_SEV(d->log, severity::debug2) << fieldDescriptor.name << " = " << array;
@@ -279,9 +266,9 @@ struct branch_builder
 
 };
 
-polysync::variant decoder::decode(const descriptor::Type& desc)
+polysync::Variant Decoder::decode(const descriptor::Type& desc)
 {
-    polysync::tree child(desc.name);
+    polysync::Tree child(desc.name);
 
     try
     {
@@ -291,7 +278,7 @@ polysync::variant decoder::decode(const descriptor::Type& desc)
     }
     catch (polysync::error& e)
     {
-        e << exception::module("plog::decoder");
+        e << exception::module("decoder");
         e << exception::type(desc.name);
         e << exception::tree(child);
         throw;
@@ -299,43 +286,32 @@ polysync::variant decoder::decode(const descriptor::Type& desc)
     catch ( std::ios_base::failure )
     {
         throw polysync::error("read error")
-            << exception::module("plog::decoder")
+            << exception::module("decoder")
             << exception::type(desc.name);
     }
 
-    return std::move(node(desc.name, child));
+    return std::move(Node(desc.name, child));
 }
 
-void decoder::decode(boost::multiprecision::cpp_int& value)
+void Decoder::decode( boost::multiprecision::cpp_int& value )
 {
     // 16 is correct for ps_hash_type, but this needs to be flexible if other
     // types come along that are not 128 bits.  I have not been able to
     // determine how to compute how many bits a particular value cpp_int
     // actually needs.
-    bytes buf( 16 );
+    Bytes buf( 16 );
     stream.read( (char*)buf.data(), buf.size() );
-    multiprecision::import_bits( value, buf.begin(), buf.end(), 8 );
+    boost::multiprecision::import_bits( value, buf.begin(), buf.end(), 8 );
 }
 
-// Specialize name_type because the underlying std::string type needs special
-// handling.  It resembles a Pascal string (length first, no trailing zero
-// as a C string would have)
-void decoder::decode( ps_name_type& name )
-{
-    std::uint16_t len;
-    stream.read( (char*)( &len ), sizeof(len) );
-    name.resize( len );
-    stream.read( (char*)( name.data() ), len );
-}
-
-void decoder::decode(bytes& raw)
+void Decoder::decode( Bytes& raw )
 {
     stream.read( (char*)raw.data(), raw.size() );
 }
 
-variant decoder::operator()( const descriptor::Type& type )
+Variant Decoder::operator()( const descriptor::Type& type )
 {
     return decode( type );
 }
 
-}}  // polysync::plog
+}  // polysync

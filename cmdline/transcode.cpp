@@ -7,9 +7,9 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include <polysync/decoder/decoder.hpp>
 #include <polysync/plog/core.hpp>
 #include <polysync/plog/core.hpp>
-#include <polysync/plog/decoder.hpp>
 #include <polysync/plog/magic.hpp>
 #include <polysync/plugin.hpp>
 #include <polysync/toml.hpp>
@@ -195,7 +195,7 @@ int catch_main( int ac, char* av[] ) {
     // Set observer patterns, with the subject being the iterated plog readers
     // and the iterated records from each.  The observers being callbacks
     // requested in the command line arguments
-    ps::encode::visitor visit;
+    ps::encode::Visitor visit;
 
     // PLogs key each message type by a number, but the number is generally
     // different in every plog.  Constant names are provided in the header in
@@ -217,10 +217,13 @@ int catch_main( int ac, char* av[] ) {
     // Double iterate over files from the command line, and records in each file.
     for ( fs::path path: cmdline_args["input"].as<std::vector<fs::path>>() )
     {
-        try {
+        try
+        {
             std::ifstream st( path.c_str(), std::ifstream::binary );
             if ( !st )
+            {
                 throw polysync::error( "cannot open file" );
+            }
 
             if ( !plog::checkMagic( st ) )
             {
@@ -228,26 +231,33 @@ int catch_main( int ac, char* av[] ) {
             }
 
             // Construct the next reader in the file list
-            plog::decoder decoder( st );
+            polysync::Sequencer<plog::ps_log_record> sequencer( st );
 
-            visit.open( decoder );
+            visit.open( sequencer );
 
             plog::ps_log_header head;
 
-            decoder.decode( head );
+            sequencer.decode( head );
             visit.log_header( head );
+
             for ( const plog::ps_type_support& type: head.type_supports )
+            {
                 visit.type_support( type );
-            for ( const plog::ps_log_record& rec: decoder ) {
+            }
+            for ( const plog::ps_log_record& rec: sequencer )
+            {
                 if ( std::all_of(filters.begin(), filters.end(),
-                            [&rec]( const ps::filter::type& pred ) { return pred(rec); }) ) {
+                            [&rec]( const ps::filter::type& pred ) { return pred(rec); }) )
+                {
                     BOOST_LOG_SEV( log, severity::verbose ) << rec;
-                    polysync::node top( "ps_log_record", decoder.deep(rec) );
+                    polysync::Node top( "ps_log_record", sequencer.deep<plog::ps_msg_header>(rec) );
                     visit.record(top);
                 }
             }
-            visit.cleanup( decoder );
-        } catch ( polysync::error& e ) {
+            visit.cleanup( sequencer );
+        }
+        catch ( polysync::error& e )
+        {
             e << ps::exception::path( path.c_str() );
             e << polysync::status::bad_input;
             throw;

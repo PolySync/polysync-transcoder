@@ -1,13 +1,13 @@
 #include <mettle.hpp>
 
-#include <polysync/plog/decoder.hpp>
+#include <polysync/decoder/decoder.hpp>
 
 using namespace mettle;
 namespace plog = polysync::plog;
 
-polysync::tree decode_hex( const polysync::descriptor::Type& desc,
-		           const std::string& hexblob ) {
-
+polysync::Tree decode_hex( const polysync::descriptor::Type& desc,
+		                   const std::string& hexblob )
+{
     // Form a binary blob from a hex string with the help of boost::multiprecision
     namespace mp = boost::multiprecision;
     std::string blob;
@@ -15,12 +15,13 @@ polysync::tree decode_hex( const polysync::descriptor::Type& desc,
 
     // decode a polysync::tree from the description
     std::stringstream stream(blob);
-    plog::decoder serializer(stream);
-    polysync::tree result = *serializer(desc).target<polysync::tree>();
+    polysync::Decoder serializer(stream);
+    polysync::Tree result = *serializer(desc).target<polysync::Tree>();
 
     // Augment the result with any extra undecoded bits in the blob
-    if ( stream.tellg() < blob.size() ) {
-        result->emplace_back("raw", serializer.decode<polysync::bytes>());
+    if ( stream.tellg() < blob.size() )
+    {
+        result->emplace_back("raw", serializer.decode<polysync::Bytes>());
     }
 
     return result;
@@ -40,7 +41,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 			{ "payload", typeid(uint32_t) }
 			} };
 
-                polysync::tree truth = polysync::tree( "ps_byte_array_msg", {
+                polysync::Tree truth = polysync::Tree( "ps_byte_array_msg", {
                         { "dest_guid", plog::ps_guid { 1 } },
                         { "data_type", std::uint16_t { 2 } },
                         { "payload", std::uint32_t { 3 } }
@@ -48,7 +49,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 
                 std::string hexblob = "0100000000000000" "0200" "03000000";
 
-                polysync::tree tree = decode_hex( ps_byte_array_msg, hexblob );
+                polysync::Tree tree = decode_hex( ps_byte_array_msg, hexblob );
                 expect( tree, equal_to(truth) );
 
                 });
@@ -65,11 +66,11 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 			{ "time", typeid(std::uint64_t) } }
 		};
 
-                polysync::tree truth = polysync::tree( "ibeo.header", {
+                polysync::Tree truth = polysync::Tree( "ibeo.header", {
                         { "magic", std::uint32_t { 1 } },
                         { "prev_size", std::uint32_t { 2 } },
                         { "size", std::uint8_t { 3 } },
-                        { "skip-1", polysync::bytes { 0xDE, 0xAD, 0xBE, 0xEF } },
+                        { "skip-1", polysync::Bytes { 0xDE, 0xAD, 0xBE, 0xEF } },
                         { "device_id", std::uint8_t { 4 } },
                         { "data_type", std::uint16_t { 5 } },
                         { "time", std::uint64_t { 6 } },
@@ -80,7 +81,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     "DEADBEEF" // 4 byte skip
                     "04" "0500" "0600000000000000";
 
-                polysync::tree tree = decode_hex( ibeo_header, hexblob );
+                polysync::Tree tree = decode_hex( ibeo_header, hexblob );
                 expect( tree, equal_to(truth) );
 
                 });
@@ -113,21 +114,21 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     { "scanner_info", polysync::descriptor::Nested{"scanner_info"} } }
                 };
 
-                polysync::tree truth = polysync::tree("container", {
+                polysync::Tree truth = polysync::Tree("container", {
                         { "start_time", std::uint16_t { 1 } },
-                        { "scanner_info", polysync::tree("scanner_info", {
+                        { "scanner_info", polysync::Tree("scanner_info", {
                                 { "device_id", std::uint8_t { 2 } },
                                 { "scanner_type", std::uint8_t { 3 } }
                                 }) }
                     });
 
                 _.test( "equal", [=]() {
-                        polysync::tree correct = decode_hex(container, "0100" "02" "03");
+                        polysync::Tree correct = decode_hex(container, "0100" "02" "03");
                         expect(correct, equal_to(truth));
                         });
 
                 _.test( "notequal", [=]() {
-                        polysync::tree wrong_value = decode_hex(container, "0100" "02" "04");
+                        polysync::Tree wrong_value = decode_hex(container, "0100" "02" "04");
                         expect( wrong_value, not_equal_to(truth) );
                         });
 
@@ -137,7 +138,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                         });
 
                 _.test( "undecoded_bits", [=]() {
-                        polysync::tree toolong = decode_hex(container, "0100" "02" "03" "04");
+                        polysync::Tree toolong = decode_hex(container, "0100" "02" "03" "04");
                         expect(toolong, not_equal_to(truth));
                         });
             });
@@ -149,18 +150,18 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     { "data", polysync::descriptor::Array { 3, typeid(std::uint8_t) } }
                 } };
 
-                polysync::tree truth = polysync::tree("type", {
+                polysync::Tree truth = polysync::Tree("type", {
                         { "time", std::uint16_t { 1 } },
                         { "data", std::vector<uint8_t> { 2, 3, 4 } }
                     });
 
                 _.test("equal", [=]() {
-                        polysync::tree correct = decode_hex(sometype, "0100" "02" "03" "04");
+                        polysync::Tree correct = decode_hex(sometype, "0100" "02" "03" "04");
                         expect(correct, equal_to(truth));
                         });
 
                 _.test("notequal", [=]() {
-                        polysync::tree wrong = decode_hex(sometype, "0100" "02" "04" "04");
+                        polysync::Tree wrong = decode_hex(sometype, "0100" "02" "04" "04");
                         expect(wrong, not_equal_to(truth));
                         });
 
@@ -170,7 +171,7 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                         });
 
                 _.test("toolong", [=]() {
-                        polysync::tree toolong = decode_hex(sometype, "0100" "02" "03" "04" "05");
+                        polysync::Tree toolong = decode_hex(sometype, "0100" "02" "03" "04" "05");
                         expect(toolong, not_equal_to(truth));
                         });
 
@@ -189,25 +190,25 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
 			    { "scanner_info", polysync::descriptor::Array { 3, "scanner_info" } } }
 			};
 
-                polysync::tree truth = polysync::tree( "container", {
+                polysync::Tree truth = polysync::Tree( "container", {
                         { "time", std::uint16_t { 1 } },
-                        { "scanner_info", std::vector<polysync::tree> {
-                                polysync::tree("scanner_info", {
+                        { "scanner_info", std::vector<polysync::Tree> {
+                                polysync::Tree("scanner_info", {
                                         { "device_id", std::uint8_t { 2 } },
                                         { "scanner_type", std::uint8_t { 3 } },
                                         }),
-                                polysync::tree("scanner_info", {
+                                polysync::Tree("scanner_info", {
                                         { "device_id", std::uint8_t { 4 } },
                                         { "scanner_type", std::uint8_t { 5 } },
                                         }),
-                                polysync::tree("scanner_info", {
+                                polysync::Tree("scanner_info", {
                                         { "device_id", std::uint8_t { 6 } },
                                         { "scanner_type", std::uint8_t { 7 } }
                                         }),
                         }}
                     });
 
-                polysync::tree correct = decode_hex(container,
+                polysync::Tree correct = decode_hex(container,
                         "0100"
                         "02" "03"
                         "04" "05"
@@ -224,13 +225,13 @@ mettle::suite<> decode("plog::decode", [](auto& _) {
                     { "data", polysync::descriptor::Array { "points", typeid(std::uint8_t) } }
                 } };
 
-                polysync::tree truth = polysync::tree( "type", {
+                polysync::Tree truth = polysync::Tree( "type", {
                         { "points", std::uint16_t { 3 } },
                         { "data", std::vector<uint8_t> { 2, 3, 4 } }
                     });
 
                 _.test( "equal", [=]() {
-                        polysync::tree correct = decode_hex(sometype, "0300" "02" "03" "04");
+                        polysync::Tree correct = decode_hex(sometype, "0300" "02" "03" "04");
                         expect(correct, equal_to(truth));
                         });
 

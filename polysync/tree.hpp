@@ -17,46 +17,51 @@ namespace polysync {
 
 // Ugh, eggs::variant lacks the recursive feature supported by the old
 // boost::variant, which makes it a PITA to implement a parse tree (no nested
-// variants!).  The problem is that we cannot define std::vector<node> before
-// we have declared node (as node is an incomplete type unsupported by
-// std::vector).  The std::shared_ptr<tree> is a workaround for this eggs
+// variants!).  The problem is that we cannot define std::vector<Node> before
+// we have declared Node (as Node is an incomplete type unsupported by
+// std::vector).  The std::shared_ptr<Tree> is a workaround for this eggs
 // limitation.  Apparently we are getting std::variant in C++17; maybe we can
-// factor out std::shared_ptr<tree> to just tree, then.
+// factor out std::shared_ptr<Tree> to just tree, then.
 
-struct node;
+struct Node;
 
-struct tree : std::shared_ptr< std::vector<node> > {
-
-    tree( const std::string& type ) :
-        std::shared_ptr< std::vector<node> >( new std::vector<node>() ),
-        type(type) {}
+struct Tree : std::shared_ptr< std::vector<Node> >
+{
+    Tree( const std::string& type ) :
+        std::shared_ptr< std::vector<Node> >( new std::vector<Node>() ),
+        type( type )
+    {
+    }
 
     // This initialization_list<> constructor should only be invoked within
     // unit tests to describe test vectors.  The initialization ends up copy
     // constructing each node which is too slow for performant applications.
-    tree( const std::string& type, std::initializer_list<node> init )
-        : std::shared_ptr< std::vector<node> >( new std::vector<node>( init ) ),
-          type(type) {}
+    Tree( const std::string& type, std::initializer_list<Node> init )
+        : std::shared_ptr< std::vector<Node> >( new std::vector<Node>( init ) ),
+          type(type)
+    {
+    }
 
     const std::string type;
 };
 
 // Add some context to exceptions
-namespace exception {
-    using tree = boost::error_info< struct tree_type, tree >;
+namespace exception
+{
+    using tree = boost::error_info< struct tree_type, Tree >;
 }
 
 // Fallback to a generic memory chunk when a description is unavailable.
-using bytes = std::vector<std::uint8_t>;
+using Bytes = std::vector<std::uint8_t>;
 
 // Each node in the tree may contain any of a limited set of strong types.
-using variant = eggs::variant<
+using Variant = eggs::variant<
 
     // Nested types and vectors of nested types
-    tree, std::vector<tree>,
+    Tree, std::vector<Tree>,
 
     // Undecoded raw bytes
-    bytes,
+    Bytes,
 
     // Floating point types and native vectors
     float, std::vector<float>,
@@ -79,43 +84,48 @@ using variant = eggs::variant<
 // Dynamic parsing builds a tree of nodes to represent the record.  Each leaf
 // is strongly typed as one of the variant component types.  A node is just a
 // variant with a name.
-struct node : variant {
-
+struct Node : Variant
+{
     template <typename T>
-    node( const std::string& n, const T& value ) : variant( value ), name( n ) { }
+    Node( const std::string& n, const T& value ) : Variant( value ), name( n )
+    {
+    }
 
     // Factory functions and decoders should return nodes by move for speed
-    node( node&& ) = default;
+    Node( Node&& ) = default;
 
     // The copy constructor should be used sparingly, because the move
     // constructor is faster. Ideally, this constructor is invoked only in
     // unit test vector construction.
-    node( const node& ) = default;
+    Node( const Node& ) = default;
 
     const std::string name;
 
     // nodes may have a specialized function for formatting the value to a string.
-    std::function<std::string ( const variant& )> format;
-
+    std::function<std::string ( const Variant& )> format;
 };
 
-inline bool operator==( const tree& left, const tree& right ) {
-
+inline bool operator==( const Tree& left, const Tree& right )
+{
     if ( left->size() != right->size() or left.type != right.type )
+    {
         return false;
+    }
 
     return std::equal( left->begin(), left->end(), right->begin(), right->end(),
-            []( const node& ln, const node& rn ) {
+            []( const Node& ln, const Node& rn ) {
 
-	   	        if ( ln.name != rn.name ) {
+	   	        if ( ln.name != rn.name )
+                {
 		            return false;
                 }
 
                 // If the two nodes are both trees, recurse.
-                const tree* ltree = ln.target<tree>();
-                const tree* rtree = rn.target<tree>();
-                if (ltree && rtree) {
-                    return operator==(*ltree, *rtree);
+                const Tree* ltree = ln.target<Tree>();
+                const Tree* rtree = rn.target<Tree>();
+                if (ltree && rtree)
+                {
+                    return operator==( *ltree, *rtree );
 	            }
 
                 // Otherwise, just use variant operator==()
@@ -123,7 +133,10 @@ inline bool operator==( const tree& left, const tree& right ) {
             });
 }
 
-inline bool operator!=( const tree& lhs, const tree& rhs ) { return !operator==( lhs, rhs ); }
+inline bool operator!=( const Tree& lhs, const Tree& rhs )
+{
+    return !operator==( lhs, rhs );
+}
 
 } // namespace polysync
 

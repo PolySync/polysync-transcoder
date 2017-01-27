@@ -12,8 +12,10 @@ void load()
         	    descriptor::Terminal { "ps_msg_header", size<ps_msg_header>::value() } );
     descriptor::terminalTypeMap.emplace ( typeid(ps_log_record),
         	    descriptor::Terminal { "ps_log_record", size<ps_log_record>::value() } );
-    descriptor::catalog.emplace( "ps_msg_header", descriptor::describe<ps_msg_header>::type("ps_msg_header") );
-    descriptor::catalog.emplace( "ps_log_record", descriptor::describe<ps_log_record>::type("ps_log_record") );
+    descriptor::catalog.emplace( "ps_msg_header",
+                descriptor::describe<ps_msg_header>::type( "ps_msg_header" ) );
+    descriptor::catalog.emplace( "ps_log_record",
+                descriptor::describe<ps_log_record>::type( "ps_log_record" ) );
 }
 
 }} // namespace polysync::plog

@@ -35,6 +35,53 @@ struct SkipFactory
     }
 };
 
+struct BitsetFactory
+{
+    bool check( TablePtr table ) const
+    {
+        return ( table->contains( "type" ) and table->contains( "count" ) and
+                "bit" == *table->get_as<std::string>( "type" ) );
+    }
+
+    Bitset operator()( TablePtr table ) const
+    {
+        std::string name = *table->get_as<std::string>( "name" );
+        std::uint8_t count = *table->get_as<std::uint8_t>( "count" );
+        return Bitset { name, count };
+    }
+};
+
+struct BitFactory
+{
+    bool check( TablePtr table ) const
+    {
+        return table->contains( "type" )
+            and "bit" == *table->get_as<std::string>( "type" )
+            and !table->contains( "count" );
+    }
+
+    Bit operator()( TablePtr table ) const
+    {
+        std::string name = *table->get_as<std::string>( "name" );
+        return Bit { name };
+    }
+};
+
+struct BitSkipFactory
+{
+    std::uint16_t skip_index { 0 };
+
+    bool check( TablePtr table ) const
+    {
+        return table->contains( "bitskip" );
+    }
+
+    BitSkip operator()( TablePtr table )
+    {
+        return BitSkip { *table->get_as<std::uint8_t>( "bitskip" ) };
+    }
+};
+
 struct NestedTableFactory
 {
     bool check( TablePtr table ) const
@@ -97,7 +144,6 @@ struct ArrayFactory
         return Field { fname, array };
     }
 };
-
 
 struct FieldFactory
 {
@@ -165,16 +211,61 @@ private:
     }
 };
 
+struct BitFieldFactory
+{
+    BitFactory bit;
+    BitsetFactory bitset;
+    BitSkipFactory bitSkip;
+
+    bool check( TablePtr table ) const
+    {
+        return bit.check( table ) or bitset.check( table) or bitSkip.check( table );
+    }
+
+    Field operator()( cpptoml::table_array::iterator& current, cpptoml::table_array::iterator end ) const
+    {
+        BitField bitfield;
+        BitFactory bit;
+        BitsetFactory bitset;
+        BitSkipFactory bitskip;
+        while ( current != end and check( *current) )
+        {
+            if ( bitskip.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bitskip( *current ) );
+            }
+            if ( bit.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bit(*current) );
+            }
+            if ( bitset.check( *current ) )
+            {
+                bitfield.fields.emplace_back( bitset(*current) );
+            }
+            ++current;
+        }
+        return Field { std::string(), bitfield };
+    }
+
+ };
+
+
+
 // Decode a TOML table into type descriptors
 std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml::base> element )
 {
     logger log("descriptor");
 
+    if ( !element->is_table() )
+    {
+        return std::vector<Type>();
+    }
+
     BOOST_LOG_SEV(log, severity::debug2) << "loading \"" << name << "\"";
 
     TablePtr table = element->as_table();
-    try {
-
+    try
+    {
         NestedTableFactory nestedTable;
         if ( nestedTable.check( table ) )
         {
@@ -191,27 +282,41 @@ std::vector<Type> loadCatalog( const std::string& name, std::shared_ptr<cpptoml:
         descriptor::Type description(name);
 
         SkipFactory skip;
-        for ( TablePtr tomlElement: *descriptionTable->as_table_array() )
+        auto tableArray = descriptionTable->as_table_array();
+        BitFieldFactory bitfield;
+        for ( auto it = tableArray->begin(); it != tableArray->end(); ++it )
         {
-            if ( skip.check( tomlElement ) )
+            if ( skip.check( *it ) )
             {
-                description.emplace_back( skip( tomlElement ) );
+                description.emplace_back( skip( *it ) );
                 continue;
             }
 
-            FieldFactory field { tomlElement };
+            if ( bitfield.check( *it ) )
+            {
+                description.emplace_back( bitfield( it, tableArray->end() ) );
+                // it gets incremented as a side effect of bitfield()
+                if ( it == tableArray->end() )
+                {
+                    break;
+                }
+                continue;
+            }
+
+            FieldFactory field { *it };
             description.emplace_back( field() );
         }
 
         return std::vector<Type> { description };
 
-    } catch (polysync::error& e) {
-
+    }
+    catch ( polysync::error& e )
+    {
         // Do not overwrite existing context, as this function is recursive.
-        if (!boost::get_error_info<exception::type>(e))
+        if ( !boost::get_error_info<exception::type>(e) )
         {
-            e << exception::type(name);
-            e << exception::module("description");
+            e << exception::type( name );
+            e << exception::module( "description" );
         }
         throw;
     }

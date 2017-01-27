@@ -4,6 +4,7 @@
 #include <typeindex>
 #include <vector>
 #include <iostream>
+#include <numeric>
 
 #include <boost/hana.hpp>
 
@@ -36,7 +37,7 @@ struct Type : std::vector<Field>
 };
 
 // Describe a native terminal type like floats and integers.  This struct gets
-// instantiated when the "type" Field of TOML element is the reserved name of a
+// instantiated when the "type" field of TOML element is the reserved name of a
 // common scalar type, such as "uint16".
 struct Terminal
 {
@@ -46,11 +47,31 @@ struct Terminal
     );
 };
 
+// Describe a single bit terminal type for boolean fields.  This struct gets
+// instantiated when the the "type" field of a TOML element is "bit".
+struct Bit
+{
+    BOOST_HANA_DEFINE_STRUCT( Bit,
+        ( std::string, name )
+    );
+
+    static const std::uint8_t size = 1;
+};
+
+struct Bitset
+{
+    BOOST_HANA_DEFINE_STRUCT( Bitset,
+        ( std::string, name ),
+        ( std::uint8_t, size )
+    );
+};
+
 // Describe a nested type embedded as an element of a higher level type.  The
 // nested type must be registered separately in descriptor::catalog.  This
 // struct gets instantiated when the "type" Field of a TOML element is not a
 // native type key (like "uint16").
-struct Nested {
+struct Nested
+{
     BOOST_HANA_DEFINE_STRUCT( Nested,
     	( std::string, name )
     );
@@ -73,6 +94,19 @@ struct Skip
     );
 };
 
+// Describe an arbitrary number of bits to skip, useful for "reserved" space
+// that is not byte oriented (probably a CAN message).  This struct gets
+// instantiated from the toml "bitskip" element.
+struct BitSkip
+{
+    BOOST_HANA_DEFINE_STRUCT( BitSkip,
+        ( std::uint8_t, size ),
+        ( std::uint16_t, order )
+    );
+
+    const std::string name { "skip" };
+};
+
 // Describe an array of terminal or embedded types.  Arrays get complicated,
 // because the size may either be a fixed constant in the type definition, or
 // read from one of the parent node's Fields.  If the "count" Field in the TOML
@@ -92,17 +126,45 @@ struct Array
     );
 };
 
+struct BitField
+{
+    using Type = eggs::variant< Bit, Bitset, BitSkip >;
+
+    BOOST_HANA_DEFINE_STRUCT( BitField,
+        ( std::vector<Type>, fields )
+    );
+
+    size_t size() const // total number of bits in field
+    {
+        return std::accumulate( fields.begin(), fields.end(), 0,
+                []( size_t sum, const Type& var ) {
+                    return sum + eggs::variants::apply([]( auto desc ) -> size_t { return desc.size; }, var );
+                });
+    }
+};
+
+inline bool operator==( const BitField::Type& lhs, const BitField::Type& rhs )
+{
+    return lhs == rhs;
+}
+
+inline bool operator!=( const BitField::Type& lhs, const BitField::Type& rhs )
+{
+    return !operator==( lhs, rhs );
+}
+
+
 struct Field
 {
     std::string name;
-    eggs::variant< std::type_index, Nested, Skip, Array > type;
+    eggs::variant< std::type_index, Nested, Skip, Array, BitField > type;
 
     // Optional metadata about a Field may include bigendian storage, and a
     // specialized function to pretty print the value.  Using these attributes
     // is optional.
     descriptor::ByteOrder byteorder;
 
-    std::function< std::string ( const polysync::variant& ) > format;
+    std::function< std::string ( const polysync::Variant& ) > format;
 };
 
 template <typename T>
@@ -125,7 +187,7 @@ inline bool operator!=( const Field& lhs, const Field& rhs )
 inline bool operator==( const Type& lhs, const Type& rhs )
 {
     return lhs.name == rhs.name
-        and std::equal( lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), hana::equal);
+        and std::equal( lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), hana::equal );
 }
 
 inline bool operator!=( const Type& lhs, const Type& rhs )

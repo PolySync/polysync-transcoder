@@ -35,7 +35,7 @@ std::ostream& operator<<( std::ostream& os, const error& e )
     {
         os << "\tDetector: " << format->fieldname( *detector ) << std::endl;
     }
-    if ( const tree* tree = boost::get_error_info< exception::tree >( e ) )
+    if ( const Tree* tree = boost::get_error_info< exception::tree >( e ) )
     {
         os << "\tPartial Decode: " << *tree << std::endl;
     }

@@ -28,7 +28,7 @@ namespace plog = polysync::plog;
 
 namespace polysync { namespace detector {
 
-extern polysync::variant parseTerminalFromString( const std::string&, const std::type_index& );
+extern polysync::Variant parseTerminalFromString( const std::string&, const std::type_index& );
 
 }} // namespace polysync::detector
 
@@ -39,7 +39,7 @@ struct number_factory {
     int value;
 
     template <typename T>
-    polysync::variant make() {
+    polysync::Variant make() {
         return boost::numeric_cast<T>( value );
     }
 };
@@ -56,17 +56,17 @@ parseTerminal( "parseTerminalFromString", [](auto& _) {
             > ( _, "integer", [](auto& _) {
                     using T = mettle::fixture_type_t< decltype(_) >;
 
-                    _.test( "decimal", []( polysync::variant var ) {
+                    _.test( "decimal", []( polysync::Variant var ) {
                             expect( parseTerminalFromString( "42", typeid(T) ),
                                     equal_to( T { 42 } ) );
                             });
 
-                    _.test( "hex", []( polysync::variant var ) {
+                    _.test( "hex", []( polysync::Variant var ) {
                             expect( parseTerminalFromString( "0x42", typeid(T) ),
                                     equal_to( T { 0x42 } ) );
                             });
 
-                    _.test( "octal", []( polysync::variant var ) {
+                    _.test( "octal", []( polysync::Variant var ) {
                             expect( parseTerminalFromString( "042", typeid(T) ),
                                     equal_to( T { 042 } ) );
                             });
@@ -75,7 +75,7 @@ parseTerminal( "parseTerminalFromString", [](auto& _) {
         mettle::subsuite< float, double >( _, "floatingpoint", [](auto& _) {
                     using T = mettle::fixture_type_t< decltype(_) >;
 
-                    _.test( "parse", []( polysync::variant var ) {
+                    _.test( "parse", []( polysync::Variant var ) {
                             expect( parseTerminalFromString( "42", typeid(T) ),
                                     equal_to( T { 42 } ) );
                             });
@@ -92,9 +92,9 @@ parseTerminal( "parseTerminalFromString", [](auto& _) {
             > ( _, "overflow", [](auto& _) {
                     using T = mettle::fixture_type_t< decltype(_) >;
 
-                    _.test( "hex", []( polysync::variant var ) {
+                    _.test( "hex", []( polysync::Variant var ) {
                             expect( []() { parseTerminalFromString( "0xFFFFFFFFFFFFFFFF", typeid(T) ); },
-                                    thrown<polysync::error>( "value overflow" ) );
+                                    thrown<polysync::error>( "value overflow on \"0xFFFFFFFFFFFFFFFF\"" ) );
                             });
                     });
 
@@ -158,7 +158,7 @@ mettle::suite<> buildDetectors( "detector::buildDetectors", [](auto& _) {
                                 table->get("detector")->as_table_array()
                                 );
 
-                        }, thrown<polysync::error>( "detector precursor must be a string" ));
+                        }, thrown<polysync::error>( "\"name\" invalid type" ));
                 });
 
         _.test( "wrong_field", []() {

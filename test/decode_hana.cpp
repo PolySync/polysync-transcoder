@@ -4,8 +4,8 @@
 
 #include <polysync/size.hpp>
 #include <polysync/byteswap.hpp>
-#include <polysync/plog/decoder.hpp>
-#include <polysync/plog/encoder.hpp>
+#include <polysync/decoder/decoder.hpp>
+#include <polysync/encoder.hpp>
 #include <polysync/print_hana.hpp>
 #include <polysync/print_tree.hpp>
 #include "types.hpp"
@@ -21,7 +21,7 @@ namespace ps = polysync;
 
 struct number_factory {
     template <typename T>
-    polysync::variant make() { return T { 42 }; }
+    polysync::Variant make() { return T { 42 }; }
 };
 
 struct hana_factory {
@@ -62,13 +62,13 @@ decode("number", number_factory {}, [](auto& _) {
             std::stringstream stream;
             stream.write((char *)&value, polysync::size<T>::value());
 
-            expect(plog::decoder(stream).decode<T>(), equal_to(42));
+            expect(ps::Decoder(stream).decode<T>(), equal_to(42));
             });
 
     _.test("encode", [](auto value) {
             using T = mettle::fixture_type_t<decltype(_)>;
             std::stringstream stream;
-            plog::encoder(stream).encode(value);
+            polysync::Encoder(stream).encode(value);
 
             T result;
             stream.read((char *)&result, sizeof(T));
@@ -79,8 +79,8 @@ decode("number", number_factory {}, [](auto& _) {
             using T = mettle::fixture_type_t<decltype(_)>;
 
             std::stringstream stream;
-            plog::encoder encode(stream);
-            plog::decoder decode(stream);
+            ps::Encoder encode(stream);
+            ps::Decoder decode(stream);
             encode.encode(value);
             expect(decode.decode<T>(), equal_to(42));
             });
@@ -105,17 +105,17 @@ hash("hash_type", [](auto& _) {
             std::stringstream stream;
             multiprecision::cpp_int src("0xDEADBEEF01234567" "F0E1D2C3B4A59687");
             multiprecision::export_bits(src, std::ostream_iterator<std::uint8_t>(stream), 8);
-            expect(plog::decoder(stream).decode<multiprecision::cpp_int>(), equal_to(src));
+            expect(ps::Decoder(stream).decode<multiprecision::cpp_int>(), equal_to(src));
             });
 
     _.test("encode", []() {
             multiprecision::cpp_int value { 42 };
             std::stringstream stream;
-            plog::encoder(stream).encode(value);
+            ps::Encoder(stream).encode(value);
 
-            polysync::bytes result(16);
+            polysync::Bytes result(16);
             stream.read((char *)result.data(), result.size());
-            polysync::bytes truth = { 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            polysync::Bytes truth = { 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             expect(result, equal_to(truth));
             });
 
@@ -123,8 +123,8 @@ hash("hash_type", [](auto& _) {
             multiprecision::cpp_int value("0xDEADBEEF01234567" "F0E1D2C3B4A59687");
 
             std::stringstream stream;
-            plog::encoder encode(stream);
-            plog::decoder decode(stream);
+            ps::Encoder encode(stream);
+            ps::Decoder decode(stream);
 
             encode.encode(value);
             expect(decode.decode<multiprecision::cpp_int>(), equal_to(value));
@@ -138,8 +138,8 @@ structures("structures", hana_factory {}, [](auto& _) {
                 using T = mettle::fixture_type_t<decltype(_)>;
 
                 std::stringstream stream;
-                plog::encoder encode(stream);
-                plog::decoder decode(stream);
+                ps::Encoder encode(stream);
+                ps::Decoder decode(stream);
 
                 encode.encode(value);
                 expect(decode.decode<T>(), hana_equal(value));
@@ -156,7 +156,7 @@ mettle::suite<> structures2("structures2", [](auto& _) {
                         record.build_hash <<= 64;
                         record.build_hash |= 0xF1E2D3C4B5A69788;
                         std::stringstream stream;
-                        plog::encoder write(stream);
+                        ps::Encoder write(stream);
                         write(record);
 
                         std::string truth = "01" "02" "0300" "04000000"
@@ -185,7 +185,7 @@ mettle::suite<> structures2("structures2", [](auto& _) {
                         mp::export_bits(mp::cpp_int("0x" + hex), std::back_inserter(blob), 8);
 
                         std::stringstream stream(blob);
-                        plog::decoder decode(stream);
+                        ps::Decoder decode(stream);
                         plog::ps_log_module record;
                         decode.decode(record);
 

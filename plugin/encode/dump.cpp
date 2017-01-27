@@ -16,26 +16,26 @@ struct pretty_printer {
     std::ostream& os;
 
     // Entry point from visitor callback
-    void operator()(const node& top) const { print (top, *top.target<tree>()); }
+    void operator()(const Node& top) const { print (top, *top.target<Tree>()); }
 
-    void print(const node& n, tree top) const;
-    void print(tree top) const;
+    void print(const Node& n, Tree top) const;
+    void print(Tree top) const;
 
-    void print(const node& n, const boost::multiprecision::cpp_int& value) const {
+    void print(const Node& n, const boost::multiprecision::cpp_int& value) const {
         os << std::hex << value << std::dec;
     }
 
     template <typename T>
-    void print(const node& n, const std::vector<T>& array) const {
+    void print(const Node& n, const std::vector<T>& array) const {
         os << format->begin_block(n.name);
         std::for_each(array.begin(), array.end(), [this](const T& v) { os << v; });
         os << format->end_block();
     }
 
-    void print(const polysync::node& node, const std::vector<tree>& array) const {
+    void print(const polysync::Node& node, const std::vector<Tree>& array) const {
         os << format->begin_block(node.name);
         size_t rec = 0;
-        for (const tree& value: array) {
+        for (const Tree& value: array) {
             rec += 1;
             os << format->begin_ordered(rec, value.type);
             print(value);
@@ -47,20 +47,31 @@ struct pretty_printer {
     // Pretty print terminal types
     template <typename Number>
     typename std::enable_if_t<std::is_arithmetic<Number>::value>
-    print(const node& n, const Number& value) const {
+    print(const Node& n, const Number& value) const {
         std::stringstream ss;
         if (n.format)
+        {
             ss << n.format(n);
+        }
         else
+        {
             ss << value;
+        }
         std::string type = descriptor::terminalTypeMap.at(typeid(Number)).name;
         os << format->item(n.name, ss.str(), type);
     }
 
     // Specialize chars so they print as integers
-    void print(const node& n, const std::uint8_t& value) const {
+    void print(const Node& n, const std::uint8_t& value) const {
         std::stringstream ss;
-        ss << static_cast<std::uint16_t>(value);
+        if (n.format)
+        {
+            ss << n.format(n);
+        }
+        else
+        {
+            ss << value;
+        }
         os << format->item(n.name, ss.str(), "uint16");
     }
 
@@ -68,7 +79,7 @@ struct pretty_printer {
 
 // Specialize bytes so it does not print characters, which is useless behavior.
 template <>
-void pretty_printer::print(const node& n, const bytes& record) const {
+void pretty_printer::print(const Node& n, const Bytes& record) const {
     std::stringstream ss;
     const int psize = 12;
     ss << "[ " << std::hex;
@@ -85,14 +96,14 @@ void pretty_printer::print(const node& n, const bytes& record) const {
     os << format->item(n.name, ss.str(), "");
 }
 
-void pretty_printer::print( const node& n, tree top ) const {
+void pretty_printer::print( const Node& n, Tree top ) const {
     os << format->begin_block(n.name);
-    for (const polysync::node& node: *top)
+    for (const polysync::Node& node: *top)
         eggs::variants::apply([this, &node](auto& f) { this->print(node, f); }, node);
     os << format->end_block();
 }
 
-void pretty_printer::print( tree top ) const {
+void pretty_printer::print( Tree top ) const {
     format->begin_block(top.type);
     std::for_each(top->begin(), top->end(),
             [this](auto& pair) {
@@ -111,7 +122,7 @@ struct dump : encode::plugin {
         return opt;
     };
 
-    void connect(const po::variables_map& cmdline_args, encode::visitor& visit) override {
+    void connect(const po::variables_map& cmdline_args, encode::Visitor& visit) override {
         visit.record.connect(pretty_printer { std::cout } );
     }
 };
