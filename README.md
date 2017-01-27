@@ -9,7 +9,7 @@ Be sure to see the [Wiki](https://github.com/PolySync/polysync-transcoder/wiki) 
 
 #### When to use the PolySync Transcoder
 
-The PolySync Transcoder has the ability to decode any `plog` file and tell you general information about the binary data within it. The Transcoder requires sensor descriptors to be able to describe the binary data. This is implemented through TOML files. Once the binary data has been modeled with TOML the PolySync Transcoder uses custom plugins to re-encode the data to the desired format.
+The PolySync Transcoder has the ability to decode any `plog` file and tell you general information about the binary data within it. The Transcoder requires sensor descriptors to be able to describe the binary data. This is implemented through TOML files. Once the binary data has been modeled with TOML, the PolySync Transcoder uses custom plugins to re-encode the data to the desired format.
 
 The `plog` format is very efficient in the vehicle, but is not ideal for data science and machine learning tools. The Transcoder tool provides a convenient interface to decode and translate massive amounts of time-synchronized PolySync logfile data. 
 
@@ -23,7 +23,7 @@ The following packages are required for the PolySync Transcoder to build and run
 - Boost 1.63.0
 - Mettle
 
-To install the PolySync Transcoder and it's dependencies follow the [installation guide](https://github.com/PolySync/polysync-transcoder/wiki/Install).
+To install the PolySync Transcoder and its dependencies follow the [installation guide](https://github.com/PolySync/polysync-transcoder/wiki/Install).
 
 
 #### Examples
