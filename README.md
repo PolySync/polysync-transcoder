@@ -1,4 +1,4 @@
-### Polysync Transcoder
+### PolySync Transcoder
 
 The application `polysync-transcoder` converts the binary flat files created by Polysync to external formats used in industry standard data science and machine learning tools. 
 
@@ -7,12 +7,9 @@ The `polysync-transcoder` is the recommended way to convert the time-sychronized
 Be sure to see the [Wiki](https://github.com/PolySync/polysync-transcoder/wiki) for tutorials and more detailed documentation.
 
 
-#### What Does It Do
+#### When to use the PolySync Transcoder
 
 The PolySync Transcoder has the ability to decode any `plog` file and tell you general information about the binary data within it. The Transcoder requires sensor descriptors to be able to describe the binary data. This is implemented through TOML files. Once the binary data has been modeled with TOML the PolySync Transcoder uses custom plugins to re-encode the data to the desired format.
-
-
-#### When to use the Transcoder
 
 The `plog` format is very efficient in the vehicle, but is not ideal for data science and machine learning tools. The Transcoder tool provides a convenient interface to decode and translate massive amounts of time-synchronized PolySync logfile data. 
 
